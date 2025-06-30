@@ -43,10 +43,30 @@ export default function MapViewPage() {
             const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
             if (storedCampaigns) {
                 const campaigns: Campaign[] = JSON.parse(storedCampaigns);
-                const currentCampaign = campaigns.find(c => c.id === id);
-                setCampaign(currentCampaign || null);
-                const activeScene = currentCampaign?.scenes.find(s => s.is_active);
-                setScene(activeScene || null);
+                const campaignIndex = campaigns.findIndex(c => c.id === id);
+
+                if (campaignIndex !== -1) {
+                    const currentCampaign = campaigns[campaignIndex];
+                    let activeScene = currentCampaign.scenes.find(s => s.is_active);
+
+                    // If no scene is active, make the first one active and save.
+                    if (!activeScene && currentCampaign.scenes.length > 0) {
+                        activeScene = currentCampaign.scenes[0];
+                        currentCampaign.scenes[0].is_active = true;
+                        
+                        // Ensure other scenes are not active
+                        for (let i = 1; i < currentCampaign.scenes.length; i++) {
+                            currentCampaign.scenes[i].is_active = false;
+                        }
+                        
+                        campaigns[campaignIndex] = currentCampaign;
+                        localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
+                        toast({ title: "Scene Activated", description: `"${activeScene.name}" is now the active scene.` });
+                    }
+
+                    setCampaign(currentCampaign);
+                    setScene(activeScene || null);
+                }
             }
             
             const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
@@ -68,7 +88,7 @@ export default function MapViewPage() {
             console.error("Failed to load data from localStorage", error);
         }
         setLoading(false);
-    }, [id]);
+    }, [id, toast]);
     
     const saveCampaignChanges = (updatedScene: Scene) => {
         if (!campaign) return;
@@ -81,8 +101,8 @@ export default function MapViewPage() {
         try {
             const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
             const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
-            const updatedCampaigns = campaigns.map(c => c.id === updatedCampaign.id ? updatedCampaign : c);
-            localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(updatedCampaigns));
+            const updatedCampaignsList = campaigns.map(c => c.id === updatedCampaign.id ? updatedCampaign : c);
+            localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(updatedCampaignsList));
             setCampaign(updatedCampaign);
         } catch (error) {
             console.error("Failed to save campaign:", error);
