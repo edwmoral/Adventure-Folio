@@ -502,23 +502,23 @@ export default function MapViewPage() {
                             <Image src={scene.background_map_url} alt="Fantasy battle map" fill className="object-contain" data-ai-hint="fantasy map" draggable="false" />
                             {showGrid && <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`, backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.75) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.75) 1px, transparent 1px)' }} />}
                             
+                            {/* PERSISTENT MOVEMENT RANGE INDICATOR */}
+                            {isInCombat && activeCombatant && selectedToken?.id === activeCombatant.id && (
+                                <div
+                                    className="absolute bg-blue-500/20 border border-blue-400 rounded-full pointer-events-none"
+                                    style={{
+                                        width: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.width || 30))}%`,
+                                        height: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.height || 20))}%`,
+                                        left: `${activeCombatant.position.x}%`,
+                                        top: `${activeCombatant.position.y}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                    }}
+                                />
+                            )}
+                            
                             {/* DRAG INDICATORS */}
                             {draggedToken && dragStartPos && scene && (
                                 <div className="absolute inset-0 w-full h-full pointer-events-none">
-                                    {/* Movement Range Indicator */}
-                                    {isInCombat && activeCombatant && activeCombatant.id === draggedToken.id && (
-                                        <div
-                                            className="absolute bg-blue-500/20 border border-blue-400 rounded-full"
-                                            style={{
-                                                width: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.width || 30))}%`,
-                                                height: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.height || 20))}%`,
-                                                left: `${dragStartPos.x}%`,
-                                                top: `${dragStartPos.y}%`,
-                                                transform: 'translate(-50%, -50%)',
-                                            }}
-                                        />
-                                    )}
-
                                     {/* Original Position Indicator */}
                                     <div
                                         className="absolute bg-black/30 border-2 border-dashed border-white"

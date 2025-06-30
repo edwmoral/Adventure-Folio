@@ -112,7 +112,6 @@ export function ActionPanel({
       <SheetContent 
         className="w-[350px] sm:w-[400px]"
         container={container}
-        showOverlay={false}
       >
           <TooltipProvider>
             <SheetHeader className="text-left">
