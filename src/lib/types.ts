@@ -47,3 +47,41 @@ export type Class = {
       features: string[];
     }[];
 };
+
+export type Skill = {
+  name: string;
+  ability: string;
+  description: string;
+};
+
+export type Feat = {
+  name: string;
+  prerequisites: string[];
+  description: string;
+  effects: string[];
+};
+
+export type Item = {
+  name: string;
+  type: string;
+  rarity: string;
+  weight: number;
+  properties: string[];
+  description: string;
+  damage?: string;
+  damage_type?: string;
+  effect?: string;
+};
+
+export type Background = {
+  name: string;
+  description: string;
+  skill_proficiencies: string[];
+  tool_proficiencies: string[];
+  equipment: string[];
+  features: string[];
+  personality_traits: string[];
+  ideals: string[];
+  bonds: string[];
+  flaws: string[];
+};

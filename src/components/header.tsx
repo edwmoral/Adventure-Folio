@@ -32,6 +32,12 @@ export default function Header() {
             Classes
           </Link>
           <Link
+            href="/items"
+            className="transition-colors hover:text-foreground/80 text-foreground/60"
+          >
+            Items
+          </Link>
+          <Link
             href="/skills"
             className="transition-colors hover:text-foreground/80 text-foreground/60"
           >
