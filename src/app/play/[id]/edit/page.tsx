@@ -117,6 +117,7 @@ export default function EditCampaignPage() {
     if (!campaign) return;
 
     const newCampaign = { ...campaign };
+    const removedCharacterName = newCampaign.characters.find(c => c.id === characterId)?.name;
 
     newCampaign.characters = newCampaign.characters.filter(c => c.id !== characterId);
     newCampaign.scenes = newCampaign.scenes.map(scene => ({
@@ -124,8 +125,18 @@ export default function EditCampaignPage() {
         tokens: scene.tokens.filter(token => token.linked_character_id !== characterId)
     }));
     
-    setCampaign(newCampaign);
-    toast({ title: "Character Removed", description: "The character has been removed from the campaign." });
+    try {
+        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+        const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
+        const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
+
+        setCampaign(newCampaign);
+        toast({ title: "Character Removed", description: `${removedCharacterName || 'The character'} has been removed from the campaign.` });
+    } catch (error) {
+        console.error("Failed to remove character:", error);
+        toast({ variant: "destructive", title: "Save Failed", description: "Could not remove character." });
+    }
   };
 
   const handleAddCharacter = () => {
@@ -149,9 +160,19 @@ export default function EditCampaignPage() {
         scene.tokens.push(newToken);
     });
     
-    setCampaign(newCampaign);
-    setCharacterToAdd('');
-    toast({ title: "Character Added", description: `${character.name} is ready for adventure!` });
+    try {
+        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+        const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
+        const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
+
+        setCampaign(newCampaign);
+        setCharacterToAdd('');
+        toast({ title: "Character Added", description: `${character.name} is ready for adventure!` });
+    } catch (error) {
+        console.error("Failed to add character:", error);
+        toast({ variant: "destructive", title: "Save Failed", description: "Could not add character." });
+    }
   };
 
   const handleAddEnemyToScene = (sceneId: string) => {
@@ -232,8 +253,18 @@ export default function EditCampaignPage() {
         }))
     };
     
-    setCampaign(newCampaign);
-    toast({ title: "Active Scene Changed", description: "The new scene is now active for your next session." });
+    try {
+        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+        const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
+        const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
+        
+        setCampaign(newCampaign);
+        toast({ title: "Active Scene Changed", description: "The new scene is now active for your next session." });
+    } catch (error) {
+        console.error("Failed to set active scene:", error);
+        toast({ variant: "destructive", title: "Save Failed", description: "Could not set active scene." });
+    }
   };
 
   const handleDeleteScene = (sceneId: string) => {
@@ -253,8 +284,18 @@ export default function EditCampaignPage() {
         newCampaign.scenes[0].is_active = true;
     }
     
-    setCampaign(newCampaign);
-    toast({ title: "Scene Deleted", description: "The scene has been removed from the campaign." });
+    try {
+        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+        const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
+        const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
+        
+        setCampaign(newCampaign);
+        toast({ title: "Scene Deleted", description: "The scene has been removed from the campaign." });
+    } catch (error) {
+        console.error("Failed to delete scene:", error);
+        toast({ variant: "destructive", title: "Save Failed", description: "Could not delete scene." });
+    }
   };
 
   const handleRemoveEnemyFromScene = (sceneId: string, tokenId: string) => {
