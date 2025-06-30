@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Book, Heart, Shield, Swords, ArrowUp, UserPlus, Sparkles, Target, Users, X, ChevronDown } from "lucide-react"
+import { Book, Heart, Shield, Swords, ArrowUp, UserPlus, Sparkles, Target, Users, X, ChevronDown, BookOpen } from "lucide-react"
 import type { PlayerCharacter, Class, Action, Spell, Skill } from "@/lib/types";
 import { 
   AlertDialog, 
@@ -65,6 +65,9 @@ export default function CharacterSheetPage() {
     const [levelUpSummaryOpen, setLevelUpSummaryOpen] = useState(false);
     const [newlyUnlockedFeatures, setNewlyUnlockedFeatures] = useState<string[]>([]);
     const [hpIncreaseResult, setHpIncreaseResult] = useState(0);
+    const [newSpellSlotsSummary, setNewSpellSlotsSummary] = useState<string[]>([]);
+    const [newSpellsToChooseSummary, setNewSpellsToChooseSummary] = useState('');
+
 
     // State for delete character modal
     const [characterToDelete, setCharacterToDelete] = useState<PlayerCharacter | null>(null);
@@ -158,12 +161,17 @@ export default function CharacterSheetPage() {
         const newFeatures = characterClass.levels.find(l => l.level === newLevel)?.features || [];
         setNewlyUnlockedFeatures(newFeatures);
 
-        // --- New spell slot logic ---
+        // --- New spell slot & spells known logic ---
         let newSpellSlots = character.spell_slots;
-        // For now, assume all casters are full-casters. This can be expanded later.
-        const isCaster = ['Intelligence', 'Wisdom', 'Charisma'].includes(characterClass.primary_ability);
+        let newSpellsKnown = character.spellsKnown;
+        const spellSlotsSummary: string[] = [];
+        let spellsToChooseSummary = '';
+
+        const isCaster = characterClass.spellcasting_type && characterClass.spellcasting_type !== 'none';
         
         if (isCaster) {
+            const oldSlots = character.spell_slots || {};
+            // For now, assume all casters are full-casters. This can be expanded later.
             const levelData = fullCasterSpellSlots.find(l => l.level === newLevel);
             if (levelData) {
                 const newMaxSlots = levelData.slots;
@@ -172,14 +180,34 @@ export default function CharacterSheetPage() {
                 for (const levelKey in newMaxSlots) {
                     if (Object.prototype.hasOwnProperty.call(newMaxSlots, levelKey)) {
                         const max = newMaxSlots[levelKey as keyof typeof newMaxSlots];
-                        // On level up, all spell slots are restored to their new maximum.
                         updatedSlots[levelKey] = { current: max, max: max };
+                        const oldMax = oldSlots[levelKey]?.max || 0;
+                        if (max > oldMax) {
+                            spellSlotsSummary.push(`Level ${levelKey} slots: ${oldMax} -> ${max}`);
+                        }
                     }
                 }
                 newSpellSlots = updatedSlots;
             }
+
+            if (characterClass.spellcasting_type === 'prepared') {
+                const spellcastingAbility = characterClass.primary_ability.toLowerCase().substring(0, 3) as keyof PlayerCharacter['stats'];
+                const abilityScore = character.stats[spellcastingAbility];
+                const abilityModifier = getModifierValue(abilityScore);
+                const preparableSpells = newLevel + abilityModifier;
+                spellsToChooseSummary = `You can now prepare up to ${preparableSpells} spells each day.`;
+                if (characterClass.name === 'Wizard') {
+                    spellsToChooseSummary += ' You also add two new spells to your spellbook.';
+                }
+            } else if (characterClass.spellcasting_type === 'known') {
+                // Simple rule: gain one spell per level up. Can be expanded with class tables.
+                newSpellsKnown = (character.spellsKnown || 0) + 1;
+                spellsToChooseSummary = `You can learn one new spell, bringing your total known to ${newSpellsKnown}.`;
+            }
         }
-        // --- End new spell slot logic ---
+        setNewSpellSlotsSummary(spellSlotsSummary);
+        setNewSpellsToChooseSummary(spellsToChooseSummary);
+        // --- End new spell logic ---
 
         const updatedCharacter: PlayerCharacter = {
             ...character,
@@ -187,6 +215,7 @@ export default function CharacterSheetPage() {
             maxHp: newMaxHp,
             hp: newMaxHp, // Heal to full on level up
             spell_slots: newSpellSlots,
+            spellsKnown: newSpellsKnown,
         };
 
         try {
@@ -559,14 +588,27 @@ export default function CharacterSheetPage() {
                             Congratulations, you are now Level {character.level}!
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <div className="space-y-4">
+                    <div className="space-y-4 my-4">
                         <p className="text-center font-semibold">Your maximum HP increased by <span className="text-accent">{hpIncreaseResult}</span>!</p>
+                        
                         {newlyUnlockedFeatures.length > 0 && (
                             <div>
                                 <h4 className="font-bold mb-2 flex items-center justify-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> New Features Unlocked:</h4>
-                                <ul className="list-disc list-inside bg-card-foreground/5 p-3 rounded-md">
+                                <ul className="list-disc list-inside bg-card-foreground/5 p-3 rounded-md text-sm">
                                     {newlyUnlockedFeatures.map(feature => <li key={feature}>{feature}</li>)}
                                 </ul>
+                            </div>
+                        )}
+
+                        {(newSpellSlotsSummary.length > 0 || newSpellsToChooseSummary) && (
+                             <div>
+                                <h4 className="font-bold mb-2 flex items-center justify-center gap-2"><BookOpen className="h-4 w-4 text-primary" /> Spellcasting Changes:</h4>
+                                <div className="text-sm bg-card-foreground/5 p-3 rounded-md space-y-1">
+                                    {newSpellSlotsSummary.map(summary => (
+                                        <p key={summary}>{summary}</p>
+                                    ))}
+                                    {newSpellsToChooseSummary && <p>{newSpellsToChooseSummary}</p>}
+                                </div>
                             </div>
                         )}
                     </div>

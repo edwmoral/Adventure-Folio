@@ -49,6 +49,7 @@ export type Class = {
   primary_ability: string;
   saving_throws: string[];
   skills: string[];
+  spellcasting_type?: 'prepared' | 'known' | 'none';
   levels: {
       level: number;
       features: string[];
@@ -78,6 +79,7 @@ export type PlayerCharacter = {
   mp?: number;
   maxMp?: number;
   spell_slots?: Record<string, { current: number; max: number }>;
+  spellsKnown?: number;
 };
 
 export type Skill = {

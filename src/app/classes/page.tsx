@@ -14,6 +14,7 @@ const initialMockClasses: Class[] = [
     hit_die: "d10",
     primary_ability: "Strength or Dexterity",
     saving_throws: ["Strength", "Constitution"],
+    spellcasting_type: "none",
     skills: ["Acrobatics", "Animal Handling", "Athletics", "History", "Insight", "Intimidation", "Perception", "Survival"],
     levels: [{ level: 1, features: ["Fighting Style", "Second Wind"] }]
   },
@@ -23,6 +24,7 @@ const initialMockClasses: Class[] = [
     hit_die: "d10",
     primary_ability: "Strength or Dexterity",
     saving_throws: ["Strength", "Constitution"],
+    spellcasting_type: "none",
     skills: ["Acrobatics", "Animal Handling", "Athletics", "History", "Insight", "Intimidation", "Perception", "Survival"],
     levels: [{ level: 3, features: ["Combat Superiority"] }]
   },
@@ -32,6 +34,7 @@ const initialMockClasses: Class[] = [
     hit_die: "d6",
     primary_ability: "Intelligence",
     saving_throws: ["Intelligence", "Wisdom"],
+    spellcasting_type: "prepared",
     skills: ["Arcana", "History", "Insight", "Investigation", "Medicine", "Religion"],
     levels: [{ level: 2, features: ["Evocation Savant", "Sculpt Spells"] }]
   },
@@ -41,6 +44,7 @@ const initialMockClasses: Class[] = [
     hit_die: "d6",
     primary_ability: "Intelligence",
     saving_throws: ["Intelligence", "Wisdom"],
+    spellcasting_type: "prepared",
     skills: ["Arcana", "History", "Insight", "Investigation", "Medicine", "Religion"],
     levels: [{ level: 2, features: ["Abjuration Savant", "Arcane Ward"] }]
   },
@@ -50,6 +54,7 @@ const initialMockClasses: Class[] = [
     hit_die: "d8",
     primary_ability: "Dexterity",
     saving_throws: ["Dexterity", "Intelligence"],
+    spellcasting_type: "none",
     skills: ["Acrobatics", "Athletics", "Deception", "Insight", "Intimidation", "Investigation", "Perception", "Performance", "Persuasion", "Sleight of Hand", "Stealth"],
     levels: [{ level: 1, features: ["Expertise", "Sneak Attack", "Thieves' Cant"] }]
   },
@@ -59,6 +64,7 @@ const initialMockClasses: Class[] = [
     hit_die: "d8",
     primary_ability: "Dexterity",
     saving_throws: ["Dexterity", "Intelligence"],
+    spellcasting_type: "none",
     skills: ["Acrobatics", "Athletics", "Deception", "Insight", "Intimidation", "Investigation", "Perception", "Performance", "Persuasion", "Sleight of Hand", "Stealth"],
     levels: [{ level: 3, features: ["Assassinate"] }]
   },

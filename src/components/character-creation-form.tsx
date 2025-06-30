@@ -159,8 +159,7 @@ export function CharacterCreationForm() {
         const [className, subclass] = values.characterClass.split(':');
 
         const selectedClass = classes.find(c => c.name === className && c.subclass === subclass);
-        const isCaster = selectedClass && ['Intelligence', 'Wisdom', 'Charisma'].includes(selectedClass.primary_ability);
-
+        
         const newCharacterId = String(Date.now());
 
         const newCharacter: PlayerCharacter = {
@@ -180,6 +179,12 @@ export function CharacterCreationForm() {
             maxMp: 0,
         };
         
+        if (selectedClass?.spellcasting_type === 'known') {
+            // Assumption for Lvl 1 known casters (like Sorcerer)
+            newCharacter.spellsKnown = 2;
+        }
+
+        const isCaster = selectedClass && selectedClass.spellcasting_type && selectedClass.spellcasting_type !== 'none';
         if (isCaster) {
             const level1SlotsData = fullCasterSpellSlots.find(l => l.level === 1)?.slots;
             if (level1SlotsData) {
