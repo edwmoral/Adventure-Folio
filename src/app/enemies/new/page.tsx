@@ -32,6 +32,7 @@ export default function NewEnemyPage() {
     alignment: 'Unaligned',
     challenge_rating: '0',
     hit_points: 10,
+    mp: 0,
     armor_class: 10,
     speed: '30 ft.',
     str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10,
@@ -72,6 +73,7 @@ export default function NewEnemyPage() {
             alignment: enemy.alignment,
             challenge_rating: enemy.challenge_rating || '0',
             hit_points: Number(enemy.hit_points) || 10,
+            mp: Number(enemy.mp) || 0,
             armor_class: Number(enemy.armor_class) || 10,
             speed: enemy.speed || '30 ft.',
             str: Number(enemy.str) || 10,
@@ -144,14 +146,18 @@ export default function NewEnemyPage() {
                     </div>
 
                     {/* Combat Stats */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="armor_class">Armor Class</Label>
-                            <Input id="armor_class" type="number" value={enemy.armor_class} onChange={handleInputChange} />
+                            <Input id="armor_class" type="number" value={enemy.armor_class || ''} onChange={handleInputChange} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="hit_points">Hit Points</Label>
-                            <Input id="hit_points" type="number" value={enemy.hit_points} onChange={handleInputChange} />
+                            <Input id="hit_points" type="number" value={enemy.hit_points || ''} onChange={handleInputChange} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="mp">Magic Points</Label>
+                            <Input id="mp" type="number" value={enemy.mp || ''} onChange={handleInputChange} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="speed">Speed</Label>

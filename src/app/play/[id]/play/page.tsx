@@ -176,12 +176,21 @@ export default function MapViewPage() {
 
                 {/* Tokens */}
                 {scene.tokens.map(token => {
-                    const playerChar = token.type === 'character' 
+                    const isPlayer = token.type === 'character';
+                    const playerChar = isPlayer 
                         ? allPlayerCharacters.find(pc => pc.id === token.linked_character_id)
                         : null;
 
-                    const healthPercent = playerChar ? (playerChar.hp / playerChar.maxHp) * 100 : 0;
-                    const magicPercent = playerChar ? ((playerChar.mp || 0) / (playerChar.maxMp || 1)) * 100 : 0;
+                    const health = isPlayer ? playerChar?.hp : token.hp;
+                    const maxHealth = isPlayer ? playerChar?.maxHp : token.maxHp;
+                    const magic = isPlayer ? playerChar?.mp : token.mp;
+                    const maxMagic = isPlayer ? playerChar?.maxMp : token.maxMp;
+
+                    const healthPercent = ((health || 0) / (maxHealth || 1)) * 100;
+                    const magicPercent = ((magic || 0) / (maxMagic || 1)) * 100;
+                    
+                    const showHealthBar = maxHealth !== undefined && maxHealth > 0;
+                    const showMagicBar = maxMagic !== undefined && maxMagic > 0;
 
                     return (
                         <div
@@ -198,10 +207,14 @@ export default function MapViewPage() {
                         >
                             <div className="relative w-16 flex flex-col items-center">
                                 {/* Health and Magic Bars */}
-                                {playerChar && (
+                                {(showHealthBar || showMagicBar) && (
                                     <div className="w-12 mb-1 space-y-0.5">
-                                        <Progress value={healthPercent} className="h-1.5 bg-red-900/50 [&>div]:bg-red-500" />
-                                        <Progress value={magicPercent} className="h-1.5 bg-blue-900/50 [&>div]:bg-blue-500" />
+                                        {showHealthBar && (
+                                            <Progress value={healthPercent} className="h-1.5 bg-red-900/50 [&>div]:bg-red-500" />
+                                        )}
+                                        {showMagicBar && (
+                                            <Progress value={magicPercent} className="h-1.5 bg-blue-900/50 [&>div]:bg-blue-500" />
+                                        )}
                                     </div>
                                 )}
                                 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -16,6 +17,7 @@ const initialEnemies: Enemy[] = [
     alignment: 'Chaotic Evil',
     challenge_rating: '1/4',
     hit_points: 7,
+    mp: 0,
     armor_class: 15,
     speed: '30 ft.',
     str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8,
@@ -33,6 +35,7 @@ const initialEnemies: Enemy[] = [
     alignment: 'Unaligned',
     challenge_rating: '3',
     hit_points: 59,
+    mp: 0,
     armor_class: 13,
     speed: '40 ft.',
     str: 20, dex: 12, con: 17, int: 3, wis: 12, cha: 7,

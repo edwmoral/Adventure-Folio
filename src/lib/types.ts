@@ -7,6 +7,10 @@ export type Token = {
   position: { x: number; y: number };
   linked_character_id?: string;
   linked_enemy_id?: string;
+  hp?: number;
+  maxHp?: number;
+  mp?: number;
+  maxMp?: number;
 };
 
 export type Scene = {
@@ -155,6 +159,7 @@ export type Enemy = {
   alignment: string;
   challenge_rating: string;
   hit_points: number;
+  mp?: number;
   armor_class: number;
   speed: string;
   str: number;

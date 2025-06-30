@@ -176,6 +176,10 @@ export default function EditCampaignPage() {
       imageUrl: enemy.tokenImageUrl || 'https://placehold.co/48x48.png',
       type: 'monster',
       linked_enemy_id: enemy.id,
+      hp: enemy.hit_points,
+      maxHp: enemy.hit_points,
+      mp: enemy.mp || 0,
+      maxMp: enemy.mp || 0,
       position: {
         x: 75 + Math.floor(Math.random() * 20),
         y: 75 + Math.floor(Math.random() * 20),
@@ -395,9 +399,11 @@ export default function EditCampaignPage() {
                              return (
                                 <AccordionItem value={scene.id} key={scene.id} className="border rounded-md data-[state=closed]:border-border data-[state=open]:border-primary/50">
                                     <AccordionTrigger className="p-3 hover:no-underline text-left">
-                                        <div className="flex items-center gap-4">
-                                            {scene.is_active && <Star className="h-4 w-4 text-primary" />}
-                                            <p className="font-medium">{scene.name}</p>
+                                        <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center gap-4">
+                                                {scene.is_active && <Star className="h-4 w-4 text-primary" />}
+                                                <p className="font-medium">{scene.name}</p>
+                                            </div>
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="px-4 pb-4">
