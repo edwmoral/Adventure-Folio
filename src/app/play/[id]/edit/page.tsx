@@ -49,6 +49,7 @@ export default function EditCampaignPage() {
   const [characterToAdd, setCharacterToAdd] = useState<string>('');
   const [enemyToAdd, setEnemyToAdd] = useState<string>('');
   const [sceneToDelete, setSceneToDelete] = useState<string | null>(null);
+  const [isDeleteSceneDialogOpen, setIsDeleteSceneDialogOpen] = useState(false);
   
   useEffect(() => {
     try {
@@ -151,37 +152,65 @@ export default function EditCampaignPage() {
 
   const handleAddEnemyToScene = () => {
     if (!enemyToAdd || !campaign) return;
-    
-    const enemy = allEnemies.find(e => e.id === enemyToAdd);
+
+    const enemy = allEnemies.find((e) => e.id === enemyToAdd);
     if (!enemy) return;
 
-    const activeScene = campaign.scenes.find(s => s.is_active);
+    const activeScene = campaign.scenes.find((s) => s.is_active);
     if (!activeScene) {
-        toast({ variant: "destructive", title: "No Active Scene", description: "Please set an active scene before adding an enemy." });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'No Active Scene',
+        description: 'Please set an active scene before adding an enemy.',
+      });
+      return;
     }
 
     const newEnemyToken: Token = {
-        id: `token-enemy-${Date.now()}`,
-        name: enemy.name,
-        imageUrl: enemy.tokenImageUrl || 'https://placehold.co/48x48.png',
-        type: 'monster',
-        linked_enemy_id: enemy.id,
-        position: { x: 75 + Math.floor(Math.random() * 20), y: 75 + Math.floor(Math.random() * 20) } // Randomly in a corner
-    };
-    
-    const updatedCampaign = {
-        ...campaign,
-        scenes: campaign.scenes.map(s => 
-            s.id === activeScene.id
-                ? { ...s, tokens: [...s.tokens, newEnemyToken] }
-                : s
-        )
+      id: `token-enemy-${Date.now()}`,
+      name: enemy.name,
+      imageUrl: enemy.tokenImageUrl || 'https://placehold.co/48x48.png',
+      type: 'monster',
+      linked_enemy_id: enemy.id,
+      position: {
+        x: 75 + Math.floor(Math.random() * 20),
+        y: 75 + Math.floor(Math.random() * 20),
+      }, // Randomly in a corner
     };
 
-    setCampaign(updatedCampaign);
-    setEnemyToAdd('');
-    toast({ title: "Enemy Added", description: `A ${enemy.name} has been added to the active scene.` });
+    const updatedCampaign = {
+      ...campaign,
+      scenes: campaign.scenes.map((s) =>
+        s.id === activeScene.id
+          ? { ...s, tokens: [...s.tokens, newEnemyToken] }
+          : s
+      ),
+    };
+
+    try {
+      const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+      const campaigns: Campaign[] = storedCampaigns
+        ? JSON.parse(storedCampaigns)
+        : [];
+      const updatedCampaignsList = campaigns.map((c) =>
+        c.id === updatedCampaign.id ? updatedCampaign : c
+      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaignsList));
+
+      setCampaign(updatedCampaign);
+      setEnemyToAdd('');
+      toast({
+        title: 'Enemy Added',
+        description: `A ${enemy.name} has been added to the active scene.`,
+      });
+    } catch (error) {
+      console.error('Failed to add enemy:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Add Failed',
+        description: 'Could not add the enemy to the scene.',
+      });
+    }
   };
 
   const handleSetSceneActive = (sceneId: string) => {
@@ -207,6 +236,7 @@ export default function EditCampaignPage() {
     if (newCampaign.scenes.length <= 1) {
         toast({ variant: "destructive", title: "Cannot Delete", description: "A campaign must have at least one scene." });
         setSceneToDelete(null);
+        setIsDeleteSceneDialogOpen(false);
         return;
     }
 
@@ -220,6 +250,7 @@ export default function EditCampaignPage() {
     setCampaign(newCampaign);
     toast({ title: "Scene Deleted", description: "The scene has been removed from the campaign." });
     setSceneToDelete(null);
+    setIsDeleteSceneDialogOpen(false);
   };
 
 
@@ -334,7 +365,10 @@ export default function EditCampaignPage() {
                                     {!scene.is_active && (
                                         <Button variant="outline" size="sm" onClick={() => handleSetSceneActive(scene.id)}>Set Active</Button>
                                     )}
-                                    <AlertDialog>
+                                    <AlertDialog open={isDeleteSceneDialogOpen && sceneToDelete === scene.id} onOpenChange={(open) => {
+                                        if (!open) setSceneToDelete(null);
+                                        setIsDeleteSceneDialogOpen(open);
+                                    }}>
                                         <AlertDialogTrigger asChild>
                                             <Button variant="ghost" size="icon" className="ml-1" onClick={() => setSceneToDelete(scene.id)}>
                                                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -348,7 +382,7 @@ export default function EditCampaignPage() {
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
-                                                <AlertDialogCancel onClick={() => setSceneToDelete(null)}>Cancel</AlertDialogCancel>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
                                                 <AlertDialogAction onClick={handleDeleteScene}>Delete</AlertDialogAction>
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
