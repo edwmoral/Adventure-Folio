@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ZoomIn, ZoomOut, Grid } from "lucide-react";
+import { ArrowLeft, ZoomIn, ZoomOut, Grid, Maximize, Minimize } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -33,10 +33,12 @@ export default function MapViewPage() {
     const [loading, setLoading] = useState(true);
 
     const mapContainerRef = useRef<HTMLDivElement>(null);
+    const fullscreenContainerRef = useRef<HTMLDivElement>(null);
     const [draggedToken, setDraggedToken] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
     
     const [selectedToken, setSelectedToken] = useState<Token | null>(null);
     const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     useEffect(() => {
         setLoading(true);
@@ -171,6 +173,37 @@ export default function MapViewPage() {
         setDraggedToken(null);
     };
 
+    const toggleFullscreen = () => {
+        const element = fullscreenContainerRef.current;
+        if (!element) return;
+
+        if (!document.fullscreenElement) {
+            element.requestFullscreen().catch(err => {
+                toast({
+                    variant: "destructive",
+                    title: "Fullscreen Error",
+                    description: `Could not enter full-screen mode: ${err.message}`,
+                });
+            });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    };
+
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        };
+    }, []);
+
     if (loading) {
         return <div className="text-center p-8">Loading scene...</div>
     }
@@ -192,7 +225,10 @@ export default function MapViewPage() {
 
     return (
         <TooltipProvider>
-            <div className="h-[calc(100vh-10rem)] w-full flex flex-col">
+            <div 
+                ref={fullscreenContainerRef} 
+                className="h-[calc(100vh-10rem)] w-full flex flex-col bg-background"
+            >
                 {/* Header Controls */}
                 <div className="flex-shrink-0 bg-background/80 backdrop-blur-sm p-2 border-b rounded-t-lg flex items-center justify-between">
                     <div>
@@ -208,6 +244,9 @@ export default function MapViewPage() {
                         <Button variant="outline" size="icon"><ZoomIn /></Button>
                         <Button variant="outline" size="icon"><ZoomOut /></Button>
                         <Button variant="outline" size="icon"><Grid /></Button>
+                        <Button variant="outline" size="icon" onClick={toggleFullscreen}>
+                            {isFullscreen ? <Minimize /> : <Maximize />}
+                        </Button>
                     </div>
                 </div>
                 
