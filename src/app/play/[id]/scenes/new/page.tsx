@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -26,9 +26,25 @@ export default function NewScenePage() {
   const router = useRouter();
   const { toast } = useToast();
   const [sceneName, setSceneName] = useState('');
+  const [campaignName, setCampaignName] = useState('');
   const [backgroundUrl, setBackgroundUrl] = useState('');
   const [mapDescription, setMapDescription] = useState('');
   const [isGenerating, startTransition] = useTransition();
+
+  useEffect(() => {
+    try {
+        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+        if (storedCampaigns) {
+            const campaigns: Campaign[] = JSON.parse(storedCampaigns);
+            const currentCampaign = campaigns.find(c => c.id === id);
+            if (currentCampaign) {
+                setCampaignName(currentCampaign.name);
+            }
+        }
+    } catch (error) {
+        console.error("Failed to load campaign name from localStorage", error);
+    }
+  }, [id]);
   
   const handleGenerateMap = () => {
     startTransition(async () => {
@@ -36,7 +52,11 @@ export default function NewScenePage() {
             toast({ variant: 'destructive', title: 'Error', description: 'Please provide a description for the map.' });
             return;
         }
-        const result = await generateMapAction(mapDescription);
+        const result = await generateMapAction({
+            campaignName: campaignName || 'Unnamed Campaign',
+            sceneName: sceneName || 'Unnamed Scene',
+            description: mapDescription,
+        });
         if (result.success && result.imageUrl) {
             setBackgroundUrl(result.imageUrl);
             toast({ title: 'Map Generated!', description: 'Your new map is ready.' });

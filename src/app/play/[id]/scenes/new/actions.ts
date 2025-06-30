@@ -1,9 +1,9 @@
 'use server';
 
-import {generateMap} from '@/ai/flows/generate-map-flow';
+import {generateMap, GenerateMapInput} from '@/ai/flows/generate-map-flow';
 
-export async function generateMapAction(description: string) {
-  if (!description) {
+export async function generateMapAction(input: GenerateMapInput) {
+  if (!input.description) {
     return {
       success: false,
       error: 'A description is required to generate a map.',
@@ -11,7 +11,7 @@ export async function generateMapAction(description: string) {
   }
 
   try {
-    const result = await generateMap(description);
+    const result = await generateMap(input);
     return {
       success: true,
       imageUrl: result.imageUrl,
