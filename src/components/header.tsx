@@ -67,6 +67,12 @@ export default function Header() {
           >
             Features
           </Link>
+          <Link
+            href="/enemies"
+            className="transition-colors hover:text-foreground/80 text-foreground/60"
+          >
+            Enemies
+          </Link>
         </nav>
         <div className="flex flex-1 items-center justify-end space-x-2">
            <Button asChild>

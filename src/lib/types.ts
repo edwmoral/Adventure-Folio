@@ -6,6 +6,7 @@ export type Token = {
   type: "character" | "monster" | "npc";
   position: { x: number; y: number };
   linked_character_id?: string;
+  linked_enemy_id?: string;
 };
 
 export type Scene = {
@@ -145,4 +146,27 @@ export type Action = {
     limit?: number;
   };
   effects?: string;
+};
+
+export type Enemy = {
+  id: string;
+  name: string;
+  type: string;
+  alignment: string;
+  challenge_rating: string;
+  hit_points: number;
+  armor_class: number;
+  speed: string;
+  str: number;
+  dex: number;
+  con: number;
+  int: number;
+  wis: number;
+  cha: number;
+  senses: string;
+  languages: string;
+  traits: string;
+  actions: string;
+  description: string;
+  tokenImageUrl?: string;
 };
