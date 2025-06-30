@@ -89,7 +89,7 @@ export function ActionPanel({
   const speed = isPlayer ? '30 ft.' : enemy?.speed; // Assuming base speed for players
 
   const basePlayerActions = [
-      { name: 'Attack', description: 'Make a melee or ranged attack.', type: 'action', action: onAttack },
+      { name: 'Attack', description: 'Make a melee or ranged attack.', type: 'action', action: () => { onAttack?.(); onOpenChange(false); } },
       { name: 'Dash', description: 'Double your movement speed for the turn.', type: 'action', action: onDash },
       { name: 'Disengage', description: 'Move without provoking opportunity attacks.', type: 'action', action: () => onUseAction?.('action') },
       { name: 'Dodge', description: 'Focus on avoiding attacks.', type: 'action', action: onDodge },
@@ -100,7 +100,7 @@ export function ActionPanel({
     name: action.name,
     description: action.text,
     type: 'action',
-    action: onAttack,
+    action: () => { onAttack?.(); onOpenChange(false); },
   })) || [];
 
   const characterActions = [

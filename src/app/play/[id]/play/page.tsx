@@ -609,6 +609,20 @@ export default function MapViewPage() {
                             <Image src={scene.background_map_url} alt="Fantasy battle map" fill className="object-contain" data-ai-hint="fantasy map" draggable="false" />
                             {showGrid && <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`, backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.75) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.75) 1px, transparent 1px)' }} />}
                             
+                            {/* ATTACK RANGE INDICATOR */}
+                            {targetingMode && attacker && (
+                                <div
+                                    className="absolute bg-red-500/20 border border-red-400 rounded-full pointer-events-none"
+                                    style={{
+                                        width: `${(1 * 2 + 1) * (100 / (scene.width || 30))}%`,
+                                        height: `${(1 * 2 + 1) * (100 / (scene.height || 20))}%`,
+                                        left: `${attacker.position.x}%`,
+                                        top: `${attacker.position.y}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                    }}
+                                />
+                            )}
+
                             {/* PERSISTENT MOVEMENT RANGE INDICATOR */}
                             {isInCombat && activeCombatant && selectedToken?.id === activeCombatant.id && (
                                 <div
