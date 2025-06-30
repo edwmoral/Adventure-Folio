@@ -29,6 +29,8 @@ export default function NewScenePage() {
   const [campaignName, setCampaignName] = useState('');
   const [backgroundUrl, setBackgroundUrl] = useState('');
   const [mapDescription, setMapDescription] = useState('');
+  const [width, setWidth] = useState(30);
+  const [height, setHeight] = useState(20);
   const [isGenerating, startTransition] = useTransition();
 
   useEffect(() => {
@@ -107,6 +109,8 @@ export default function NewScenePage() {
         const newScene: Scene = {
             id: `scene-${Date.now()}`,
             name: sceneName,
+            width: width || 30,
+            height: height || 20,
             background_map_url: backgroundUrl || `https://placehold.co/1920x1080.png`,
             tokens: initialTokens,
             is_active: currentCampaign.scenes.length === 0, // First scene is active
@@ -154,6 +158,28 @@ export default function NewScenePage() {
                         onChange={(e) => setSceneName(e.target.value)}
                         required
                     />
+                </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="width">Map Width (squares)</Label>
+                        <Input 
+                            id="width"
+                            type="number"
+                            value={width}
+                            onChange={(e) => setWidth(Number(e.target.value))}
+                            required
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="height">Map Height (squares)</Label>
+                        <Input 
+                            id="height"
+                            type="number"
+                            value={height}
+                            onChange={(e) => setHeight(Number(e.target.value))}
+                            required
+                        />
+                    </div>
                 </div>
                 
                  <div className="space-y-4 rounded-lg border bg-card-foreground/5 p-4">

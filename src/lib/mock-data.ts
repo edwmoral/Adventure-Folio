@@ -1,3 +1,4 @@
+
 import type { PlayerCharacter, Campaign } from './types';
 
 export const initialPlayerCharacters: PlayerCharacter[] = [
@@ -110,6 +111,8 @@ export const initialMockCampaigns: Campaign[] = [
         {
             id: 'scene1',
             name: 'The Goblin Cave',
+            width: 30,
+            height: 20,
             background_map_url: 'https://placehold.co/1200x800.png',
             tokens: [
                 { id: 'token-char1', name: 'Eldrin', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char1', position: { x: 20, y: 30 } },
@@ -134,6 +137,8 @@ export const initialMockCampaigns: Campaign[] = [
         {
             id: 'scene2',
             name: 'Castle Ravenloft',
+            width: 50,
+            height: 50,
             background_map_url: 'https://placehold.co/1200x800.png',
             tokens: [
                  { id: 'token-char4', name: 'Gandalf', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char4', position: { x: 50, y: 50 } },
@@ -156,6 +161,8 @@ export const initialMockCampaigns: Campaign[] = [
         {
             id: 'scene3',
             name: 'Goblin Ambush Trail',
+            width: 40,
+            height: 15,
             background_map_url: 'https://placehold.co/1200x800.png',
             tokens: [
                 { id: 'token-char1', name: 'Eldrin', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char1', position: { x: 30, y: 40 } },
@@ -179,6 +186,8 @@ export const initialMockCampaigns: Campaign[] = [
             id: 'scene-test-1',
             name: 'The Debugging Arena',
             description: 'A simple arena with a single foe.',
+            width: 20,
+            height: 20,
             background_map_url: 'https://placehold.co/1200x800.png',
             tokens: [
                 { id: 'token-test-char', name: 'Tester T. Testington', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char-test-1', position: { x: 25, y: 50 } },

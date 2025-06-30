@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from "react";
@@ -32,6 +33,8 @@ export default function NewCampaignPage() {
             background_map_url: 'https://placehold.co/1200x800.png',
             tokens: [],
             is_active: true,
+            width: 30,
+            height: 20,
         };
         
         const newCampaign: Campaign = {

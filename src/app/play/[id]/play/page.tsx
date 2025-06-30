@@ -40,6 +40,7 @@ export default function MapViewPage() {
     const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showGrid, setShowGrid] = useState(false);
+    const [zoom, setZoom] = useState(1);
 
     useEffect(() => {
         setLoading(true);
@@ -140,11 +141,18 @@ export default function MapViewPage() {
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, tokenId: string) => {
         e.preventDefault();
+        e.stopPropagation();
+        if (!mapContainerRef.current) return;
+
         const tokenElement = e.currentTarget;
         const rect = tokenElement.getBoundingClientRect();
-        
-        const offsetX = e.clientX - rect.left;
-        const offsetY = e.clientY - rect.top;
+        const containerRect = mapContainerRef.current.getBoundingClientRect();
+
+        const tokenCenterX = rect.left + rect.width / 2;
+        const tokenCenterY = rect.top + rect.height / 2;
+
+        const offsetX = (e.clientX - tokenCenterX) / zoom;
+        const offsetY = (e.clientY - tokenCenterY) / zoom;
         
         setDraggedToken({ id: tokenId, offsetX, offsetY });
     };
@@ -152,13 +160,15 @@ export default function MapViewPage() {
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
         if (!draggedToken || !mapContainerRef.current) return;
         
+        e.preventDefault();
+        e.stopPropagation();
         const containerRect = mapContainerRef.current.getBoundingClientRect();
         
-        let newX = e.clientX - containerRect.left - draggedToken.offsetX;
-        let newY = e.clientY - containerRect.top - draggedToken.offsetY;
+        let newX = (e.clientX - containerRect.left) / zoom - draggedToken.offsetX;
+        let newY = (e.clientY - containerRect.top) / zoom - draggedToken.offsetY;
 
-        let newXPercent = (newX / containerRect.width) * 100;
-        let newYPercent = (newY / containerRect.height) * 100;
+        let newXPercent = (newX / containerRect.width) * 100 * zoom;
+        let newYPercent = (newY / containerRect.height) * 100 * zoom;
 
         newXPercent = Math.max(0, Math.min(100, newXPercent));
         newYPercent = Math.max(0, Math.min(100, newYPercent));
@@ -176,12 +186,16 @@ export default function MapViewPage() {
         });
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.stopPropagation();
         if (draggedToken && scene) {
             saveCampaignChanges(scene);
         }
         setDraggedToken(null);
     };
+    
+    const handleZoomIn = () => setZoom(z => Math.min(z * 1.2, 5));
+    const handleZoomOut = () => setZoom(z => Math.max(z / 1.2, 0.2));
 
     const toggleFullscreen = () => {
         const element = fullscreenContainerRef.current;
@@ -255,7 +269,7 @@ export default function MapViewPage() {
                     <div className="flex items-center gap-2">
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="outline" size="icon"><ZoomIn /></Button>
+                                <Button variant="outline" size="icon" onClick={handleZoomIn}><ZoomIn /></Button>
                             </TooltipTrigger>
                             <TooltipContent>
                                 <p>Zoom In</p>
@@ -263,7 +277,7 @@ export default function MapViewPage() {
                         </Tooltip>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="outline" size="icon"><ZoomOut /></Button>
+                                <Button variant="outline" size="icon" onClick={handleZoomOut}><ZoomOut /></Button>
                             </TooltipTrigger>
                             <TooltipContent>
                                 <p>Zoom Out</p>
@@ -293,107 +307,107 @@ export default function MapViewPage() {
                 {/* Map Area */}
                 <div 
                     className="flex-grow relative overflow-hidden bg-card-foreground/10 rounded-b-lg select-none"
-                    ref={mapContainerRef}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
                     onMouseLeave={handleMouseUp}
                 >
-                    <Image
-                        src={scene.background_map_url}
-                        alt="Fantasy battle map"
-                        fill
-                        className="object-cover"
-                        data-ai-hint="fantasy map"
-                        draggable="false"
-                    />
-                    
-                    {showGrid && (
-                        <div 
-                            className="absolute inset-0 pointer-events-none" 
-                            style={{
-                                backgroundSize: '40px 40px',
-                                backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.5) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.5) 1px, transparent 1px)',
-                            }}
-                        />
-                    )}
+                    <div
+                        ref={mapContainerRef}
+                        className="w-full h-full"
+                        style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+                    >
+                        <div
+                            className="relative w-full h-full"
+                            style={{ aspectRatio: `${scene.width || 30}/${scene.height || 20}` }}
+                        >
+                            <Image
+                                src={scene.background_map_url}
+                                alt="Fantasy battle map"
+                                fill
+                                className="object-contain"
+                                data-ai-hint="fantasy map"
+                                draggable="false"
+                            />
+                            
+                            {showGrid && (
+                                <div 
+                                    className="absolute inset-0 pointer-events-none" 
+                                    style={{
+                                        backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`,
+                                        backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.5) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.5) 1px, transparent 1px)',
+                                    }}
+                                />
+                            )}
 
-                    {/* Tokens */}
-                    {scene.tokens.map(token => {
-                        const isPlayer = token.type === 'character';
-                        const playerChar = isPlayer 
-                            ? allPlayerCharacters.find(pc => pc.id === token.linked_character_id)
-                            : null;
+                            {/* Tokens */}
+                            {scene.tokens.map(token => {
+                                const isPlayer = token.type === 'character';
+                                const playerChar = isPlayer 
+                                    ? allPlayerCharacters.find(pc => pc.id === token.linked_character_id)
+                                    : null;
 
-                        const enemy = !isPlayer ? allEnemies.find(e => e.id === token.linked_enemy_id) : null;
+                                const enemy = !isPlayer ? allEnemies.find(e => e.id === token.linked_enemy_id) : null;
+                                
+                                const health = isPlayer ? playerChar?.hp : (token.hp ?? enemy?.hit_points);
+                                const maxHealth = isPlayer ? playerChar?.maxHp : (token.maxHp ?? enemy?.hit_points);
+                                const ac = isPlayer ? playerChar?.ac : enemy?.armor_class;
+                                const healthPercent = ((health || 0) / (maxHealth || 1)) * 100;
+                                
+                                const tokenWidth = 100 / (scene.width || 30);
+                                const tokenHeight = 100 / (scene.height || 20);
 
-                        const health = isPlayer ? playerChar?.hp : (token.hp ?? enemy?.hit_points);
-                        const maxHealth = isPlayer ? playerChar?.maxHp : (token.maxHp ?? enemy?.hit_points);
-                        const magic = isPlayer ? playerChar?.mp : (token.mp ?? enemy?.mp);
-                        const maxMagic = isPlayer ? playerChar?.maxMp : (token.maxMp ?? enemy?.mp);
-                        const ac = isPlayer ? playerChar?.ac : enemy?.armor_class;
-
-                        const healthPercent = ((health || 0) / (maxHealth || 1)) * 100;
-                        const magicPercent = ((magic || 0) / (maxMagic || 1)) * 100;
-                        
-                        const showHealthBar = maxHealth !== undefined && maxHealth > 0;
-                        const showMagicBar = maxMagic !== undefined && maxMagic > 0;
-
-                        return (
-                             <Tooltip key={token.id}>
-                                <TooltipTrigger asChild>
-                                    <div
-                                        className="absolute group"
-                                        style={{
-                                            left: `${token.position.x}%`,
-                                            top: `${token.position.y}%`,
-                                            transform: 'translate(-50%, -50%)',
-                                            cursor: draggedToken?.id === token.id ? 'grabbing' : 'grab',
-                                            zIndex: draggedToken?.id === token.id ? 10 : 1,
-                                        }}
-                                        onClick={() => handleTokenClick(token)}
-                                        onMouseDown={(e) => handleMouseDown(e, token.id)}
-                                    >
-                                        <div className="relative w-16 flex flex-col items-center">
-                                            {(showHealthBar || showMagicBar) && (
-                                                <div className="w-12 mb-1 space-y-0.5">
-                                                    {showHealthBar && (
-                                                        <Progress value={healthPercent} className={cn("h-1.5", isPlayer ? "bg-green-900/50 [&>div]:bg-green-500" : "bg-red-900/50 [&>div]:bg-red-500")} />
+                                return (
+                                    <Tooltip key={token.id}>
+                                        <TooltipTrigger asChild>
+                                            <div
+                                                className="absolute group"
+                                                style={{
+                                                    left: `${token.position.x}%`,
+                                                    top: `${token.position.y}%`,
+                                                    width: `${tokenWidth}%`,
+                                                    height: `${tokenHeight}%`,
+                                                    transform: 'translate(-50%, -50%)',
+                                                    cursor: draggedToken?.id === token.id ? 'grabbing' : 'grab',
+                                                }}
+                                                onClick={() => handleTokenClick(token)}
+                                                onMouseDown={(e) => handleMouseDown(e, token.id)}
+                                            >
+                                                <div className="relative w-full h-full flex flex-col items-center justify-center p-[5%]">
+                                                    {maxHealth && maxHealth > 0 && (
+                                                         <Progress value={healthPercent} className={cn("absolute -top-1 w-full h-1", isPlayer ? "bg-green-900/50 [&>div]:bg-green-500" : "bg-red-900/50 [&>div]:bg-red-500")} />
                                                     )}
-                                                    {showMagicBar && (
-                                                        <Progress value={magicPercent} className="h-1.5 bg-blue-900/50 [&>div]:bg-blue-500" />
-                                                    )}
-                                                </div>
-                                            )}
-                                            
-                                            <Avatar className="h-12 w-12 border-2 border-primary shadow-lg transition-transform group-hover:scale-110">
-                                                <AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" />
-                                                <AvatarFallback>{token.name.substring(0,1)}</AvatarFallback>
-                                            </Avatar>
-                                        </div>
-                                    </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <div className="space-y-1 text-sm text-left">
-                                        <p className="font-bold">{token.name}</p>
-                                        {showHealthBar && <p>HP: {health} / {maxHealth}</p>}
-                                        {ac !== undefined && <p>AC: {ac} 🛡️</p>}
-                                        {isPlayer && playerChar?.spell_slots && Object.keys(playerChar.spell_slots).length > 0 && (
-                                            <div className="pt-1 mt-1 border-t border-border/50">
-                                                <p className="font-semibold text-xs mb-1">Spell Slots</p>
-                                                <div className="space-y-0.5">
-                                                {Object.entries(playerChar.spell_slots)
-                                                    .sort(([a], [b]) => parseInt(a) - parseInt(b))
-                                                    .map(([level, slots]) => (
-                                                    <p key={level} className="text-xs text-muted-foreground">Lvl {level}: {slots.current} / {slots.max}</p>
-                                                ))}
+                                                    
+                                                    <Avatar className="h-full w-full border-2 border-primary shadow-lg transition-transform group-hover:scale-105">
+                                                        <AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" />
+                                                        <AvatarFallback>{token.name.substring(0,1)}</AvatarFallback>
+                                                    </Avatar>
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
-                        );
-                    })}
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <div className="space-y-1 text-sm text-left">
+                                                <p className="font-bold">{token.name}</p>
+                                                {maxHealth && maxHealth > 0 && <p>HP: {health} / {maxHealth}</p>}
+                                                {ac !== undefined && <p>AC: {ac} 🛡️</p>}
+                                                {isPlayer && playerChar?.spell_slots && Object.keys(playerChar.spell_slots).length > 0 && (
+                                                    <div className="pt-1 mt-1 border-t border-border/50">
+                                                        <p className="font-semibold text-xs mb-1">Spell Slots</p>
+                                                        <div className="space-y-0.5">
+                                                        {Object.entries(playerChar.spell_slots)
+                                                            .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                                                            .map(([level, slots]) => (
+                                                            <p key={level} className="text-xs text-muted-foreground">Lvl {level}: {slots.current} / {slots.max}</p>
+                                                        ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
                  <ActionPanel
                     open={isActionPanelOpen}

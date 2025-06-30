@@ -20,6 +20,8 @@ export type Scene = {
   tokens: Token[];
   is_active: boolean;
   description?: string;
+  width?: number;
+  height?: number;
 };
 
 export type Character = {
