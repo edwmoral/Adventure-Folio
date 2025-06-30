@@ -46,6 +46,24 @@ const initialEnemies: Enemy[] = [
     description: 'A monstrous predator that combines the features of a giant owl and a bear.',
     tokenImageUrl: 'https://placehold.co/48x48.png',
   },
+  {
+    id: 'bugbear-1',
+    name: 'Bugbear',
+    type: 'Humanoid',
+    alignment: 'Chaotic Evil',
+    challenge_rating: '1',
+    hit_points: 27,
+    mp: 0,
+    armor_class: 16,
+    speed: '30 ft.',
+    str: 15, dex: 14, con: 13, int: 8, wis: 11, cha: 9,
+    senses: 'Darkvision 60 ft., passive Perception 10',
+    languages: 'Common, Goblin',
+    traits: 'Brute: A melee weapon deals one extra die of its damage when the bugbear hits with it (included in the attack). Surprise Attack: If the bugbear surprises a creature and hits it with an attack during the first round of combat, the target takes an extra 7 (2d6) damage from the attack.',
+    actions: 'Morningstar: +4 to hit, 1d8+2 piercing. Javelin: +4 to hit, range 30/120 ft., 1d6+2 piercing.',
+    description: 'Bugbears are hairy goblinoids who love to bully the weak and dislike being bossed around.',
+    tokenImageUrl: 'https://placehold.co/48x48.png',
+  },
 ];
 
 const STORAGE_KEY = 'dnd_enemies';

@@ -77,6 +77,22 @@ export const initialPlayerCharacters: PlayerCharacter[] = [
       '5': { current: 2, max: 2 },
     },
   },
+  {
+    id: 'char-test-1',
+    name: 'Tester T. Testington',
+    race: 'Human',
+    className: 'Fighter',
+    subclass: 'Champion',
+    level: 1,
+    avatar: 'https://placehold.co/100x100.png',
+    backgroundStory: 'Born to test the limits of reality.',
+    stats: { str: 16, dex: 14, con: 15, int: 10, wis: 12, cha: 8 },
+    hp: 12,
+    maxHp: 12,
+    ac: 16,
+    mp: 0,
+    maxMp: 0,
+  },
 ];
 
 
@@ -103,6 +119,7 @@ export const initialMockCampaigns: Campaign[] = [
                 { id: 'token-monster2', name: 'Goblin 2', imageUrl: 'https://placehold.co/48x48.png', type: 'monster', position: { x: 65, y: 45 }, linked_enemy_id: 'goblin-1', hp: 7, maxHp: 7, mp: 0, maxMp: 0 },
             ],
             is_active: true,
+            description: 'A damp, narrow cave littered with crude goblin drawings and the bones of small animals. A rickety rope bridge spans a dark chasm.',
         }
     ]
   },
@@ -122,6 +139,7 @@ export const initialMockCampaigns: Campaign[] = [
                  { id: 'token-char4', name: 'Gandalf', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char4', position: { x: 50, y: 50 } },
             ],
             is_active: true,
+            description: 'The towering spires of a gothic castle, shrouded in mist under a perpetual twilight sky. The air is cold and carries the scent of ancient dust and sorrow.',
         }
     ]
   },
@@ -143,6 +161,28 @@ export const initialMockCampaigns: Campaign[] = [
                 { id: 'token-char1', name: 'Eldrin', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char1', position: { x: 30, y: 40 } },
                 { id: 'token-char2', name: 'Lyra', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char2', position: { x: 35, y: 45 } },
                 { id: 'token-char3', name: 'Borg', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char3', position: { x: 25, y: 35 } },
+            ],
+            is_active: true,
+            description: 'A well-worn trail winding through a dense forest. The path is flanked by thick bushes and large trees, perfect for an ambush. Two dead horses lie in the middle of the road.',
+        }
+    ]
+  },
+  {
+    id: 'campaign-test-1',
+    name: 'Testing Grounds',
+    imageUrl: 'https://placehold.co/400x225.png',
+    characters: [
+      { id: 'char-test-1', name: 'Tester T. Testington', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+    ],
+    scenes: [
+        {
+            id: 'scene-test-1',
+            name: 'The Debugging Arena',
+            description: 'A simple arena with a single foe.',
+            background_map_url: 'https://placehold.co/1200x800.png',
+            tokens: [
+                { id: 'token-test-char', name: 'Tester T. Testington', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char-test-1', position: { x: 25, y: 50 } },
+                { id: 'token-test-enemy', name: 'Bugbear', imageUrl: 'https://placehold.co/48x48.png', type: 'monster', position: { x: 75, y: 50 }, linked_enemy_id: 'bugbear-1', hp: 27, maxHp: 27, mp: 0, maxMp: 0 },
             ],
             is_active: true,
         }

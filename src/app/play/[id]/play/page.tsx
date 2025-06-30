@@ -41,47 +41,46 @@ export default function MapViewPage() {
     useEffect(() => {
         setLoading(true);
         try {
-            const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
-            if (!storedCampaigns) {
-                setCampaign(null);
-                setScene(null);
-                setLoading(false);
-                return;
+            const storedCampaignsJSON = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
+            if (!storedCampaignsJSON) {
+                throw new Error("No campaigns found in storage.");
             }
 
-            const campaigns: Campaign[] = JSON.parse(storedCampaigns);
+            const campaigns: Campaign[] = JSON.parse(storedCampaignsJSON);
             const campaignIndex = campaigns.findIndex(c => c.id === id);
 
             if (campaignIndex === -1) {
-                setCampaign(null);
-                setScene(null);
-            } else {
-                let campaignToUpdate = { ...campaigns[campaignIndex] };
-                let needsSave = false;
-
-                if (!Array.isArray(campaignToUpdate.scenes)) {
-                    campaignToUpdate.scenes = [];
-                    needsSave = true;
-                }
-
-                let activeScene = campaignToUpdate.scenes.find(s => s.is_active);
-
-                if (!activeScene && campaignToUpdate.scenes.length > 0) {
-                    campaignToUpdate.scenes[0].is_active = true;
-                    activeScene = campaignToUpdate.scenes[0];
-                    needsSave = true;
-                    toast({ title: "Scene Activated", description: `Defaulted to "${activeScene.name}" as the active scene.` });
-                }
-
-                if (needsSave) {
-                    campaigns[campaignIndex] = campaignToUpdate;
-                    localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
-                }
-
-                setCampaign(campaignToUpdate);
-                setScene(activeScene || null);
+                throw new Error(`Campaign with ID ${id} not found.`);
+            }
+            
+            const currentCampaign = { ...campaigns[campaignIndex] };
+            
+            if (!currentCampaign.scenes) {
+                currentCampaign.scenes = [];
             }
 
+            let activeScene = currentCampaign.scenes.find(s => s.is_active === true);
+            let needsSave = false;
+
+            // If no scene is explicitly active, or more than one is active, fix it.
+            if (!activeScene && currentCampaign.scenes.length > 0) {
+                // Deactivate all scenes first to handle multiple active scenes.
+                currentCampaign.scenes.forEach(s => s.is_active = false);
+                currentCampaign.scenes[0].is_active = true;
+                activeScene = currentCampaign.scenes[0];
+                needsSave = true;
+                toast({ title: "Scene Activated", description: `Defaulted to "${activeScene.name}" as the active scene.` });
+            }
+
+            if (needsSave) {
+                campaigns[campaignIndex] = currentCampaign;
+                localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
+            }
+            
+            setCampaign(currentCampaign);
+            setScene(activeScene || null);
+
+            // Load other data
             const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
             if (storedCharacters) setAllPlayerCharacters(JSON.parse(storedCharacters));
             
@@ -92,11 +91,14 @@ export default function MapViewPage() {
             if (storedActions) setAllActions(JSON.parse(storedActions));
 
         } catch (error) {
-            console.error("Failed to load data from localStorage", error);
-            // Error will be caught by the error.tsx boundary
-            throw new Error("Failed to load session data. It might be corrupted or in an unexpected format.");
+            console.error("Failed to load session:", error);
+            if (error instanceof Error) {
+                throw error;
+            }
+            throw new Error("An unknown error occurred while loading the session.");
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }, [id, toast]);
     
     const saveCampaignChanges = (updatedScene: Scene) => {
