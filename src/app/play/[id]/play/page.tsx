@@ -345,23 +345,24 @@ export default function MapViewPage() {
                         );
                     })}
                 </div>
+                 <ActionPanel
+                    open={isActionPanelOpen}
+                    onOpenChange={setIsActionPanelOpen}
+                    token={selectedToken}
+                    character={
+                        selectedToken?.type === 'character'
+                            ? allPlayerCharacters.find(p => p.id === selectedToken.linked_character_id) || null
+                            : null
+                    }
+                    enemy={
+                        selectedToken?.type === 'monster'
+                            ? allEnemies.find(e => e.id === selectedToken.linked_enemy_id) || null
+                            : null
+                    }
+                    actions={allActions}
+                    container={fullscreenContainerRef.current}
+                />
             </div>
-             <ActionPanel
-                open={isActionPanelOpen}
-                onOpenChange={setIsActionPanelOpen}
-                token={selectedToken}
-                character={
-                    selectedToken?.type === 'character'
-                        ? allPlayerCharacters.find(p => p.id === selectedToken.linked_character_id) || null
-                        : null
-                }
-                enemy={
-                    selectedToken?.type === 'monster'
-                        ? allEnemies.find(e => e.id === selectedToken.linked_enemy_id) || null
-                        : null
-                }
-                actions={allActions}
-            />
         </TooltipProvider>
     );
 }

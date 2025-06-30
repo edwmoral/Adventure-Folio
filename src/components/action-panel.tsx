@@ -23,6 +23,7 @@ interface ActionPanelProps {
   character: PlayerCharacter | null;
   enemy: Enemy | null;
   actions: Action[];
+  container?: HTMLElement | null;
 }
 
 const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string | number }) => (
@@ -55,6 +56,7 @@ export function ActionPanel({
   character,
   enemy,
   actions,
+  container,
 }: ActionPanelProps) {
 
   const data = character || enemy;
@@ -95,7 +97,10 @@ export function ActionPanel({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[350px] sm:w-[400px]">
+      <SheetContent 
+        className="w-[350px] sm:w-[400px]"
+        container={container}
+      >
           <TooltipProvider>
         <SheetHeader className="text-left">
           <div className="flex items-center gap-4">
