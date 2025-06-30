@@ -46,33 +46,40 @@ export default function MapViewPage() {
                 const campaignIndex = campaigns.findIndex(c => c.id === id);
 
                 if (campaignIndex !== -1) {
-                    const currentCampaign = campaigns[campaignIndex];
-                    let activeScene = currentCampaign.scenes.find(s => s.is_active);
+                    let campaignToUpdate = { ...campaigns[campaignIndex] };
+                    let needsSave = false;
 
-                    // If no scene is active, make the first one active and save.
-                    if (!activeScene && currentCampaign.scenes.length > 0) {
-                        
-                        const updatedCampaign = {
-                            ...currentCampaign,
-                            scenes: currentCampaign.scenes.map((s, index) => ({
-                                ...s,
-                                is_active: index === 0
-                            }))
-                        };
-                        
-                        activeScene = updatedCampaign.scenes[0];
-                        campaigns[campaignIndex] = updatedCampaign;
-                        localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
-
-                        toast({ title: "Scene Activated", description: `"${activeScene.name}" is now the active scene.` });
-                        
-                        setCampaign(updatedCampaign);
-                        setScene(activeScene);
-
-                    } else {
-                        setCampaign(currentCampaign);
-                        setScene(activeScene || null);
+                    // Ensure scenes array exists
+                    if (!campaignToUpdate.scenes) {
+                        campaignToUpdate.scenes = [];
+                        needsSave = true;
                     }
+
+                    const activeScenes = campaignToUpdate.scenes.filter(s => s.is_active);
+                    let activeScene: Scene | undefined = activeScenes[0];
+
+                    // If there is no active scene OR multiple active scenes, we must correct the data.
+                    if ((activeScenes.length === 0 && campaignToUpdate.scenes.length > 0) || activeScenes.length > 1) {
+                        needsSave = true;
+                        // Make the first scene the *only* active one.
+                        campaignToUpdate.scenes = campaignToUpdate.scenes.map((s, index) => ({
+                            ...s,
+                            is_active: index === 0,
+                        }));
+                        activeScene = campaignToUpdate.scenes.length > 0 ? campaignToUpdate.scenes[0] : undefined;
+                        
+                        if (activeScene) {
+                            toast({ title: "Scene Activated", description: `Defaulted to "${activeScene.name}" as the active scene.` });
+                        }
+                    }
+
+                    if (needsSave) {
+                        campaigns[campaignIndex] = campaignToUpdate;
+                        localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
+                    }
+
+                    setCampaign(campaignToUpdate);
+                    setScene(activeScene || null);
                 }
             }
             
