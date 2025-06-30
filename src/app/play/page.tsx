@@ -41,7 +41,17 @@ const initialMockCampaigns: Campaign[] = [
      characters: [
       { id: 'char4', name: 'Gandalf', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
     ],
-    scenes: []
+    scenes: [
+        {
+            id: 'scene2',
+            name: 'Castle Ravenloft',
+            background_map_url: 'https://placehold.co/1200x800.png',
+            tokens: [
+                 { id: 'token-char4', name: 'Gandalf', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char4', position: { x: 50, y: 50 } },
+            ],
+            is_active: true,
+        }
+    ]
   },
   {
     id: '3',
@@ -53,7 +63,20 @@ const initialMockCampaigns: Campaign[] = [
       { id: 'char7', name: 'Sam', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
       { id: 'char8', name: 'Pippin', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
     ],
-    scenes: []
+    scenes: [
+        {
+            id: 'scene3',
+            name: 'Goblin Ambush Trail',
+            background_map_url: 'https://placehold.co/1200x800.png',
+            tokens: [
+                { id: 'token-char5', name: 'Bilbo', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char5', position: { x: 30, y: 40 } },
+                { id: 'token-char6', name: 'Frodo', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char6', position: { x: 35, y: 45 } },
+                { id: 'token-char7', name: 'Sam', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char7', position: { x: 25, y: 35 } },
+                { id: 'token-char8', name: 'Pippin', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char8', position: { x: 40, y: 50 } },
+            ],
+            is_active: true,
+        }
+    ]
   },
 ];
 
