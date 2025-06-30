@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -50,7 +49,7 @@ export default function CampaignDetailPage() {
                     level: pc.level,
                     tokenImageUrl: `https://placehold.co/48x48.png`
                 }));
-                setAllPlayerCharacters(charactersForCampaign);
+                setAllPlayerCharacters(charactersForCampaign.sort((a,b) => a.name.localeCompare(b.name)));
             }
         } catch (error) {
             console.error("Failed to load data from localStorage", error);

@@ -39,7 +39,7 @@ export default function NewSubclassPage() {
         const parsedClasses: Class[] = JSON.parse(storedClasses);
         setAllClasses(parsedClasses);
         const uniqueNames = [...new Set(parsedClasses.map(c => c.name))];
-        setBaseClassNames(uniqueNames);
+        setBaseClassNames(uniqueNames.sort());
       }
     } catch (error) {
       console.error("Failed to load classes:", error);
@@ -65,20 +65,21 @@ export default function NewSubclassPage() {
         const newSubclass: Class = {
             ...baseClass,
             subclass: subclassName,
-            autolevel: [...baseClass.autolevel],
+            autolevel: [...baseClass.autolevel], // Deprecated, keep for now
+            levels: [...baseClass.levels] // Use new structure
         };
 
-        const subclassFeatures = features.split(',').map(f => ({ name: f.trim(), text: '' }));
-        const level3Index = newSubclass.autolevel.findIndex(l => l.level === 3);
+        const subclassFeatures = features.split(',').map(f => ({ name: f.trim(), text: 'Subclass feature' }));
+        const level3Index = newSubclass.levels.findIndex(l => l.level === 3);
         
         if (level3Index > -1) {
-            newSubclass.autolevel[level3Index].feature = [
-                ...(newSubclass.autolevel[level3Index].feature || []),
+            newSubclass.levels[level3Index].feature = [
+                ...(newSubclass.levels[level3Index].feature || []),
                 ...subclassFeatures,
             ];
         } else {
-            newSubclass.autolevel.push({ level: 3, feature: subclassFeatures });
-            newSubclass.autolevel.sort((a,b) => a.level - b.level);
+            newSubclass.levels.push({ level: 3, feature: subclassFeatures });
+            newSubclass.levels.sort((a,b) => a.level - b.level);
         }
 
         const updatedClasses = [...allClasses, newSubclass];

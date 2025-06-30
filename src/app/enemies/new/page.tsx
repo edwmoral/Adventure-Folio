@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from "react";
@@ -17,8 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const STORAGE_KEY = 'dnd_enemies';
 
-const CREATURE_TYPES = ['Aberration', 'Beast', 'Celestial', 'Construct', 'Dragon', 'Elemental', 'Fey', 'Fiend', 'Giant', 'Humanoid', 'Monstrosity', 'Ooze', 'Plant', 'Undead'];
-const ALIGNMENTS = ['Lawful Good', 'Neutral Good', 'Chaotic Good', 'Lawful Neutral', 'True Neutral', 'Chaotic Neutral', 'Lawful Evil', 'Neutral Evil', 'Chaotic Evil', 'Unaligned'];
+const CREATURE_TYPES = ['Aberration', 'Beast', 'Celestial', 'Construct', 'Dragon', 'Elemental', 'Fey', 'Fiend', 'Giant', 'Humanoid', 'Monstrosity', 'Ooze', 'Plant', 'Undead'].sort();
+const ALIGNMENTS = ['Lawful Good', 'Neutral Good', 'Chaotic Good', 'Lawful Neutral', 'True Neutral', 'Chaotic Neutral', 'Lawful Evil', 'Neutral Evil', 'Chaotic Evil', 'Unaligned'].sort();
 const CHALLENGE_RATINGS = ['0', '1/8', '1/4', '1/2', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '30'];
 
 const parseActions = (text: string): MonsterAction[] => {
@@ -80,12 +79,12 @@ export default function NewEnemyPage() {
         
         const newEnemy: Monster = {
             id: `enemy-${Date.now()}`,
-            name: enemy.name,
-            type: enemy.type,
-            alignment: enemy.alignment,
+            name: enemy.name!,
+            type: enemy.type!,
+            alignment: enemy.alignment!,
             cr: enemy.cr || '0',
-            hp: enemy.hp,
-            ac: enemy.ac,
+            hp: enemy.hp!,
+            ac: enemy.ac!,
             speed: enemy.speed || '30 ft.',
             str: Number(enemy.str) || 10,
             dex: Number(enemy.dex) || 10,

@@ -17,13 +17,13 @@ import { MultiSelectCombobox } from "@/components/multi-select-combobox";
 
 const STORAGE_KEY_SPELLS = 'dnd_spells';
 const STORAGE_KEY_CLASSES = 'dnd_classes';
-const SPELL_SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation'];
+const SPELL_SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation'].sort();
 
 export default function NewSpellPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [spell, setSpell] = useState<Partial<Spell> & { material_component?: string }>({ name: '', level: 0, school: '', time: '', range: '', duration: '', ritual: false });
+  const [spell, setSpell] = useState<Partial<Spell> & { material_component?: string }>({ name: '', level: 0, school: '', time: '1 action', range: 'N/A', duration: 'Instantaneous', ritual: false, text: '', classes: '' });
   const [hasVerbal, setHasVerbal] = useState(false);
   const [hasSomatic, setHasSomatic] = useState(false);
   const [hasMaterial, setHasMaterial] = useState(false);
@@ -37,7 +37,7 @@ export default function NewSpellPage() {
       if (storedClasses) {
         const parsedClasses: Class[] = JSON.parse(storedClasses);
         const uniqueClassNames = [...new Set(parsedClasses.map(c => c.name))];
-        setAllClasses(uniqueClassNames);
+        setAllClasses(uniqueClassNames.sort());
       }
     } catch (error) {
       console.error("Failed to load classes from localStorage", error);
@@ -54,7 +54,7 @@ export default function NewSpellPage() {
     setSpell(prev => ({ ...prev, [id]: id === 'level' ? parseInt(value) : value }));
   };
   
-  const handleCheckboxChange = (id: keyof Spell | 'V' | 'S' | 'M', checked: boolean) => {
+  const handleCheckboxChange = (id: 'ritual' | 'V' | 'S' | 'M', checked: boolean) => {
       switch (id) {
           case 'V': setHasVerbal(checked); break;
           case 'S': setHasSomatic(checked); break;
@@ -88,14 +88,14 @@ export default function NewSpellPage() {
         }
 
         const newSpell: Spell = {
-            name: spell.name,
+            name: spell.name!,
             level: spell.level || 0,
             school: spell.school,
             time: spell.time || '1 action',
             range: spell.range || 'N/A',
             duration: spell.duration || 'Instantaneous',
             components: components_list.join(', '),
-            text: spell.text,
+            text: spell.text!,
             classes: selectedClasses.join(', '),
             ritual: spell.ritual || false,
         };

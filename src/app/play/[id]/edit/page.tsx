@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -81,12 +80,13 @@ export default function EditCampaignPage() {
                 level: pc.level,
                 tokenImageUrl: `https://placehold.co/48x48.png`
             }));
-            setAllPlayerCharacters(charactersForCampaign);
+            setAllPlayerCharacters(charactersForCampaign.sort((a,b) => a.name.localeCompare(b.name)));
         }
 
         const storedEnemies = localStorage.getItem(STORAGE_KEY_ENEMIES);
         if (storedEnemies) {
-            setAllEnemies(JSON.parse(storedEnemies));
+            const enemies: Enemy[] = JSON.parse(storedEnemies);
+            setAllEnemies(enemies.sort((a,b) => a.name.localeCompare(b.name)));
         }
 
     } catch (error) {
@@ -197,10 +197,10 @@ export default function EditCampaignPage() {
       imageUrl: enemy.tokenImageUrl || 'https://placehold.co/48x48.png',
       type: 'monster',
       linked_enemy_id: enemy.id,
-      hp: enemy.hit_points,
-      maxHp: enemy.hit_points,
-      mp: enemy.mp || 0,
-      maxMp: enemy.mp || 0,
+      hp: enemy.hp ? parseInt(enemy.hp.split(' ')[0]) : 10,
+      maxHp: enemy.hp ? parseInt(enemy.hp.split(' ')[0]) : 10,
+      mp: 0,
+      maxMp: 0,
       position: {
         x: 75 + Math.floor(Math.random() * 20),
         y: 75 + Math.floor(Math.random() * 20),
@@ -511,7 +511,7 @@ export default function EditCampaignPage() {
                                                         <SelectContent>
                                                             {allEnemies.map(enemy => (
                                                                 <SelectItem key={enemy.id} value={enemy.id}>
-                                                                    {enemy.name} (CR {enemy.challenge_rating})
+                                                                    {enemy.name} (CR {enemy.cr})
                                                                 </SelectItem>
                                                             ))}
                                                         </SelectContent>

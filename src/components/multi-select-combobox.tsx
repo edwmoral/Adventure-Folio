@@ -28,18 +28,18 @@ export const MultiSelectCombobox: React.FC<MultiSelectComboboxProps> = ({
     const [inputValue, setInputValue] = useState("");
 
     const handleSelect = (option: string) => {
-        onSelectedChange([...selected, option]);
+        onSelectedChange([...selected, option].sort());
         setInputValue("");
-        setOpen(false);
+        // Do not close on select to allow multiple selections
     };
 
     const handleCreate = () => {
         if (creatable && onOptionCreate && inputValue.trim() && !options.includes(inputValue) && !selected.includes(inputValue)) {
-            onOptionCreate(inputValue);
-            onSelectedChange([...selected, inputValue]);
+            const newOption = inputValue.trim();
+            onOptionCreate(newOption);
+            onSelectedChange([...selected, newOption].sort());
         }
         setInputValue("");
-        setOpen(false);
     };
 
     const handleUnselect = (option: string) => {
@@ -75,7 +75,10 @@ export const MultiSelectCombobox: React.FC<MultiSelectComboboxProps> = ({
                             value={inputValue}
                             onValueChange={setInputValue}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleCreate();
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleCreate();
+                                }
                             }}
                         />
                         <CommandList>

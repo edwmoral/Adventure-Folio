@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import type { Class, Skill, Feat, ClassFeature } from '@/lib/types';
+import type { Class, Skill, Feat, ClassFeature, ClassAutolevel } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,7 @@ const STORAGE_KEY_CLASSES = 'dnd_classes';
 const STORAGE_KEY_SKILLS = 'dnd_skills';
 const STORAGE_KEY_FEATS = 'dnd_feats';
 
-const ABILITIES = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
+const ABILITIES = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'].sort();
 const HIT_DICE = ['d6', 'd8', 'd10', 'd12'];
 const SPELLCASTING_TYPES: Array<'none' | 'prepared' | 'known'> = ['none', 'prepared', 'known'];
 
@@ -43,10 +43,10 @@ export default function NewClassPage() {
   useEffect(() => {
     try {
       const storedSkills = localStorage.getItem(STORAGE_KEY_SKILLS);
-      if (storedSkills) setAllSkills(JSON.parse(storedSkills));
+      if (storedSkills) setAllSkills(JSON.parse(storedSkills).sort((a: Skill, b: Skill) => a.name.localeCompare(b.name)));
 
       const storedFeats = localStorage.getItem(STORAGE_KEY_FEATS);
-      if (storedFeats) setAllFeats(JSON.parse(storedFeats));
+      if (storedFeats) setAllFeats(JSON.parse(storedFeats).sort((a: Feat, b: Feat) => a.name.localeCompare(b.name)));
     } catch (error) {
       console.error("Failed to load skills/feats from localStorage", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Could not load skills and features data.' });
@@ -96,23 +96,28 @@ export default function NewClassPage() {
         const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
         const classes: Class[] = storedClasses ? JSON.parse(storedClasses) : [];
         
+        const newAutolevel: ClassAutolevel[] = [
+          {
+            level: 1,
+            feature: selectedFeatures.map(f => {
+                const feat = allFeats.find(feat => feat.name === f);
+                return { name: f, text: feat?.text || 'No description available.' };
+            })
+          }
+        ];
+
         const newClass: Class = {
             name: name,
             subclass: subclass,
             hd: parseInt(hitDie.replace('d', '')),
+            hit_die: hitDie,
             primary_ability: primaryAbility,
             saving_throws: selectedSavingThrows,
             spellcasting_type: spellcastingType,
             skills: selectedSkills,
-            autolevel: [
-                {
-                    level: 1,
-                    feature: selectedFeatures.map(f => {
-                        const feat = allFeats.find(feat => feat.name === f);
-                        return { name: f, text: feat?.text || '' };
-                    })
-                }
-            ]
+            levels: newAutolevel, // Use the new structure
+            // Deprecated fields, can be removed if fully migrated
+            autolevel: newAutolevel,
         };
 
         const updatedClasses = [...classes, newClass];

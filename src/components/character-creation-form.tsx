@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -52,6 +51,8 @@ const characterFormSchema = z.object({
   additionalDetails: z.string().optional(),
 });
 
+const RACES = ['Dragonborn', 'Dwarf', 'Elf', 'Gnome', 'Halfling', 'Human'].sort();
+
 export function CharacterCreationForm() {
   const { toast } = useToast();
   const router = useRouter();
@@ -63,7 +64,16 @@ export function CharacterCreationForm() {
     try {
       const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
       if (storedClasses) {
-        setClasses(JSON.parse(storedClasses));
+        const parsedClasses: Class[] = JSON.parse(storedClasses);
+        // Sort by name, then subclass for consistent ordering
+        parsedClasses.sort((a, b) => {
+          if (a.name < b.name) return -1;
+          if (a.name > b.name) return 1;
+          if (a.subclass < b.subclass) return -1;
+          if (a.subclass > b.subclass) return 1;
+          return 0;
+        });
+        setClasses(parsedClasses);
       }
     } catch (error) {
       console.error("Failed to load classes from localStorage", error);
@@ -280,12 +290,7 @@ export function CharacterCreationForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Human">Human</SelectItem>
-                      <SelectItem value="Elf">Elf</SelectItem>
-                      <SelectItem value="Dwarf">Dwarf</SelectItem>
-                      <SelectItem value="Halfling">Halfling</SelectItem>
-                      <SelectItem value="Dragonborn">Dragonborn</SelectItem>
-                      <SelectItem value="Gnome">Gnome</SelectItem>
+                      {RACES.map(race => <SelectItem key={race} value={race}>{race}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <FormMessage />

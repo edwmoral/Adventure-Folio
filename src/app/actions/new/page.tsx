@@ -14,8 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const STORAGE_KEY = 'dnd_actions';
-const ACTION_TYPES = ['Action', 'Bonus Action', 'Reaction', 'Legendary', 'Lair'];
-const USAGE_TYPES = ['At Will', 'Per Turn', 'Per Round', 'Recharge', 'Per Day'];
+const ACTION_TYPES = ['Action', 'Bonus Action', 'Reaction', 'Legendary', 'Lair'].sort();
+const USAGE_TYPES = ['At Will', 'Per Turn', 'Per Round', 'Recharge', 'Per Day'].sort();
 
 export default function NewActionPage() {
   const router = useRouter();
@@ -58,10 +58,10 @@ export default function NewActionPage() {
         const actions: Action[] = storedActions ? JSON.parse(storedActions) : [];
         
         const newAction: Action = {
-            name: action.name,
+            name: action.name!,
             type: action.type || 'Action',
             action_type: action.action_type || 'Standard',
-            description: action.description,
+            description: action.description!,
             usage: action.usage || { type: 'At Will' },
             effects: action.effects
         };

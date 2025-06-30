@@ -19,10 +19,10 @@ const STORAGE_KEY_ITEMS = 'dnd_items';
 const STORAGE_KEY_PROPERTIES = 'dnd_item_properties';
 const STORAGE_KEY_EFFECTS = 'dnd_item_effects';
 
-const ITEM_TYPES = ['Weapon', 'Armor', 'Consumable', 'Wondrous Item', 'Mundane'];
-const DAMAGE_TYPES = ['Slashing', 'Piercing', 'Bludgeoning', 'Fire', 'Cold', 'Lightning', 'Thunder', 'Poison', 'Acid', 'Psychic', 'Necrotic', 'Radiant', 'Force'];
-const DEFAULT_PROPERTIES = ['Finesse', 'Light', 'Heavy', 'Two-Handed', 'Versatile', 'Thrown', 'Ammunition', 'Loading', 'Reach'];
-const DEFAULT_EFFECTS = ['Grants Advantage', 'Grants Disadvantage', 'Resistance', 'Vulnerability', '+1 Bonus'];
+const ITEM_TYPES = ['Weapon', 'Armor', 'Consumable', 'Wondrous Item', 'Mundane'].sort();
+const DAMAGE_TYPES = ['Slashing', 'Piercing', 'Bludgeoning', 'Fire', 'Cold', 'Lightning', 'Thunder', 'Poison', 'Acid', 'Psychic', 'Necrotic', 'Radiant', 'Force'].sort();
+const DEFAULT_PROPERTIES = ['Finesse', 'Light', 'Heavy', 'Two-Handed', 'Versatile', 'Thrown', 'Ammunition', 'Loading', 'Reach'].sort();
+const DEFAULT_EFFECTS = ['Grants Advantage', 'Grants Disadvantage', 'Resistance', 'Vulnerability', '+1 Bonus'].sort();
 
 
 export default function NewItemPage() {
@@ -36,10 +36,10 @@ export default function NewItemPage() {
     useEffect(() => {
         try {
             const storedProps = localStorage.getItem(STORAGE_KEY_PROPERTIES);
-            if (storedProps) setAllProperties(JSON.parse(storedProps));
+            if (storedProps) setAllProperties(JSON.parse(storedProps).sort());
             
             const storedEffects = localStorage.getItem(STORAGE_KEY_EFFECTS);
-            if (storedEffects) setAllEffects(JSON.parse(storedEffects));
+            if (storedEffects) setAllEffects(JSON.parse(storedEffects).sort());
         } catch (e) {
             console.error("Failed to load item metadata from localStorage", e);
         }
@@ -48,11 +48,11 @@ export default function NewItemPage() {
     const handleCreateOption = (type: 'property' | 'effect', value: string) => {
         try {
             if (type === 'property') {
-                const newProperties = [...allProperties, value];
+                const newProperties = [...allProperties, value].sort();
                 setAllProperties(newProperties);
                 localStorage.setItem(STORAGE_KEY_PROPERTIES, JSON.stringify(newProperties));
             } else {
-                const newEffects = [...allEffects, value];
+                const newEffects = [...allEffects, value].sort();
                 setAllEffects(newEffects);
                 localStorage.setItem(STORAGE_KEY_EFFECTS, JSON.stringify(newEffects));
             }
