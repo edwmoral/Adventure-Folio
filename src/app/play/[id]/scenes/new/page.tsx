@@ -7,7 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Sparkles } from "lucide-react";
 
-import type { Campaign, Scene } from '@/lib/types';
+import type { Campaign, Scene, Token } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -67,20 +67,34 @@ export default function NewScenePage() {
             toast({ variant: 'destructive', title: 'Error', description: 'Campaign not found.' });
             return;
         }
+
+        const currentCampaign = campaigns[campaignIndex];
         
-        if (!campaigns[campaignIndex].scenes) {
-            campaigns[campaignIndex].scenes = [];
+        if (!currentCampaign.scenes) {
+            currentCampaign.scenes = [];
         }
+
+        // Create tokens for all existing characters in the campaign.
+        const initialTokens: Token[] = currentCampaign.characters.map(character => ({
+            id: `token-${Date.now()}-${character.id}`,
+            name: character.name,
+            imageUrl: character.tokenImageUrl || 'https://placehold.co/48x48.png',
+            type: 'character',
+            linked_character_id: character.id,
+            position: { x: 10 + Math.floor(Math.random() * 20), y: 10 + Math.floor(Math.random() * 20) }
+        }));
         
         const newScene: Scene = {
             id: `scene-${Date.now()}`,
             name: sceneName,
             background_map_url: backgroundUrl || `https://placehold.co/1920x1080.png`,
-            tokens: [], // New scenes start with no tokens; they are added when characters are added
-            is_active: campaigns[campaignIndex].scenes.length === 0, // First scene is active
+            tokens: initialTokens,
+            is_active: currentCampaign.scenes.length === 0, // First scene is active
         };
 
-        campaigns[campaignIndex].scenes.push(newScene);
+        currentCampaign.scenes.push(newScene);
+
+        campaigns[campaignIndex] = currentCampaign;
         
         localStorage.setItem(STORAGE_KEY, JSON.stringify(campaigns));
 
