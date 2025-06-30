@@ -1,11 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Check, ChevronsUpDown, X } from "lucide-react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ArrowLeft } from "lucide-react";
 import type { Item } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { MultiSelectCombobox } from "@/components/multi-select-combobox";
 
 const STORAGE_KEY_ITEMS = 'dnd_items';
 const STORAGE_KEY_PROPERTIES = 'dnd_item_properties';
@@ -27,95 +24,6 @@ const DAMAGE_TYPES = ['Slashing', 'Piercing', 'Bludgeoning', 'Fire', 'Cold', 'Li
 const DEFAULT_PROPERTIES = ['Finesse', 'Light', 'Heavy', 'Two-Handed', 'Versatile', 'Thrown', 'Ammunition', 'Loading', 'Reach'];
 const DEFAULT_EFFECTS = ['Grants Advantage', 'Grants Disadvantage', 'Resistance', 'Vulnerability', '+1 Bonus'];
 
-interface MultiSelectComboboxProps {
-    options: string[];
-    selected: string[];
-    onSelectedChange: (selected: string[]) => void;
-    onOptionCreate: (option: string) => void;
-    placeholder: string;
-}
-
-const MultiSelectCombobox: React.FC<MultiSelectComboboxProps> = ({
-    options,
-    selected,
-    onSelectedChange,
-    onOptionCreate,
-    placeholder
-}) => {
-    const [open, setOpen] = useState(false);
-    const [inputValue, setInputValue] = useState("");
-
-    const handleSelect = (option: string) => {
-        onSelectedChange([...selected, option]);
-        setInputValue("");
-        setOpen(false);
-    };
-
-    const handleCreate = () => {
-        if (inputValue.trim() && !options.includes(inputValue) && !selected.includes(inputValue)) {
-            onOptionCreate(inputValue);
-            onSelectedChange([...selected, inputValue]);
-        }
-        setInputValue("");
-        setOpen(false);
-    };
-
-    const handleUnselect = (option: string) => {
-        onSelectedChange(selected.filter(s => s !== option));
-    };
-    
-    const filteredOptions = options.filter(option => !selected.includes(option));
-
-    return (
-        <div className="space-y-2">
-            <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between h-auto min-h-10">
-                        <div className="flex flex-wrap gap-1">
-                            {selected.length > 0 
-                                ? selected.map(val => (
-                                    <Badge key={val} variant="secondary" className="mr-1">
-                                        {val}
-                                        <button onClick={(e) => { e.stopPropagation(); handleUnselect(val); }} className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </Badge>
-                                ))
-                                : placeholder}
-                        </div>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                    <Command>
-                        <CommandInput
-                            placeholder="Search or create..."
-                            value={inputValue}
-                            onValueChange={setInputValue}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleCreate();
-                            }}
-                        />
-                        <CommandList>
-                            <CommandEmpty>
-                                <Button variant="ghost" className="w-full justify-start" onClick={handleCreate}>
-                                    Create "{inputValue}"
-                                </Button>
-                            </CommandEmpty>
-                            <CommandGroup>
-                                {filteredOptions.map((option) => (
-                                    <CommandItem key={option} onSelect={() => handleSelect(option)}>
-                                        {option}
-                                    </CommandItem>
-                                ))}
-                            </CommandGroup>
-                        </CommandList>
-                    </Command>
-                </PopoverContent>
-            </Popover>
-        </div>
-    );
-}
 
 export default function NewItemPage() {
     const router = useRouter();
@@ -276,6 +184,7 @@ export default function NewItemPage() {
                                 onSelectedChange={(selected) => setItem(prev => ({ ...prev, property: selected }))}
                                 onOptionCreate={(option) => handleCreateOption('property', option)}
                                 placeholder="Select properties..."
+                                creatable
                              />
                         </div>
                         
@@ -287,6 +196,7 @@ export default function NewItemPage() {
                                 onSelectedChange={(selected) => setItem(prev => ({ ...prev, detail: selected }))}
                                 onOptionCreate={(option) => handleCreateOption('effect', option)}
                                 placeholder="Select special effects..."
+                                creatable
                              />
                         </div>
 

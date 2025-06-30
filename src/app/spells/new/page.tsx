@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import type { Spell } from '@/lib/types';
+import type { Spell, Class } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,27 +13,56 @@ import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelectCombobox } from "@/components/multi-select-combobox";
 
-const STORAGE_KEY = 'dnd_spells';
+const STORAGE_KEY_SPELLS = 'dnd_spells';
+const STORAGE_KEY_CLASSES = 'dnd_classes';
 const SPELL_SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation'];
 
 export default function NewSpellPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [spell, setSpell] = useState<Partial<Spell> & { material_component?: string }>({ name: '', level: 0, school: '', time: '', range: '', duration: '', classes: '' });
+  const [spell, setSpell] = useState<Partial<Spell> & { material_component?: string }>({ name: '', level: 0, school: '', time: '', range: '', duration: '', ritual: false });
   const [hasVerbal, setHasVerbal] = useState(false);
   const [hasSomatic, setHasSomatic] = useState(false);
   const [hasMaterial, setHasMaterial] = useState(false);
 
+  const [allClasses, setAllClasses] = useState<string[]>([]);
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
+      if (storedClasses) {
+        const parsedClasses: Class[] = JSON.parse(storedClasses);
+        const uniqueClassNames = [...new Set(parsedClasses.map(c => c.name))];
+        setAllClasses(uniqueClassNames);
+      }
+    } catch (error) {
+      console.error("Failed to load classes from localStorage", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not load class data.' });
+    }
+  }, [toast]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
-    setSpell(prev => ({ ...prev, [id]: id === 'level' ? parseInt(value) : value }));
-  };
-
-  const handleSelectChange = (id: keyof Spell, value: string) => {
     setSpell(prev => ({ ...prev, [id]: value }));
   };
+  
+  const handleSelectChange = (id: keyof Spell, value: string) => {
+    setSpell(prev => ({ ...prev, [id]: id === 'level' ? parseInt(value) : value }));
+  };
+  
+  const handleCheckboxChange = (id: keyof Spell | 'V' | 'S' | 'M', checked: boolean) => {
+      switch (id) {
+          case 'V': setHasVerbal(checked); break;
+          case 'S': setHasSomatic(checked); break;
+          case 'M': setHasMaterial(checked); break;
+          case 'ritual': setSpell(p => ({...p, ritual: checked})); break;
+      }
+  };
+
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -44,7 +73,7 @@ export default function NewSpellPage() {
     }
 
     try {
-        const storedSpells = localStorage.getItem(STORAGE_KEY);
+        const storedSpells = localStorage.getItem(STORAGE_KEY_SPELLS);
         const spells: Spell[] = storedSpells ? JSON.parse(storedSpells) : [];
         
         let components_list = [];
@@ -67,12 +96,12 @@ export default function NewSpellPage() {
             duration: spell.duration || 'Instantaneous',
             components: components_list.join(', '),
             text: spell.text,
-            classes: spell.classes || '',
+            classes: selectedClasses.join(', '),
             ritual: spell.ritual || false,
         };
 
         const updatedSpells = [...spells, newSpell];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSpells));
+        localStorage.setItem(STORAGE_KEY_SPELLS, JSON.stringify(updatedSpells));
 
         toast({ title: "Spell Created!", description: "The new spell has been added to the grimoire." });
         router.push(`/spells`);
@@ -107,7 +136,15 @@ export default function NewSpellPage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="level">Spell Level</Label>
-                            <Input id="level" type="number" min="0" max="9" value={spell.level} onChange={handleInputChange} />
+                            <Select value={String(spell.level)} onValueChange={(val) => handleSelectChange('level', val)}>
+                                <SelectTrigger id="level"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="0">Cantrip (0)</SelectItem>
+                                    {[...Array(9)].map((_, i) => (
+                                        <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="school">School of Magic</Label>
@@ -135,10 +172,10 @@ export default function NewSpellPage() {
                     <div className="space-y-2">
                         <Label>Components</Label>
                         <div className="flex flex-wrap gap-4 items-center p-2 border rounded-md">
-                            <div className="flex items-center gap-2"><Checkbox id="V" checked={hasVerbal} onCheckedChange={(checked) => setHasVerbal(!!checked)} /><Label htmlFor="V" className="font-normal">Verbal (V)</Label></div>
-                            <div className="flex items-center gap-2"><Checkbox id="S" checked={hasSomatic} onCheckedChange={(checked) => setHasSomatic(!!checked)} /><Label htmlFor="S" className="font-normal">Somatic (S)</Label></div>
-                            <div className="flex items-center gap-2"><Checkbox id="M" checked={hasMaterial} onCheckedChange={(checked) => setHasMaterial(!!checked)} /><Label htmlFor="M" className="font-normal">Material (M)</Label></div>
-                            <div className="flex items-center gap-2"><Checkbox id="ritual" checked={spell.ritual} onCheckedChange={(checked) => setSpell(p => ({...p, ritual: !!checked}))} /><Label htmlFor="ritual" className="font-normal">Ritual</Label></div>
+                            <div className="flex items-center gap-2"><Checkbox id="V" checked={hasVerbal} onCheckedChange={(checked) => handleCheckboxChange('V', !!checked)} /><Label htmlFor="V" className="font-normal">Verbal (V)</Label></div>
+                            <div className="flex items-center gap-2"><Checkbox id="S" checked={hasSomatic} onCheckedChange={(checked) => handleCheckboxChange('S', !!checked)} /><Label htmlFor="S" className="font-normal">Somatic (S)</Label></div>
+                            <div className="flex items-center gap-2"><Checkbox id="M" checked={hasMaterial} onCheckedChange={(checked) => handleCheckboxChange('M', !!checked)} /><Label htmlFor="M" className="font-normal">Material (M)</Label></div>
+                            <div className="flex items-center gap-2"><Checkbox id="ritual" checked={spell.ritual} onCheckedChange={(checked) => handleCheckboxChange('ritual', !!checked)} /><Label htmlFor="ritual" className="font-normal">Ritual</Label></div>
                         </div>
                     </div>
                     {hasMaterial && (
@@ -152,8 +189,13 @@ export default function NewSpellPage() {
                         <Textarea id="text" value={spell.text} onChange={handleInputChange} required className="min-h-[120px]"/>
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="classes">Classes (comma-separated)</Label>
-                        <Input id="classes" value={spell.classes} onChange={handleInputChange} />
+                        <Label htmlFor="classes">Classes</Label>
+                        <MultiSelectCombobox 
+                            options={allClasses}
+                            selected={selectedClasses}
+                            onSelectedChange={setSelectedClasses}
+                            placeholder="Select classes..."
+                        />
                     </div>
 
                     <div className="flex justify-end">
