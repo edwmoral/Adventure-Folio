@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from "react";
@@ -36,6 +37,10 @@ export default function NewEnemyPage() {
     str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10,
     description: '',
     tokenImageUrl: 'https://placehold.co/48x48.png',
+    senses: '',
+    languages: '',
+    traits: '',
+    actions: '',
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
