@@ -12,7 +12,7 @@ export default function Header() {
             Adventure Folio
           </span>
         </Link>
-        <nav className="flex items-center gap-6 text-sm">
+        <nav className="flex items-center gap-4 text-sm">
           <Link
             href="/character-sheet"
             className="transition-colors hover:text-foreground/80 text-foreground/60"
@@ -24,6 +24,24 @@ export default function Header() {
             className="transition-colors hover:text-foreground/80 text-foreground/60"
           >
             Campaigns
+          </Link>
+          <Link
+            href="/classes"
+            className="transition-colors hover:text-foreground/80 text-foreground/60"
+          >
+            Classes
+          </Link>
+          <Link
+            href="/items"
+            className="transition-colors hover:text-foreground/80 text-foreground/60"
+          >
+            Items
+          </Link>
+          <Link
+            href="/spells"
+            className="transition-colors hover:text-foreground/80 text-foreground/60"
+          >
+            Spells
           </Link>
         </nav>
         <div className="flex flex-1 items-center justify-end space-x-2">
