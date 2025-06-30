@@ -1,10 +1,13 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Class } from "@/lib/types";
 
-// Mock data based on the Class type
-const mockClasses: Class[] = [
+const initialMockClasses: Class[] = [
   {
     name: "Fighter",
     subclass: "Champion",
@@ -61,6 +64,8 @@ const mockClasses: Class[] = [
   },
 ];
 
+const STORAGE_KEY = 'dnd_classes';
+
 // Helper to group classes by name
 const groupClassesByName = (classes: Class[]) => {
   return classes.reduce((acc, currentClass) => {
@@ -75,15 +80,36 @@ const groupClassesByName = (classes: Class[]) => {
 
 
 export default function ClassesPage() {
-  const groupedClasses = groupClassesByName(mockClasses);
+  const [classes, setClasses] = useState<Class[]>([]);
+
+  useEffect(() => {
+    try {
+      const storedClasses = localStorage.getItem(STORAGE_KEY);
+      if (storedClasses) {
+        setClasses(JSON.parse(storedClasses));
+      } else {
+        setClasses(initialMockClasses);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialMockClasses));
+      }
+    } catch (error) {
+      console.error("Failed to access localStorage:", error);
+      setClasses(initialMockClasses);
+    }
+  }, []);
+
+  const groupedClasses = groupClassesByName(classes);
 
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-4xl font-bold text-primary font-headline">CLASSES</h1>
         <div className="flex gap-2">
-          <Button>Add Class</Button>
-          <Button variant="outline">Add Sub-class</Button>
+          <Button asChild>
+            <Link href="/classes/new">Add Class</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/classes/new-subclass">Add Sub-class</Link>
+          </Button>
         </div>
       </div>
       <div className="space-y-6">
