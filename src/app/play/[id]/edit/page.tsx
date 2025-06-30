@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Trash2, Star, Users, Shield, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Trash2, Star, Users, Shield } from 'lucide-react';
 
 import type { Campaign, Character, Scene, Token, PlayerCharacter, Enemy } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -154,18 +154,18 @@ export default function EditCampaignPage() {
     toast({ title: "Character Added", description: `${character.name} is ready for adventure!` });
   };
 
-  const handleAddEnemyToScene = () => {
+  const handleAddEnemyToScene = (sceneId: string) => {
     if (!enemyToAdd || !campaign) return;
 
     const enemy = allEnemies.find((e) => e.id === enemyToAdd);
     if (!enemy) return;
 
-    const activeScene = campaign.scenes.find((s) => s.is_active);
-    if (!activeScene) {
+    const targetScene = campaign.scenes.find((s) => s.id === sceneId);
+    if (!targetScene) {
       toast({
         variant: 'destructive',
-        title: 'No Active Scene',
-        description: 'Please set an active scene before adding an enemy.',
+        title: 'Scene Not Found',
+        description: 'The scene to add the enemy to could not be found.',
       });
       return;
     }
@@ -179,13 +179,13 @@ export default function EditCampaignPage() {
       position: {
         x: 75 + Math.floor(Math.random() * 20),
         y: 75 + Math.floor(Math.random() * 20),
-      }, // Randomly in a corner
+      },
     };
 
     const updatedCampaign = {
       ...campaign,
       scenes: campaign.scenes.map((s) =>
-        s.id === activeScene.id
+        s.id === sceneId
           ? { ...s, tokens: [...s.tokens, newEnemyToken] }
           : s
       ),
@@ -205,7 +205,7 @@ export default function EditCampaignPage() {
       setEnemyToAdd('');
       toast({
         title: 'Enemy Added',
-        description: `A ${enemy.name} has been added to the active scene.`,
+        description: `A ${enemy.name} has been added to the scene.`,
       });
     } catch (error) {
       console.error('Failed to add enemy:', error);
@@ -385,8 +385,8 @@ export default function EditCampaignPage() {
         <div className="space-y-8 lg:col-span-2">
             <Card>
                 <CardHeader>
-                    <CardTitle>Manage Scenes & Encounters</CardTitle>
-                    <CardDescription>Organize maps and the enemies within them.</CardDescription>
+                    <CardTitle>Manage Scenes</CardTitle>
+                    <CardDescription>Organize maps, encounters, and campaign flow.</CardDescription>
                 </CardHeader>
                 <CardContent>
                      <Accordion type="multiple" className="w-full space-y-2">
@@ -394,23 +394,26 @@ export default function EditCampaignPage() {
                              const enemyTokens = scene.tokens.filter(t => t.type === 'monster');
                              return (
                                 <AccordionItem value={scene.id} key={scene.id} className="border rounded-md data-[state=closed]:border-border data-[state=open]:border-primary/50">
-                                    <AccordionTrigger className="p-3 hover:no-underline">
-                                        <div className="flex items-center justify-between w-full">
-                                            <div className="text-left">
-                                                <p className="font-medium">{scene.name}</p>
-                                                {scene.is_active && <span className="text-xs font-bold text-primary flex items-center gap-1"><Star className="h-3 w-3" />ACTIVE</span>}
-                                            </div>
-                                            <div className="flex items-center">
+                                    <AccordionTrigger className="p-3 hover:no-underline text-left">
+                                        <div className="flex items-center gap-4">
+                                            {scene.is_active && <Star className="h-4 w-4 text-primary" />}
+                                            <p className="font-medium">{scene.name}</p>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-4 pb-4">
+                                        <div className="space-y-4">
+                                            {/* Scene Actions */}
+                                            <div className="flex items-center gap-2">
                                                 {!scene.is_active && (
-                                                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleSetSceneActive(scene.id); }}>Set Active</Button>
+                                                    <Button variant="outline" size="sm" onClick={() => handleSetSceneActive(scene.id)}>Set Active</Button>
                                                 )}
                                                 <AlertDialog>
                                                     <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="ml-1" onClick={(e) => {e.stopPropagation();}}>
-                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive">
+                                                            <Trash2 className="mr-2 h-4 w-4" /> Delete Scene
                                                         </Button>
                                                     </AlertDialogTrigger>
-                                                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                                    <AlertDialogContent>
                                                         <AlertDialogHeader>
                                                             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                                             <AlertDialogDescription>
@@ -424,25 +427,47 @@ export default function EditCampaignPage() {
                                                     </AlertDialogContent>
                                                 </AlertDialog>
                                             </div>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="px-3">
-                                        <div className="pt-2 border-t">
-                                            <h4 className="mb-2 font-semibold text-sm text-muted-foreground flex items-center gap-2"><Shield className="h-4 w-4"/>Enemies in this scene:</h4>
-                                            {enemyTokens.length > 0 ? (
-                                                <div className="space-y-1">
-                                                    {enemyTokens.map(token => (
-                                                        <div key={token.id} className="flex items-center justify-between text-sm p-1 rounded-md hover:bg-muted/50">
-                                                            <span>{token.name}</span>
-                                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveEnemyFromScene(scene.id, token.id)}>
-                                                                <Trash2 className="h-3 w-3 text-destructive" />
-                                                            </Button>
-                                                        </div>
-                                                    ))}
+
+                                            <Separator/>
+
+                                            {/* Enemy List */}
+                                            <div>
+                                                <h4 className="mb-2 font-semibold text-sm flex items-center gap-2"><Shield className="h-4 w-4"/>Enemies in Scene:</h4>
+                                                {enemyTokens.length > 0 ? (
+                                                    <div className="space-y-1 rounded-md border p-2">
+                                                        {enemyTokens.map(token => (
+                                                            <div key={token.id} className="flex items-center justify-between text-sm p-1 rounded-md hover:bg-muted/50">
+                                                                <span>{token.name}</span>
+                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveEnemyFromScene(scene.id, token.id)}>
+                                                                    <Trash2 className="h-3 w-3 text-destructive" />
+                                                                </Button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm text-center text-muted-foreground py-2">No enemies in this scene.</p>
+                                                )}
+                                            </div>
+
+                                            {/* Add Enemy */}
+                                            <div>
+                                                <Label className="text-sm font-semibold">Add Enemy to this Scene</Label>
+                                                <div className="flex gap-2 mt-2">
+                                                    <Select onValueChange={setEnemyToAdd}>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select an enemy..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {allEnemies.map(enemy => (
+                                                                <SelectItem key={enemy.id} value={enemy.id}>
+                                                                    {enemy.name} (CR {enemy.challenge_rating})
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Button onClick={() => handleAddEnemyToScene(scene.id)} disabled={!enemyToAdd}>Add</Button>
                                                 </div>
-                                            ) : (
-                                                <p className="text-sm text-center text-muted-foreground py-2">No enemies in this scene.</p>
-                                            )}
+                                            </div>
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
@@ -452,33 +477,6 @@ export default function EditCampaignPage() {
                      <Button asChild variant="outline" className="w-full mt-4">
                         <Link href={`/play/${id}/scenes/new`}>Add New Scene</Link>
                      </Button>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Add Enemies to Active Scene</CardTitle>
-                    <CardDescription>Add enemies from your bestiary to the scene marked 'ACTIVE'.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Add an Enemy</Label>
-                         <div className="flex gap-2">
-                            <Select value={enemyToAdd} onValueChange={setEnemyToAdd}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select an enemy..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {allEnemies.map(enemy => (
-                                        <SelectItem key={enemy.id} value={enemy.id}>
-                                            {enemy.name} (CR {enemy.challenge_rating})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Button onClick={handleAddEnemyToScene} disabled={!enemyToAdd}>Add to Scene</Button>
-                        </div>
-                    </div>
                 </CardContent>
             </Card>
         </div>
