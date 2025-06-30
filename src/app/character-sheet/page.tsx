@@ -24,6 +24,7 @@ import {
   AlertDialogTrigger 
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const StatCard = ({ name, value, modifier }: { name: string, value: string, modifier: string }) => (
     <div className="flex flex-col items-center justify-center p-4 bg-card-foreground/5 rounded-lg">
@@ -337,63 +338,73 @@ export default function CharacterSheetPage() {
                             </TabsList>
                             <TabsContent value="actions" className="mt-4">
                                 <Card>
-                                    <CardContent className="p-6 space-y-6">
-                                        <div>
-                                            <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Swords className="h-6 w-6" /> Actions</h3>
-                                            <div className="space-y-4">
-                                                {[...basicActions, ...allActions].map((action, index) => (
-                                                    <div key={`${action.name}-${index}`}>
-                                                        <h4 className="font-semibold">{action.name} <Badge variant="secondary">{action.type}</Badge></h4>
-                                                        <p className="text-sm text-muted-foreground mt-1">{action.description}</p>
-                                                        {action.effects && (
-                                                            <div className="text-sm mt-1 flex items-start gap-2">
-                                                                <Target className="h-4 w-4 mt-0.5 text-accent flex-shrink-0" />
-                                                                <span>{action.effects}</span>
+                                    <CardContent className="p-6">
+                                        <Accordion type="multiple" defaultValue={['actions']} className="w-full space-y-1">
+                                            <AccordionItem value="actions">
+                                                <AccordionTrigger className="text-2xl font-semibold hover:no-underline">
+                                                    <div className="flex items-center gap-2"><Swords className="h-6 w-6" /> Actions</div>
+                                                </AccordionTrigger>
+                                                <AccordionContent>
+                                                    <div className="space-y-4 pt-4 border-t mt-2">
+                                                        {[...basicActions, ...allActions].map((action, index) => (
+                                                            <div key={`${action.name}-${index}`}>
+                                                                <h4 className="font-semibold">{action.name} <Badge variant="secondary">{action.type}</Badge></h4>
+                                                                <p className="text-sm text-muted-foreground mt-1">{action.description}</p>
+                                                                {action.effects && (
+                                                                    <div className="text-sm mt-1 flex items-start gap-2">
+                                                                        <Target className="h-4 w-4 mt-0.5 text-accent flex-shrink-0" />
+                                                                        <span>{action.effects}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </AccordionContent>
+                                            </AccordionItem>
+
+                                            <AccordionItem value="spells">
+                                                <AccordionTrigger className="text-2xl font-semibold hover:no-underline">
+                                                    <div className="flex items-center gap-2"><Book className="h-6 w-6" /> Spells</div>
+                                                </AccordionTrigger>
+                                                <AccordionContent>
+                                                    <div className="space-y-4 pt-4 border-t mt-2">
+                                                        {allSpells.length > 0 ? (
+                                                            allSpells.map(spell => (
+                                                              <div key={spell.name}>
+                                                                  <h4 className="font-semibold">{spell.name} <span className="text-xs text-muted-foreground">({spell.level === 0 ? "Cantrip" : `Lvl ${spell.level}`}, {spell.school})</span></h4>
+                                                                  <p className="text-sm text-muted-foreground mt-1">{spell.description}</p>
+                                                              </div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="text-center text-muted-foreground py-4">
+                                                                <Book className="mx-auto h-8 w-8 mb-2" />
+                                                                <p className="text-sm">No spells added to the compendium yet.</p>
                                                             </div>
                                                         )}
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <Separator />
-
-                                        <div>
-                                            <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Book className="h-6 w-6" /> Spells</h3>
-                                            <div className="space-y-4">
-                                                {allSpells.length > 0 ? (
-                                                    allSpells.map(spell => (
-                                                      <div key={spell.name}>
-                                                          <h4 className="font-semibold">{spell.name} <span className="text-xs text-muted-foreground">({spell.level === 0 ? "Cantrip" : `Lvl ${spell.level}`}, {spell.school})</span></h4>
-                                                          <p className="text-sm text-muted-foreground mt-1">{spell.description}</p>
-                                                      </div>
-                                                    ))
-                                                ) : (
-                                                    <div className="text-center text-muted-foreground py-4">
-                                                        <Book className="mx-auto h-8 w-8 mb-2" />
-                                                        <p className="text-sm">No spells added to the compendium yet.</p>
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                            
+                                            <AccordionItem value="features">
+                                                <AccordionTrigger className="text-2xl font-semibold hover:no-underline">
+                                                     <div className="flex items-center gap-2"><Sparkles className="h-6 w-6" /> Features & Traits</div>
+                                                </AccordionTrigger>
+                                                <AccordionContent>
+                                                    <div className="space-y-4 pt-4 border-t mt-2">
+                                                        {characterFeatures.length > 0 ? (
+                                                            characterFeatures.map(feature => (
+                                                                <div key={feature.name}>
+                                                                    <h4 className="font-semibold">{feature.name}</h4>
+                                                                    <p className="text-sm text-muted-foreground">{feature.description}</p>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <p className="text-sm text-muted-foreground">No special features found for this class at the current level.</p>
+                                                        )}
                                                     </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <Separator />
-
-                                        <div>
-                                            <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Sparkles className="h-6 w-6" /> Features & Traits</h3>
-                                            <div className="space-y-4">
-                                                {characterFeatures.length > 0 ? (
-                                                    characterFeatures.map(feature => (
-                                                        <div key={feature.name}>
-                                                            <h4 className="font-semibold">{feature.name}</h4>
-                                                            <p className="text-sm text-muted-foreground">{feature.description}</p>
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <p className="text-sm text-muted-foreground">No special features found for this class at the current level.</p>
-                                                )}
-                                            </div>
-                                        </div>
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        </Accordion>
                                     </CardContent>
                                 </Card>
                             </TabsContent>
@@ -440,3 +451,5 @@ export default function CharacterSheetPage() {
         </TooltipProvider>
     );
 }
+
+    
