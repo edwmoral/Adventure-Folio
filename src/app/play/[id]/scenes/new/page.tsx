@@ -68,6 +68,10 @@ export default function NewScenePage() {
             return;
         }
         
+        if (!campaigns[campaignIndex].scenes) {
+            campaigns[campaignIndex].scenes = [];
+        }
+        
         const newScene: Scene = {
             id: `scene-${Date.now()}`,
             name: sceneName,
