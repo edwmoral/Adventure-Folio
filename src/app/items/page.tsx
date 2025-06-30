@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
@@ -38,17 +39,35 @@ const initialItems: Item[] = [
   }
 ];
 
+const STORAGE_KEY = 'dnd_items';
 
 export default function ItemsPage() {
-    const [items, setItems] = useState<Item[]>(initialItems);
+  const [items, setItems] = useState<Item[]>([]);
+
+  useEffect(() => {
+    try {
+      const storedItems = localStorage.getItem(STORAGE_KEY);
+      if (storedItems) {
+        setItems(JSON.parse(storedItems));
+      } else {
+        setItems(initialItems);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialItems));
+      }
+    } catch (error) {
+      console.error("Failed to access localStorage:", error);
+      setItems(initialItems);
+    }
+  }, []);
 
   return (
     <div className="space-y-8">
         <div className="flex items-center justify-between">
             <h1 className="text-4xl font-bold text-primary font-headline">ITEMS</h1>
-            <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Item
+            <Button asChild>
+                <Link href="/items/new">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Item
+                </Link>
             </Button>
         </div>
         <div className="border rounded-lg">

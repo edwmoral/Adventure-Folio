@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Feat } from '@/lib/types';
@@ -36,17 +37,35 @@ const initialFeats: Feat[] = [
   }
 ];
 
+const STORAGE_KEY = 'dnd_feats';
 
 export default function FeaturesPage() {
-    const [feats, setFeats] = useState<Feat[]>(initialFeats);
+  const [feats, setFeats] = useState<Feat[]>([]);
+
+  useEffect(() => {
+    try {
+      const storedFeats = localStorage.getItem(STORAGE_KEY);
+      if (storedFeats) {
+        setFeats(JSON.parse(storedFeats));
+      } else {
+        setFeats(initialFeats);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialFeats));
+      }
+    } catch (error) {
+      console.error("Failed to access localStorage:", error);
+      setFeats(initialFeats);
+    }
+  }, []);
 
   return (
     <div className="space-y-8">
         <div className="flex items-center justify-between">
             <h1 className="text-4xl font-bold text-primary font-headline">FEATS</h1>
-             <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Feat
+             <Button asChild>
+                <Link href="/features/new">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Feat
+                </Link>
             </Button>
         </div>
         <div className="border rounded-lg">

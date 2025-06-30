@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
@@ -35,16 +36,35 @@ const initialSkills: Skill[] = [
   }
 ];
 
+const STORAGE_KEY = 'dnd_skills';
+
 export default function SkillsPage() {
-    const [skills, setSkills] = useState<Skill[]>(initialSkills);
+  const [skills, setSkills] = useState<Skill[]>([]);
+
+  useEffect(() => {
+    try {
+      const storedSkills = localStorage.getItem(STORAGE_KEY);
+      if (storedSkills) {
+        setSkills(JSON.parse(storedSkills));
+      } else {
+        setSkills(initialSkills);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialSkills));
+      }
+    } catch (error) {
+      console.error("Failed to access localStorage:", error);
+      setSkills(initialSkills);
+    }
+  }, []);
 
   return (
     <div className="space-y-8">
         <div className="flex items-center justify-between">
             <h1 className="text-4xl font-bold text-primary font-headline">SKILLS</h1>
-            <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Skill
+            <Button asChild>
+                <Link href="/skills/new">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Skill
+                </Link>
             </Button>
         </div>
         <div className="border rounded-lg">
