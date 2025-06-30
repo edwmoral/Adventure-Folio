@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import type { Campaign, Scene, Token, PlayerCharacter, Enemy } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
@@ -225,7 +226,7 @@ export default function MapViewPage() {
                                             {(showHealthBar || showMagicBar) && (
                                                 <div className="w-12 mb-1 space-y-0.5">
                                                     {showHealthBar && (
-                                                        <Progress value={healthPercent} className="h-1.5 bg-red-900/50 [&>div]:bg-red-500" />
+                                                        <Progress value={healthPercent} className={cn("h-1.5", isPlayer ? "bg-green-900/50 [&>div]:bg-green-500" : "bg-red-900/50 [&>div]:bg-red-500")} />
                                                     )}
                                                     {showMagicBar && (
                                                         <Progress value={magicPercent} className="h-1.5 bg-blue-900/50 [&>div]:bg-blue-500" />
@@ -245,6 +246,18 @@ export default function MapViewPage() {
                                         <p className="font-bold">{token.name}</p>
                                         {showHealthBar && <p>HP: {health} / {maxHealth}</p>}
                                         {ac !== undefined && <p>AC: {ac} 🛡️</p>}
+                                        {isPlayer && playerChar?.spell_slots && Object.keys(playerChar.spell_slots).length > 0 && (
+                                            <div className="pt-1 mt-1 border-t border-border/50">
+                                                <p className="font-semibold text-xs mb-1">Spell Slots</p>
+                                                <div className="space-y-0.5">
+                                                {Object.entries(playerChar.spell_slots)
+                                                    .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                                                    .map(([level, slots]) => (
+                                                    <p key={level} className="text-xs text-muted-foreground">Lvl {level}: {slots.current} / {slots.max}</p>
+                                                ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </TooltipContent>
                             </Tooltip>

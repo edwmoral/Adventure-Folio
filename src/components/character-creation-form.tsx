@@ -128,6 +128,7 @@ export function CharacterCreationForm() {
             ac: 10,
             mp: 10,
             maxMp: 10,
+            spell_slots: { '1': { current: 2, max: 2 } },
         };
 
         const updatedCharacters = [...playerCharacters, newCharacter];

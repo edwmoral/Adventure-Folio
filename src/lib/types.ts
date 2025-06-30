@@ -74,6 +74,7 @@ export type PlayerCharacter = {
   ac: number;
   mp?: number;
   maxMp?: number;
+  spell_slots?: Record<string, { current: number; max: number }>;
 };
 
 export type Skill = {
