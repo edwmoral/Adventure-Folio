@@ -25,11 +25,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { generateBackgroundAction } from '@/app/character/create/actions';
+import { generateBackgroundAction, generatePortraitAction } from '@/app/character/create/actions';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, User } from 'lucide-react';
 import type { Class, PlayerCharacter } from '@/lib/types';
 import { fullCasterSpellSlots } from '@/lib/dnd-data';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
 const STORAGE_KEY_CLASSES = 'dnd_classes';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
@@ -45,6 +46,7 @@ const characterFormSchema = z.object({
   characterClass: z.string({
     required_error: 'Please select a class.',
   }),
+  avatar: z.string().optional(),
   backgroundStory: z.string().optional(),
   desiredTone: z.string().optional(),
   additionalDetails: z.string().optional(),
@@ -54,6 +56,7 @@ export function CharacterCreationForm() {
   const { toast } = useToast();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isGeneratingPortrait, startPortraitTransition] = useTransition();
   const [classes, setClasses] = useState<Class[]>([]);
 
   useEffect(() => {
@@ -75,8 +78,11 @@ export function CharacterCreationForm() {
       backgroundStory: '',
       desiredTone: '',
       additionalDetails: '',
+      avatar: '',
     },
   });
+
+  const avatarUrl = form.watch('avatar');
 
   const handleGenerateBackground = () => {
     startTransition(async () => {
@@ -107,6 +113,43 @@ export function CharacterCreationForm() {
       }
     });
   };
+  
+  const handleGeneratePortrait = () => {
+    startPortraitTransition(async () => {
+      const formData = new FormData();
+      const backstory = form.getValues('backgroundStory');
+      if (!backstory) {
+        toast({
+          variant: 'destructive',
+          title: 'Generation Failed',
+          description: 'Please generate or write a background story first to provide context for the portrait.',
+        });
+        return;
+      }
+      formData.append('characterRace', form.getValues('characterRace'));
+      const [className] = (form.getValues('characterClass') || ':').split(':');
+      formData.append('characterClass', className);
+      formData.append('characterDescription', backstory);
+
+      const result = await generatePortraitAction(formData);
+
+      if (result.success && result.imageUrl) {
+        form.setValue('avatar', result.imageUrl);
+        toast({
+          title: 'Portrait Generated!',
+          description: "Your character's portrait is ready.",
+        });
+      } else {
+        const errorMsg = result.error?._form?.[0] ?? 'An unknown error occurred.';
+        toast({
+          variant: 'destructive',
+          title: 'Generation Failed',
+          description: errorMsg,
+        });
+      }
+    });
+  };
+
 
   function onSubmit(values: z.infer<typeof characterFormSchema>) {
     try {
@@ -127,7 +170,7 @@ export function CharacterCreationForm() {
             className: className,
             subclass: subclass,
             level: 1,
-            avatar: `https://placehold.co/100x100.png`,
+            avatar: values.avatar || `https://placehold.co/100x100.png`,
             backgroundStory: values.backgroundStory || '',
             stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
             hp: 10,
@@ -172,7 +215,40 @@ export function CharacterCreationForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-8 items-start">
+            <div className="md:col-span-1 space-y-4">
+              <FormLabel>Character Portrait</FormLabel>
+              <Avatar className="w-full h-auto aspect-square rounded-lg border">
+                <AvatarImage src={avatarUrl} className="object-cover" data-ai-hint="fantasy character" />
+                <AvatarFallback className="rounded-lg">
+                  <div className="w-full h-full bg-muted flex items-center justify-center">
+                    <User className="w-16 h-16 text-muted-foreground" />
+                  </div>
+                </AvatarFallback>
+              </Avatar>
+
+              <FormField
+                control={form.control}
+                name="avatar"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="sr-only">Avatar URL</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Paste image URL..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button type="button" onClick={handleGeneratePortrait} disabled={isGeneratingPortrait || isPending} variant="outline" className="w-full">
+                {isGeneratingPortrait ? 'Generating Portrait...' : <><Sparkles className="mr-2 h-4 w-4" /> Generate Portrait</>}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Tip: Generate a background story first for a better portrait result.
+              </p>
+            </div>
+          <div className="md:col-span-2 space-y-6">
             <FormField
               control={form.control}
               name="characterName"
@@ -235,6 +311,7 @@ export function CharacterCreationForm() {
                 </FormItem>
               )}
             />
+          </div>
         </div>
 
         <div className="space-y-4 rounded-lg border p-4">
@@ -270,8 +347,8 @@ export function CharacterCreationForm() {
                   )}
                 />
             </div>
-            <Button type="button" onClick={handleGenerateBackground} disabled={isPending} variant="outline" className="w-full md:w-auto">
-              {isPending ? 'Generating...' : <><Sparkles className="mr-2 h-4 w-4" /> Generate Background</>}
+            <Button type="button" onClick={handleGenerateBackground} disabled={isPending || isGeneratingPortrait} variant="outline" className="w-full md:w-auto">
+              {isPending ? 'Generating Background...' : <><Sparkles className="mr-2 h-4 w-4" /> Generate Background</>}
             </Button>
         </div>
 
