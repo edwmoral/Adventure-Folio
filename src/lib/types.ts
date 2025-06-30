@@ -1,4 +1,6 @@
 
+// --- Base & Container Types ---
+
 export type Token = {
   id: string;
   imageUrl: string;
@@ -42,20 +44,6 @@ export type Campaign = {
   scenes: Scene[];
 };
 
-export type Class = {
-  name: string;
-  subclass: string;
-  hit_die: string;
-  primary_ability: string;
-  saving_throws: string[];
-  skills: string[];
-  spellcasting_type?: 'prepared' | 'known' | 'none';
-  levels: {
-      level: number;
-      features: string[];
-    }[];
-};
-
 export type PlayerCharacter = {
   id: string;
   name: string;
@@ -88,64 +76,6 @@ export type Skill = {
   description: string;
 };
 
-export type Feat = {
-  name: string;
-  prerequisites: string[];
-  description: string;
-  effects: string[];
-};
-
-export type Item = {
-  name: string;
-  type: string;
-  rarity: string;
-  weight: number;
-  properties: string[];
-  description: string;
-  damage?: string;
-  damage_type?: string;
-  effect?: string;
-};
-
-export type Background = {
-  name: string;
-  description: string;
-  skill_proficiencies: string[];
-  tool_proficiencies: string[];
-  equipment: string[];
-  features: string[];
-  personality_traits: string[];
-  ideals: string[];
-  bonds: string[];
-  flaws: string[];
-};
-
-export type Spell = {
-  name: string;
-  level: number;
-  school: string;
-  casting_time: string;
-  range: string;
-  duration: string;
-  components: string[];
-  material?: string;
-  description: string;
-  classes: string[];
-  damage?: {
-    type: string;
-    base: string;
-    scaling?: string;
-  };
-  area_of_effect?: {
-    type: string;
-    size: number;
-  };
-  save?: {
-    type: string;
-    effect: string;
-  };
-};
-
 export type Action = {
   name: string;
   type: string;
@@ -158,26 +88,139 @@ export type Action = {
   effects?: string;
 };
 
-export type Enemy = {
-  id: string;
-  name: string;
-  type: string;
-  alignment: string;
-  challenge_rating: string;
-  hit_points: number;
-  mp?: number;
-  armor_class: number;
-  speed: string;
-  str: number;
-  dex: number;
-  con: number;
-  int: number;
-  wis: number;
-  cha: number;
-  senses: string;
-  languages: string;
-  traits: string;
-  actions: string;
-  description: string;
-  tokenImageUrl?: string;
+
+// --- Refactored Types (New Schema) ---
+
+export type Modifier = {
+    category: string;
+    value: string;
+};
+
+export type Item = {
+    name: string;
+    type?: string;
+    weight?: number;
+    text?: string;
+    value?: string;
+    roll?: string;
+    ac?: number;
+    strength?: string;
+    stealth?: boolean;
+    dmg1?: string;
+    dmg2?: string;
+    dmgType?: string;
+    property?: string[];
+    range?: string;
+    magic?: boolean;
+    detail?: string;
+    modifier?: Modifier[];
+};
+
+export type RaceTrait = {
+    name: string;
+    text: string;
+    special?: string;
+    modifier?: Modifier[];
+};
+
+export type Race = {
+    name: string;
+    size?: string;
+    speed?: number;
+    ability?: string;
+    spellAbility?: string;
+    proficiency?: string[];
+    trait: RaceTrait[];
+};
+
+export type ClassFeature = {
+    name: string;
+    text: string;
+};
+
+export type ClassAutolevel = {
+    level: number;
+    feature?: ClassFeature[];
+    counterValue?: number;
+    counterReset?: 'long rest' | 'short rest';
+    slots?: string;
+};
+
+export type Class = {
+    name: string;
+    hd: number;
+    numSkills?: number;
+    armor?: string[];
+    weapons?: string[];
+    tools?: string[];
+    wealth?: string;
+    autolevel: ClassAutolevel[];
+    slotsReset?: 'long rest' | 'short rest';
+};
+
+export type Feat = {
+    name: string;
+    text: string;
+    prerequisite?: string;
+    modifier?: Modifier[];
+};
+
+export type Background = {
+    name: string;
+    text: string;
+    proficiency?: string[];
+    trait?: RaceTrait[];
+};
+
+export type Spell = {
+    name: string;
+    text: string;
+    level: number;
+    school?: string;
+    ritual?: boolean;
+    time?: string;
+    range?: string;
+    components?: string;
+    duration?: string;
+    classes?: string;
+};
+
+export type MonsterAction = {
+    name: string;
+    text: string;
+    attack?: string;
+};
+
+export type Monster = {
+    name: string;
+    size?: string;
+    type?: string;
+    alignment?: string;
+    ac?: string;
+    hp?: string;
+    speed?: string;
+    str?: number;
+    dex?: number;
+    con?: number;
+    int?: number;
+    wis?: number;
+    cha?: number;
+    save?: string;
+    skill?: string;
+    resist?: string[];
+    vulnerable?: string[];
+    immune?: string[];
+    conditionImmune?: string[];
+    senses?: string;
+    passive?: number;
+    languages?: string;
+    cr?: string;
+    trait?: MonsterAction[];
+    action?: MonsterAction[];
+    legendary?: MonsterAction[];
+    reaction?: MonsterAction[];
+    spells?: string;
+    slots?: string;
+    environment?: string;
+    tokenImageUrl?: string;
 };
