@@ -19,6 +19,7 @@ export type Scene = {
   background_map_url: string;
   tokens: Token[];
   is_active: boolean;
+  description?: string;
 };
 
 export type Character = {

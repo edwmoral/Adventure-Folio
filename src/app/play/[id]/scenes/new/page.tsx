@@ -110,6 +110,7 @@ export default function NewScenePage() {
             background_map_url: backgroundUrl || `https://placehold.co/1920x1080.png`,
             tokens: initialTokens,
             is_active: currentCampaign.scenes.length === 0, // First scene is active
+            description: mapDescription,
         };
 
         currentCampaign.scenes.push(newScene);

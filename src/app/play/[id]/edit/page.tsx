@@ -449,6 +449,10 @@ export default function EditCampaignPage() {
                                     </AccordionTrigger>
                                     <AccordionContent className="px-4 pb-4">
                                         <div className="space-y-4">
+                                            {scene.description && (
+                                                <p className="text-sm text-muted-foreground italic">"{scene.description}"</p>
+                                            )}
+
                                             {/* Scene Actions */}
                                             <div className="flex items-center gap-2">
                                                 {!scene.is_active && (
