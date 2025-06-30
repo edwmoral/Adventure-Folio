@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { ActionPanel } from "@/components/action-panel";
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
+const STORAGE_KEY_MAPS = 'dnd_scene_maps';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 const STORAGE_KEY_ENEMIES = 'dnd_enemies';
 const STORAGE_KEY_ACTIONS = 'dnd_actions';
@@ -90,6 +91,28 @@ export default function MapViewPage() {
                 localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
             }
             
+            // Resolve map URL if it's a reference
+            if (activeScene) {
+                const mapUrl = activeScene.background_map_url;
+                if (mapUrl.startsWith('map_')) {
+                    try {
+                        const mapsJSON = localStorage.getItem(STORAGE_KEY_MAPS);
+                        const maps = mapsJSON ? JSON.parse(mapsJSON) : {};
+                        if (maps[mapUrl]) {
+                            activeScene.background_map_url = maps[mapUrl];
+                        } else {
+                            // Fallback if map data is missing
+                            activeScene.background_map_url = 'https://placehold.co/1200x800.png';
+                            toast({ variant: "destructive", title: "Map Missing", description: "The map image for this scene could not be found." });
+                        }
+                    } catch (e) {
+                        console.error("Failed to load scene map:", e);
+                        activeScene.background_map_url = 'https://placehold.co/1200x800.png';
+                        toast({ variant: "destructive", title: "Map Load Error", description: "There was an error loading the map image." });
+                    }
+                }
+            }
+
             setCampaign(currentCampaign);
             setScene(activeScene || null);
 

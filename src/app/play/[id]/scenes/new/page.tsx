@@ -17,7 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { generateMapAction } from "./actions";
 
 
-const STORAGE_KEY = 'dnd_campaigns';
+const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
+const STORAGE_KEY_MAPS = 'dnd_scene_maps';
 
 
 export default function NewScenePage() {
@@ -35,7 +36,7 @@ export default function NewScenePage() {
 
   useEffect(() => {
     try {
-        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+        const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
         if (storedCampaigns) {
             const campaigns: Campaign[] = JSON.parse(storedCampaigns);
             const currentCampaign = campaigns.find(c => c.id === id);
@@ -76,7 +77,7 @@ export default function NewScenePage() {
     }
 
     try {
-        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+        const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
         if (!storedCampaigns) {
             toast({ variant: 'destructive', title: 'Error', description: 'Campaign data not found.' });
             return;
@@ -96,7 +97,6 @@ export default function NewScenePage() {
             currentCampaign.scenes = [];
         }
 
-        // Create tokens for all existing characters in the campaign.
         const initialTokens: Token[] = currentCampaign.characters.map(character => ({
             id: `token-${Date.now()}-${character.id}`,
             name: character.name,
@@ -106,29 +106,58 @@ export default function NewScenePage() {
             position: { x: 10 + Math.floor(Math.random() * 20), y: 10 + Math.floor(Math.random() * 20) }
         }));
         
+        let finalBackgroundUrl = backgroundUrl || `https://placehold.co/1920x1080.png`;
+
+        if (backgroundUrl && backgroundUrl.startsWith('data:image')) {
+            const mapId = `map_${Date.now()}`;
+            try {
+                const storedMapsJSON = localStorage.getItem(STORAGE_KEY_MAPS);
+                const sceneMaps = storedMapsJSON ? JSON.parse(storedMapsJSON) : {};
+                sceneMaps[mapId] = backgroundUrl;
+                localStorage.setItem(STORAGE_KEY_MAPS, JSON.stringify(sceneMaps));
+                finalBackgroundUrl = mapId;
+            } catch(e) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Storage Limit Reached',
+                    description: 'Could not save map image. Try deleting old campaigns or scenes.',
+                    duration: 10000,
+                });
+                return;
+            }
+        }
+        
         const newScene: Scene = {
             id: `scene-${Date.now()}`,
             name: sceneName,
             width: width || 30,
             height: height || 20,
-            background_map_url: backgroundUrl || `https://placehold.co/1920x1080.png`,
+            background_map_url: finalBackgroundUrl,
             tokens: initialTokens,
-            is_active: currentCampaign.scenes.length === 0, // First scene is active
+            is_active: currentCampaign.scenes.length === 0,
             description: mapDescription,
         };
 
         currentCampaign.scenes.push(newScene);
-
         campaigns[campaignIndex] = currentCampaign;
         
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(campaigns));
+        localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
 
         toast({ title: "Scene Created!", description: "Your new scene has been added to the campaign." });
         router.push(`/play/${id}/edit`);
 
     } catch (error) {
-        console.error("Failed to create scene:", error);
-        toast({ variant: "destructive", title: "Creation Failed", description: "Could not create the new scene." });
+        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+             toast({
+                variant: 'destructive',
+                title: 'Storage Limit Reached',
+                description: 'Your browser storage is full. Please remove old campaigns or scenes to free up space.',
+                duration: 10000,
+            });
+        } else {
+            console.error("Failed to create scene:", error);
+            toast({ variant: "destructive", title: "Creation Failed", description: "Could not create the new scene." });
+        }
     }
   }
 
