@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ZoomIn, ZoomOut, Grid, Maximize, Minimize, Swords, ShieldCross } from "lucide-react";
+import { ArrowLeft, ZoomIn, ZoomOut, Grid, Maximize, Minimize, Swords, ShieldClose } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -605,7 +605,7 @@ export default function MapViewPage() {
                     ) : (
                         <>
                             <Button size="lg" variant="destructive" onClick={handleEndCombat}>
-                                <ShieldCross className="mr-2" />
+                                <ShieldClose className="mr-2" />
                                 End Combat
                             </Button>
                             <Button size="lg" onClick={handleEndTurn}>
