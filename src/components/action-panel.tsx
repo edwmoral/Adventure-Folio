@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import { Heart, Shield, Swords, Run } from 'lucide-react';
+import { Heart, Shield, Swords, Footprints } from 'lucide-react';
 import type { PlayerCharacter, Enemy, Token, Action } from '@/lib/types';
 import { Progress } from './ui/progress';
 
@@ -123,7 +123,7 @@ export function ActionPanel({
             <div className="grid grid-cols-3 gap-2">
                 <StatDisplay icon={<Shield />} label="Armor Class" value={ac || 'N/A'} />
                 <StatDisplay icon={<Swords />} label="Initiative" value={isPlayer && character.stats ? `+${Math.floor((character.stats.dex - 10) / 2)}` : 'N/A'} />
-                <StatDisplay icon={<Run />} label="Speed" value={speed || 'N/A'} />
+                <StatDisplay icon={<Footprints />} label="Speed" value={speed || 'N/A'} />
             </div>
             
             <Separator />
