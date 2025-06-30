@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Trash2, Star } from 'lucide-react';
+import { ArrowLeft, Trash2, Star, Users, Shield, ChevronDown } from 'lucide-react';
 
 import type { Campaign, Character, Scene, Token, PlayerCharacter, Enemy } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 
 const STORAGE_KEY = 'dnd_campaigns';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
@@ -48,8 +54,6 @@ export default function EditCampaignPage() {
   const [allEnemies, setAllEnemies] = useState<Enemy[]>([]);
   const [characterToAdd, setCharacterToAdd] = useState<string>('');
   const [enemyToAdd, setEnemyToAdd] = useState<string>('');
-  const [sceneToDelete, setSceneToDelete] = useState<string | null>(null);
-  const [isDeleteSceneDialogOpen, setIsDeleteSceneDialogOpen] = useState(false);
   
   useEffect(() => {
     try {
@@ -228,20 +232,18 @@ export default function EditCampaignPage() {
     toast({ title: "Active Scene Changed", description: "The new scene is now active for your next session." });
   };
 
-  const handleDeleteScene = () => {
-    if (!campaign || !sceneToDelete) return;
+  const handleDeleteScene = (sceneId: string) => {
+    if (!campaign) return;
 
     let newCampaign = { ...campaign };
     
     if (newCampaign.scenes.length <= 1) {
         toast({ variant: "destructive", title: "Cannot Delete", description: "A campaign must have at least one scene." });
-        setSceneToDelete(null);
-        setIsDeleteSceneDialogOpen(false);
         return;
     }
 
-    const deletedScene = newCampaign.scenes.find(s => s.id === sceneToDelete);
-    newCampaign.scenes = newCampaign.scenes.filter(s => s.id !== sceneToDelete);
+    const deletedScene = newCampaign.scenes.find(s => s.id === sceneId);
+    newCampaign.scenes = newCampaign.scenes.filter(s => s.id !== sceneId);
 
     if (deletedScene?.is_active && newCampaign.scenes.length > 0) {
         newCampaign.scenes[0].is_active = true;
@@ -249,8 +251,41 @@ export default function EditCampaignPage() {
     
     setCampaign(newCampaign);
     toast({ title: "Scene Deleted", description: "The scene has been removed from the campaign." });
-    setSceneToDelete(null);
-    setIsDeleteSceneDialogOpen(false);
+  };
+
+  const handleRemoveEnemyFromScene = (sceneId: string, tokenId: string) => {
+    if (!campaign) return;
+
+    const updatedCampaign = {
+      ...campaign,
+      scenes: campaign.scenes.map((s) =>
+        s.id === sceneId
+          ? { ...s, tokens: s.tokens.filter((t) => t.id !== tokenId) }
+          : s
+      ),
+    };
+
+    try {
+      const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+      const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
+      const updatedCampaignsList = campaigns.map((c) =>
+        c.id === updatedCampaign.id ? updatedCampaign : c
+      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaignsList));
+
+      setCampaign(updatedCampaign);
+      toast({
+        title: 'Enemy Removed',
+        description: 'The enemy has been removed from the scene.',
+      });
+    } catch (error) {
+      console.error('Failed to remove enemy:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Remove Failed',
+        description: 'Could not remove the enemy from the scene.',
+      });
+    }
   };
 
 
@@ -350,47 +385,70 @@ export default function EditCampaignPage() {
         <div className="space-y-8 lg:col-span-2">
             <Card>
                 <CardHeader>
-                    <CardTitle>Manage Scenes</CardTitle>
-                    <CardDescription>Organize the maps and encounters for your campaign.</CardDescription>
+                    <CardTitle>Manage Scenes & Encounters</CardTitle>
+                    <CardDescription>Organize maps and the enemies within them.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <div className="space-y-2">
-                        {campaign.scenes.map(scene => (
-                            <div key={scene.id} className="flex items-center justify-between p-2 pl-3 rounded-md border">
-                               <div>
-                                 <p className="font-medium">{scene.name}</p>
-                                 {scene.is_active && <span className="text-xs font-bold text-primary flex items-center gap-1"><Star className="h-3 w-3" />ACTIVE</span>}
-                               </div>
-                                <div className="flex items-center">
-                                    {!scene.is_active && (
-                                        <Button variant="outline" size="sm" onClick={() => handleSetSceneActive(scene.id)}>Set Active</Button>
-                                    )}
-                                    <AlertDialog open={isDeleteSceneDialogOpen && sceneToDelete === scene.id} onOpenChange={(open) => {
-                                        if (!open) setSceneToDelete(null);
-                                        setIsDeleteSceneDialogOpen(open);
-                                    }}>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="ml-1" onClick={() => setSceneToDelete(scene.id)}>
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    This action cannot be undone. This will permanently delete the scene and all its tokens.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={handleDeleteScene}>Delete</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                            </div>
-                        ))}
-                     </div>
+                     <Accordion type="multiple" className="w-full space-y-2">
+                         {campaign.scenes.map(scene => {
+                             const enemyTokens = scene.tokens.filter(t => t.type === 'monster');
+                             return (
+                                <AccordionItem value={scene.id} key={scene.id} className="border rounded-md data-[state=closed]:border-border data-[state=open]:border-primary/50">
+                                    <AccordionTrigger className="p-3 hover:no-underline">
+                                        <div className="flex items-center justify-between w-full">
+                                            <div className="text-left">
+                                                <p className="font-medium">{scene.name}</p>
+                                                {scene.is_active && <span className="text-xs font-bold text-primary flex items-center gap-1"><Star className="h-3 w-3" />ACTIVE</span>}
+                                            </div>
+                                            <div className="flex items-center">
+                                                {!scene.is_active && (
+                                                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleSetSceneActive(scene.id); }}>Set Active</Button>
+                                                )}
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="ml-1" onClick={(e) => {e.stopPropagation();}}>
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                This action cannot be undone. This will permanently delete the scene '{scene.name}' and all its tokens.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteScene(scene.id)}>Delete</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-3">
+                                        <div className="pt-2 border-t">
+                                            <h4 className="mb-2 font-semibold text-sm text-muted-foreground flex items-center gap-2"><Shield className="h-4 w-4"/>Enemies in this scene:</h4>
+                                            {enemyTokens.length > 0 ? (
+                                                <div className="space-y-1">
+                                                    {enemyTokens.map(token => (
+                                                        <div key={token.id} className="flex items-center justify-between text-sm p-1 rounded-md hover:bg-muted/50">
+                                                            <span>{token.name}</span>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveEnemyFromScene(scene.id, token.id)}>
+                                                                <Trash2 className="h-3 w-3 text-destructive" />
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-center text-muted-foreground py-2">No enemies in this scene.</p>
+                                            )}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                             );
+                         })}
+                     </Accordion>
                      <Button asChild variant="outline" className="w-full mt-4">
                         <Link href={`/play/${id}/scenes/new`}>Add New Scene</Link>
                      </Button>
@@ -399,8 +457,8 @@ export default function EditCampaignPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Manage Enemies</CardTitle>
-                    <CardDescription>Add enemies from your bestiary to the active scene.</CardDescription>
+                    <CardTitle>Add Enemies to Active Scene</CardTitle>
+                    <CardDescription>Add enemies from your bestiary to the scene marked 'ACTIVE'.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
@@ -420,7 +478,6 @@ export default function EditCampaignPage() {
                             </Select>
                             <Button onClick={handleAddEnemyToScene} disabled={!enemyToAdd}>Add to Scene</Button>
                         </div>
-                        <p className="text-sm text-muted-foreground">Enemies will be added as tokens to the currently active scene.</p>
                     </div>
                 </CardContent>
             </Card>
