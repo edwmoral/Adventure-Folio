@@ -6,7 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Trash2, Star } from 'lucide-react';
 
-import type { Campaign, Character, Scene, Token } from '@/lib/types';
+import type { Campaign, Character, Scene, Token, PlayerCharacter } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,18 +33,8 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const STORAGE_KEY = 'dnd_campaigns';
+const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 
-// Mock list of all characters a user might have
-const MOCK_AVAILABLE_CHARACTERS: Character[] = [
-    { id: 'char1', name: 'Eldrin', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png', class: 'Ranger', level: 5 },
-    { id: 'char2', name: 'Lyra', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png', class: 'Wizard', level: 4 },
-    { id: 'char3', name: 'Borg', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png', class: 'Fighter', level: 6 },
-    { id: 'char4', name: 'Gandalf', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png', class: 'Wizard', level: 20 },
-    { id: 'char5', name: 'Bilbo', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png', class: 'Rogue', level: 8 },
-    { id: 'char6', name: 'Frodo', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png', class: 'Rogue', level: 2 },
-    { id: 'char7', name: 'Sam', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png', class: 'Gardener', level: 3 },
-    { id: 'char8', name: 'Pippin', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png', class: 'Fool of a Took', level: 2 },
-];
 
 export default function EditCampaignPage() {
   const params = useParams();
@@ -52,6 +42,7 @@ export default function EditCampaignPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [allPlayerCharacters, setAllPlayerCharacters] = useState<Character[]>([]);
   const [characterToAdd, setCharacterToAdd] = useState<string>('');
   const [sceneToDelete, setSceneToDelete] = useState<string | null>(null);
   
@@ -63,20 +54,33 @@ export default function EditCampaignPage() {
             const currentCampaign = campaigns.find(c => c.id === id);
             
             if (currentCampaign) {
-                // Ensure scenes array exists to prevent runtime errors with legacy data
                 if (!currentCampaign.scenes) {
                     currentCampaign.scenes = [];
                 }
             }
-
             setCampaign(currentCampaign || null);
         }
+
+        const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
+        if (storedCharacters) {
+            const playerCharacters: PlayerCharacter[] = JSON.parse(storedCharacters);
+            const charactersForCampaign: Character[] = playerCharacters.map(pc => ({
+                id: pc.id,
+                name: pc.name,
+                avatarUrl: pc.avatar,
+                class: pc.className,
+                level: pc.level,
+                tokenImageUrl: `https://placehold.co/48x48.png`
+            }));
+            setAllPlayerCharacters(charactersForCampaign);
+        }
+
     } catch (error) {
         console.error("Failed to load campaign from localStorage", error);
     }
   }, [id]);
 
-  const availableCharacters = MOCK_AVAILABLE_CHARACTERS.filter(
+  const availableCharacters = allPlayerCharacters.filter(
     (char) => !campaign?.characters.some((c) => c.id === char.id)
   );
 
@@ -113,7 +117,7 @@ export default function EditCampaignPage() {
   const handleAddCharacter = () => {
     if (!characterToAdd || !campaign) return;
     
-    const character = MOCK_AVAILABLE_CHARACTERS.find(c => c.id === characterToAdd);
+    const character = allPlayerCharacters.find(c => c.id === characterToAdd);
     if (!character) return;
     
     const newCampaign = { ...campaign };

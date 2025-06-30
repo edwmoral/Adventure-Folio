@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Book, Heart, Shield, Swords, ArrowUp, UserPlus, Sparkles, Target } from "lucide-react"
+import { Book, Heart, Shield, Swords, ArrowUp, UserPlus, Sparkles, Target, Users } from "lucide-react"
 import type { PlayerCharacter, Class, Action, Spell, Skill } from "@/lib/types";
 import { 
   AlertDialog, 
@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 const StatCard = ({ name, value, modifier }: { name: string, value: string, modifier: string }) => (
     <div className="flex flex-col items-center justify-center p-4 bg-card-foreground/5 rounded-lg">
@@ -41,6 +43,7 @@ const STORAGE_KEY_SPELLS = 'dnd_spells';
 const STORAGE_KEY_SKILLS = 'dnd_skills';
 
 export default function CharacterSheetPage() {
+    const [allPlayerCharacters, setAllPlayerCharacters] = useState<PlayerCharacter[]>([]);
     const [character, setCharacter] = useState<PlayerCharacter | null>(null);
     const [allClasses, setAllClasses] = useState<Class[]>([]);
     const [characterFeatures, setCharacterFeatures] = useState<{name: string, description: string}[]>([]);
@@ -60,8 +63,8 @@ export default function CharacterSheetPage() {
             const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
             if (storedCharacters) {
                 const playerCharacters: PlayerCharacter[] = JSON.parse(storedCharacters);
+                setAllPlayerCharacters(playerCharacters);
                 if (playerCharacters.length > 0) {
-                    // For now, load the first character
                     setCharacter(playerCharacters[0]);
                 }
             }
@@ -149,14 +152,12 @@ export default function CharacterSheetPage() {
         };
 
         try {
-            const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
-            const playerCharacters: PlayerCharacter[] = storedCharacters ? JSON.parse(storedCharacters) : [];
-            const characterIndex = playerCharacters.findIndex(c => c.id === character.id);
-            
-            if (characterIndex !== -1) {
-                playerCharacters[characterIndex] = updatedCharacter;
-                localStorage.setItem(STORAGE_KEY_PLAYER_CHARACTERS, JSON.stringify(playerCharacters));
-            }
+            // Find and update the character in the full list
+            const updatedAllCharacters = allPlayerCharacters.map(pc => 
+                pc.id === character.id ? updatedCharacter : pc
+            );
+            setAllPlayerCharacters(updatedAllCharacters);
+            localStorage.setItem(STORAGE_KEY_PLAYER_CHARACTERS, JSON.stringify(updatedAllCharacters));
         } catch (error) {
             console.error("Failed to save level-up changes", error);
             toast({ variant: "destructive", title: "Save Failed", description: "Could not save level-up progress." });
@@ -167,8 +168,15 @@ export default function CharacterSheetPage() {
         setLevelUpDialogOpen(false);
         setLevelUpSummaryOpen(true);
     };
+    
+    const handleCharacterChange = (characterId: string) => {
+        const selected = allPlayerCharacters.find(c => c.id === characterId);
+        if (selected) {
+            setCharacter(selected);
+        }
+    };
 
-    if (!character) {
+    if (allPlayerCharacters.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center text-center h-full">
                 <Card className="max-w-md w-full">
@@ -187,6 +195,10 @@ export default function CharacterSheetPage() {
                 </Card>
             </div>
         )
+    }
+
+    if (!character) {
+        return <div className="text-center">Loading character...</div>;
     }
 
     const proficiencyBonus = getProficiencyBonus(character.level);
@@ -233,6 +245,31 @@ export default function CharacterSheetPage() {
     return (
         <TooltipProvider>
             <div className="max-w-7xl mx-auto space-y-8">
+                {/* Header with Character Switcher */}
+                {allPlayerCharacters.length > 1 && (
+                    <Card>
+                        <CardContent className="p-4 flex items-center gap-4">
+                            <Users className="h-5 w-5 text-muted-foreground" />
+                            <Label htmlFor="character-switcher" className="font-semibold">Switch Character:</Label>
+                            <Select
+                                value={character.id}
+                                onValueChange={handleCharacterChange}
+                            >
+                                <SelectTrigger id="character-switcher" className="w-[250px]">
+                                    <SelectValue placeholder="Select a character..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {allPlayerCharacters.map(pc => (
+                                        <SelectItem key={pc.id} value={pc.id}>
+                                            {pc.name} - Lvl {pc.level} {pc.className}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {/* Header */}
                 <div className="flex flex-col md:flex-row gap-6 items-start">
                     <Avatar className="w-24 h-24 border-4 border-primary">
@@ -451,5 +488,3 @@ export default function CharacterSheetPage() {
         </TooltipProvider>
     );
 }
-
-    
