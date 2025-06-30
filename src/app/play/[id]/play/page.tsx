@@ -22,6 +22,14 @@ const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 const STORAGE_KEY_ENEMIES = 'dnd_enemies';
 const STORAGE_KEY_ACTIONS = 'dnd_actions';
 
+type Combatant = Token & {
+    initiative: number;
+    speed: number;
+    movementRemaining: number;
+    hasAction: boolean;
+    hasBonusAction: boolean;
+};
+
 export default function MapViewPage() {
     const params = useParams();
     const id = params.id as string;
@@ -37,6 +45,7 @@ export default function MapViewPage() {
     const mapInteractionRef = useRef<HTMLDivElement>(null);
     const fullscreenContainerRef = useRef<HTMLDivElement>(null);
     const [draggedToken, setDraggedToken] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+    const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
     
     const [selectedToken, setSelectedToken] = useState<Token | null>(null);
     const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
@@ -50,7 +59,7 @@ export default function MapViewPage() {
 
     // Combat State
     const [isInCombat, setIsInCombat] = useState(false);
-    const [turnOrder, setTurnOrder] = useState<(Token & { initiative: number })[]>([]);
+    const [turnOrder, setTurnOrder] = useState<Combatant[]>([]);
     const [activeTokenIndex, setActiveTokenIndex] = useState(0);
     const [roundNumber, setRoundNumber] = useState(1);
 
@@ -172,7 +181,7 @@ export default function MapViewPage() {
     const handleStartCombat = () => {
         if (!scene) return;
 
-        const combatants = scene.tokens.map(token => {
+        const combatants: Combatant[] = scene.tokens.map(token => {
             const isPlayer = token.type === 'character';
             const characterData = isPlayer ? allPlayerCharacters.find(pc => pc.id === token.linked_character_id) : null;
             const enemyData = !isPlayer ? allEnemies.find(e => e.id === token.linked_enemy_id) : null;
@@ -180,8 +189,16 @@ export default function MapViewPage() {
             const dex = (isPlayer ? characterData?.stats.dex : enemyData?.dex) || 10;
             const dexMod = Math.floor((dex - 10) / 2);
             const initiative = Math.floor(Math.random() * 20) + 1 + dexMod;
+            const speedInFt = isPlayer ? 30 : (enemyData?.speed.match(/\d+/)?.[0] || 30);
 
-            return { ...token, initiative };
+            return { 
+                ...token, 
+                initiative,
+                speed: Number(speedInFt),
+                movementRemaining: Number(speedInFt),
+                hasAction: true,
+                hasBonusAction: true,
+            };
         });
 
         combatants.sort((a, b) => b.initiative - a.initiative);
@@ -211,8 +228,22 @@ export default function MapViewPage() {
             toast({ title: `Round ${newRoundNumber}`, description: "A new round has begun."});
         }
         
+        // Reset the next combatant's turn state
+        const newTurnOrder = turnOrder.map((c, i) => {
+            if (i === finalIndex) {
+                return {
+                    ...c,
+                    movementRemaining: c.speed,
+                    hasAction: true,
+                    hasBonusAction: true,
+                };
+            }
+            return c;
+        });
+        setTurnOrder(newTurnOrder);
+        
         setActiveTokenIndex(finalIndex);
-        setSelectedToken(turnOrder[finalIndex]);
+        setSelectedToken(newTurnOrder[finalIndex]);
         setIsActionPanelOpen(true);
     };
 
@@ -230,7 +261,6 @@ export default function MapViewPage() {
     };
 
     const handleTokenMouseDown = (e: React.MouseEvent<HTMLDivElement>, tokenId: string) => {
-        // Only drag with left click
         if (e.button !== 0) return;
 
         if (isInCombat && tokenId !== turnOrder[activeTokenIndex]?.id) {
@@ -244,17 +274,16 @@ export default function MapViewPage() {
         const tokenElement = e.currentTarget;
         const rect = tokenElement.getBoundingClientRect();
         
-        // Offset from the center of the token in screen pixels
         const tokenCenterX = rect.left + rect.width / 2;
         const tokenCenterY = rect.top + rect.height / 2;
         const offsetX = e.clientX - tokenCenterX;
         const offsetY = e.clientY - tokenCenterY;
         
+        setDragStartPos(scene?.tokens.find(t => t.id === tokenId)?.position || null);
         setDraggedToken({ id: tokenId, offsetX, offsetY });
     };
 
     const handleInteractionMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-        // Pan with right click
         if (e.button === 2) {
             e.preventDefault();
             setIsPanning(true);
@@ -293,17 +322,12 @@ export default function MapViewPage() {
             let newXPercent = (newX / mapInteractionRef.current.offsetWidth) * 100;
             let newYPercent = (newY / mapInteractionRef.current.offsetHeight) * 100;
 
-            // --- SNAPPING LOGIC ---
             const cellWidthPercent = 100 / (scene.width || 30);
             const cellHeightPercent = 100 / (scene.height || 20);
-
             const halfCellWidth = cellWidthPercent / 2;
             const halfCellHeight = cellHeightPercent / 2;
-
-            // Find the nearest half-cell multiple for snapping
             newXPercent = Math.round(newXPercent / halfCellWidth) * halfCellWidth;
             newYPercent = Math.round(newYPercent / halfCellHeight) * halfCellHeight;
-            // --- END SNAPPING LOGIC ---
             
             newXPercent = Math.max(0, Math.min(100, newXPercent));
             newYPercent = Math.max(0, Math.min(100, newYPercent));
@@ -323,15 +347,41 @@ export default function MapViewPage() {
     };
     
     const handleInteractionMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (draggedToken && e.button === 0) {
-            if (scene) {
-                saveCampaignChanges(scene);
-            }
-            setDraggedToken(null);
-        }
-        
         if (isPanning && e.button === 2) {
             setIsPanning(false);
+        }
+
+        if (draggedToken && e.button === 0 && scene && dragStartPos) {
+            const finalToken = scene.tokens.find(t => t.id === draggedToken.id);
+            if (!finalToken) return;
+
+            const cellWidthPercent = 100 / (scene.width || 30);
+            const cellHeightPercent = 100 / (scene.height || 20);
+            
+            const startGridX = Math.floor(dragStartPos.x / cellWidthPercent);
+            const startGridY = Math.floor(dragStartPos.y / cellHeightPercent);
+            const finalGridX = Math.floor(finalToken.position.x / cellWidthPercent);
+            const finalGridY = Math.floor(finalToken.position.y / cellHeightPercent);
+            
+            const distanceMoved = Math.max(Math.abs(finalGridX - startGridX), Math.abs(finalGridY - startGridY)) * 5;
+            
+            const activeCombatant = turnOrder[activeTokenIndex];
+            
+            if (isInCombat && distanceMoved > activeCombatant.movementRemaining) {
+                toast({ variant: 'destructive', title: "Not enough movement!", description: `Cannot move ${distanceMoved}ft.`});
+                setScene(prevScene => {
+                    if (!prevScene) return null;
+                    return { ...prevScene, tokens: prevScene.tokens.map(t => t.id === draggedToken.id ? { ...t, position: dragStartPos } : t) };
+                });
+            } else {
+                if (isInCombat) {
+                    setTurnOrder(prev => prev.map((c, i) => i === activeTokenIndex ? { ...c, movementRemaining: c.movementRemaining - distanceMoved } : c));
+                }
+                saveCampaignChanges(scene);
+            }
+            
+            setDraggedToken(null);
+            setDragStartPos(null);
         }
     };
     
@@ -356,49 +406,46 @@ export default function MapViewPage() {
         setPan({ x: newPanX, y: newPanY });
     };
 
-    const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
-        e.preventDefault();
-    };
-    
+    const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => { e.preventDefault(); };
     const handleZoomIn = () => setZoom(z => Math.min(z * 1.2, 5));
     const handleZoomOut = () => setZoom(z => Math.max(z / 1.2, 0.2));
-
+    const toggleGrid = () => setShowGrid(prev => !prev);
     const toggleFullscreen = () => {
         const element = fullscreenContainerRef.current;
         if (!element) return;
-
         if (!document.fullscreenElement) {
-            element.requestFullscreen().catch(err => {
-                toast({
-                    variant: "destructive",
-                    title: "Fullscreen Error",
-                    description: `Could not enter full-screen mode: ${err.message}`,
-                });
-            });
+            element.requestFullscreen().catch(err => toast({ variant: "destructive", title: "Fullscreen Error", description: `Could not enter full-screen mode: ${err.message}` }));
         } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
+            if (document.exitFullscreen) document.exitFullscreen();
         }
     };
-    
-    const toggleGrid = () => setShowGrid(prev => !prev);
 
     useEffect(() => {
-        const handleFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
-        };
-
+        const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
         document.addEventListener('fullscreenchange', handleFullscreenChange);
-        
-        return () => {
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
-        };
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
-    if (loading) {
-        return <div className="text-center p-8">Loading scene...</div>
-    }
+    const handleUseAction = (type: 'action' | 'bonus') => {
+        setTurnOrder(prev => prev.map((c, i) => {
+            if (i === activeTokenIndex) {
+                return { ...c, hasAction: type === 'action' ? false : c.hasAction, hasBonusAction: type === 'bonus' ? false : c.hasBonusAction };
+            }
+            return c;
+        }));
+    };
+
+    const handleDash = () => {
+        if (!turnOrder[activeTokenIndex]?.hasAction) {
+            toast({ variant: 'destructive', title: 'No Action', description: 'You have already used your action this turn.' });
+            return;
+        }
+        handleUseAction('action');
+        setTurnOrder(prev => prev.map((c, i) => i === activeTokenIndex ? { ...c, movementRemaining: c.movementRemaining + c.speed } : c));
+        toast({ title: 'Dashed!', description: 'You gain extra movement for this turn.' });
+    };
+
+    if (loading) return <div className="text-center p-8">Loading scene...</div>;
 
     if (!scene) {
         return (
@@ -407,189 +454,65 @@ export default function MapViewPage() {
                 <p className="text-muted-foreground">Go to the campaign settings to activate a scene.</p>
                  <Button asChild variant="ghost" className="mt-4">
                     <Link href={`/play/${id}`}>
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Campaign
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Campaign
                     </Link>
                 </Button>
             </div>
-        )
+        );
     }
+
+    const activeCombatant = isInCombat ? turnOrder[activeTokenIndex] : null;
 
     return (
         <TooltipProvider>
-            <div 
-                ref={fullscreenContainerRef} 
-                className="h-[calc(100vh-10rem)] w-full flex flex-col bg-background"
-            >
+            <div ref={fullscreenContainerRef} className="h-[calc(100vh-10rem)] w-full flex flex-col bg-background">
                 {/* Header Controls */}
                 <div className="flex-shrink-0 bg-background/80 backdrop-blur-sm p-2 border-b rounded-t-lg flex items-center justify-between">
                     <div>
                          <Button asChild variant="ghost">
                             <Link href={`/play/${id}`}>
-                                <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back to Campaign
+                                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Campaign
                             </Link>
                         </Button>
                     </div>
                      <h2 className="text-lg font-semibold">Active Scene: {scene.name}</h2>
                     <div className="flex items-center gap-2">
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="outline" size="icon" onClick={handleZoomIn}><ZoomIn /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Zoom In</p>
-                            </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="outline" size="icon" onClick={handleZoomOut}><ZoomOut /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Zoom Out</p>
-                            </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="outline" size="icon" onClick={toggleGrid}><Grid /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Toggle Grid</p>
-                            </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="outline" size="icon" onClick={toggleFullscreen}>
-                                    {isFullscreen ? <Minimize /> : <Maximize />}
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}</p>
-                            </TooltipContent>
-                        </Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" onClick={handleZoomIn}><ZoomIn /></Button></TooltipTrigger><TooltipContent><p>Zoom In</p></TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" onClick={handleZoomOut}><ZoomOut /></Button></TooltipTrigger><TooltipContent><p>Zoom Out</p></TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" onClick={toggleGrid}><Grid /></Button></TooltipTrigger><TooltipContent><p>Toggle Grid</p></TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" onClick={toggleFullscreen}>{isFullscreen ? <Minimize /> : <Maximize />}</Button></TooltipTrigger><TooltipContent><p>{isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}</p></TooltipContent></Tooltip>
                     </div>
                 </div>
 
-                {isInCombat && (
-                    <TurnOrderTracker 
-                        turnOrder={turnOrder}
-                        activeTokenIndex={activeTokenIndex}
-                        roundNumber={roundNumber}
-                    />
-                )}
+                {isInCombat && <TurnOrderTracker turnOrder={turnOrder} activeTokenIndex={activeTokenIndex} roundNumber={roundNumber} />}
                 
-                {/* Map Area */}
-                <div 
-                    ref={mapInteractionRef}
-                    className="flex-grow relative overflow-hidden bg-card-foreground/10 rounded-b-lg select-none"
-                    onMouseDown={handleInteractionMouseDown}
-                    onMouseMove={handleInteractionMouseMove}
-                    onMouseUp={handleInteractionMouseUp}
-                    onMouseLeave={handleInteractionMouseUp}
-                    onWheel={handleWheel}
-                    onContextMenu={handleContextMenu}
-                >
-                    <div
-                        className="absolute top-0 left-0 w-full h-full"
-                        style={{
-                            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                            transformOrigin: '0 0',
-                            cursor: isPanning ? 'grabbing' : 'default',
-                        }}
-                    >
-                        <div
-                            className="relative w-full h-full"
-                            style={{ aspectRatio: `${scene.width || 30}/${scene.height || 20}` }}
-                        >
-                            <Image
-                                src={scene.background_map_url}
-                                alt="Fantasy battle map"
-                                fill
-                                className="object-contain"
-                                data-ai-hint="fantasy map"
-                                draggable="false"
-                            />
-                            
-                            {showGrid && (
-                                <div 
-                                    className="absolute inset-0 pointer-events-none" 
-                                    style={{
-                                        backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`,
-                                        backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.5) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.5) 1px, transparent 1px)',
-                                    }}
-                                />
-                            )}
-
-                            {/* Tokens */}
+                <div ref={mapInteractionRef} className="flex-grow relative overflow-hidden bg-card-foreground/10 rounded-b-lg select-none" onMouseDown={handleInteractionMouseDown} onMouseMove={handleInteractionMouseMove} onMouseUp={handleInteractionMouseUp} onMouseLeave={handleInteractionMouseUp} onWheel={handleWheel} onContextMenu={handleContextMenu}>
+                    <div className="absolute top-0 left-0 w-full h-full" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', cursor: isPanning ? 'grabbing' : 'default' }}>
+                        <div className="relative w-full h-full" style={{ aspectRatio: `${scene.width || 30}/${scene.height || 20}` }}>
+                            <Image src={scene.background_map_url} alt="Fantasy battle map" fill className="object-contain" data-ai-hint="fantasy map" draggable="false" />
+                            {showGrid && <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`, backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.5) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.5) 1px, transparent 1px)' }} />}
                             {scene.tokens.map(token => {
                                 const isPlayer = token.type === 'character';
-                                const playerChar = isPlayer 
-                                    ? allPlayerCharacters.find(pc => pc.id === token.linked_character_id)
-                                    : null;
-
+                                const playerChar = isPlayer ? allPlayerCharacters.find(pc => pc.id === token.linked_character_id) : null;
                                 const enemy = !isPlayer ? allEnemies.find(e => e.id === token.linked_enemy_id) : null;
-                                
                                 const health = isPlayer ? playerChar?.hp : (token.hp ?? enemy?.hit_points);
                                 const maxHealth = isPlayer ? playerChar?.maxHp : (token.maxHp ?? enemy?.hit_points);
                                 const ac = isPlayer ? playerChar?.ac : enemy?.armor_class;
                                 const healthPercent = ((health || 0) / (maxHealth || 1)) * 100;
-                                
                                 const tokenWidth = 100 / (scene.width || 30);
                                 const tokenHeight = 100 / (scene.height || 20);
-
                                 const activeTokenIdInCombat = isInCombat ? turnOrder[activeTokenIndex]?.id : null;
-
                                 return (
                                     <Tooltip key={token.id}>
                                         <TooltipTrigger asChild>
-                                            <div
-                                                className={cn(
-                                                    "absolute group transition-opacity",
-                                                    isInCombat && activeTokenIdInCombat !== token.id && "opacity-70",
-                                                    isInCombat && activeTokenIdInCombat === token.id && "ring-4 ring-yellow-400 ring-offset-2 ring-offset-background rounded-full z-10"
-                                                )}
-                                                style={{
-                                                    left: `${token.position.x}%`,
-                                                    top: `${token.position.y}%`,
-                                                    width: `${tokenWidth}%`,
-                                                    height: `${tokenHeight}%`,
-                                                    transform: 'translate(-50%, -50%)',
-                                                    cursor: (draggedToken?.id === token.id) || (isInCombat && activeTokenIdInCombat === token.id) ? 'grabbing' : 'grab',
-                                                }}
-                                                onClick={() => handleTokenClick(token)}
-                                                onMouseDown={(e) => handleTokenMouseDown(e, token.id)}
-                                            >
+                                            <div className={cn("absolute group transition-opacity", isInCombat && activeTokenIdInCombat !== token.id && "opacity-70", isInCombat && activeTokenIdInCombat === token.id && "ring-4 ring-yellow-400 ring-offset-2 ring-offset-background rounded-full z-10")} style={{ left: `${token.position.x}%`, top: `${token.position.y}%`, width: `${tokenWidth}%`, height: `${tokenHeight}%`, transform: 'translate(-50%, -50%)', cursor: (draggedToken?.id === token.id) || (isInCombat && activeTokenIdInCombat === token.id) ? 'grabbing' : 'grab' }} onClick={() => handleTokenClick(token)} onMouseDown={(e) => handleTokenMouseDown(e, token.id)}>
                                                 <div className="relative w-full h-full flex flex-col items-center justify-center p-[5%]">
-                                                    {maxHealth && maxHealth > 0 && (
-                                                         <Progress value={healthPercent} className={cn("absolute -top-1 w-full h-1", isPlayer ? "bg-green-900/50 [&>div]:bg-green-500" : "bg-red-900/50 [&>div]:bg-red-500")} />
-                                                    )}
-                                                    
-                                                    <Avatar className="h-full w-full border-2 border-primary shadow-lg transition-transform group-hover:scale-105">
-                                                        <AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" />
-                                                        <AvatarFallback>{token.name.substring(0,1)}</AvatarFallback>
-                                                    </Avatar>
+                                                    {maxHealth && maxHealth > 0 && <Progress value={healthPercent} className={cn("absolute -top-1 w-full h-1", isPlayer ? "bg-green-900/50 [&>div]:bg-green-500" : "bg-red-900/50 [&>div]:bg-red-500")} />}
+                                                    <Avatar className="h-full w-full border-2 border-primary shadow-lg transition-transform group-hover:scale-105"><AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" /><AvatarFallback>{token.name.substring(0,1)}</AvatarFallback></Avatar>
                                                 </div>
                                             </div>
                                         </TooltipTrigger>
-                                        <TooltipContent>
-                                            <div className="space-y-1 text-sm text-left">
-                                                <p className="font-bold">{token.name}</p>
-                                                {maxHealth && maxHealth > 0 && <p>HP: {health} / {maxHealth}</p>}
-                                                {ac !== undefined && <p>AC: {ac} 🛡️</p>}
-                                                {isPlayer && playerChar?.spell_slots && Object.keys(playerChar.spell_slots).length > 0 && (
-                                                    <div className="pt-1 mt-1 border-t border-border/50">
-                                                        <p className="font-semibold text-xs mb-1">Spell Slots</p>
-                                                        <div className="space-y-0.5">
-                                                        {Object.entries(playerChar.spell_slots)
-                                                            .sort(([a], [b]) => parseInt(a) - parseInt(b))
-                                                            .map(([level, slots]) => (
-                                                            <p key={level} className="text-xs text-muted-foreground">Lvl {level}: {slots.current} / {slots.max}</p>
-                                                        ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </TooltipContent>
+                                        <TooltipContent><div className="space-y-1 text-sm text-left"><p className="font-bold">{token.name}</p>{maxHealth && maxHealth > 0 && <p>HP: {health} / {maxHealth}</p>}{ac !== undefined && <p>AC: {ac} 🛡️</p>}{isPlayer && playerChar?.spell_slots && Object.keys(playerChar.spell_slots).length > 0 && (<div className="pt-1 mt-1 border-t border-border/50"><p className="font-semibold text-xs mb-1">Spell Slots</p><div className="space-y-0.5">{Object.entries(playerChar.spell_slots).sort(([a], [b]) => parseInt(a) - parseInt(b)).map(([level, slots]) => (<p key={level} className="text-xs text-muted-foreground">Lvl {level}: {slots.current} / {slots.max}</p>))}</div></div>)}</div></TooltipContent>
                                     </Tooltip>
                                 );
                             })}
@@ -597,40 +520,9 @@ export default function MapViewPage() {
                     </div>
                 </div>
                  <div className="absolute bottom-4 right-4 z-20 flex gap-2">
-                    {!isInCombat ? (
-                        <Button size="lg" onClick={handleStartCombat}>
-                            <Swords className="mr-2" />
-                            Start Combat
-                        </Button>
-                    ) : (
-                        <>
-                            <Button size="lg" variant="destructive" onClick={handleEndCombat}>
-                                <ShieldClose className="mr-2" />
-                                End Combat
-                            </Button>
-                            <Button size="lg" onClick={handleEndTurn}>
-                                End Turn
-                            </Button>
-                        </>
-                    )}
+                    {!isInCombat ? <Button size="lg" onClick={handleStartCombat}><Swords className="mr-2" /> Start Combat</Button> : (<><Button size="lg" variant="destructive" onClick={handleEndCombat}><ShieldClose className="mr-2" /> End Combat</Button><Button size="lg" onClick={handleEndTurn}>End Turn</Button></>)}
                 </div>
-                 <ActionPanel
-                    open={isActionPanelOpen}
-                    onOpenChange={setIsActionPanelOpen}
-                    token={selectedToken}
-                    character={
-                        selectedToken?.type === 'character'
-                            ? allPlayerCharacters.find(p => p.id === selectedToken.linked_character_id) || null
-                            : null
-                    }
-                    enemy={
-                        selectedToken?.type === 'monster'
-                            ? allEnemies.find(e => e.id === selectedToken.linked_enemy_id) || null
-                            : null
-                    }
-                    actions={allActions}
-                    container={fullscreenContainerRef.current}
-                />
+                 <ActionPanel open={isActionPanelOpen} onOpenChange={setIsActionPanelOpen} token={selectedToken} character={selectedToken?.type === 'character' ? allPlayerCharacters.find(p => p.id === selectedToken.linked_character_id) || null : null} enemy={selectedToken?.type === 'monster' ? allEnemies.find(e => e.id === selectedToken.linked_enemy_id) || null : null} actions={allActions} container={fullscreenContainerRef.current} isInCombat={isInCombat} combatState={activeCombatant} onUseAction={handleUseAction} onDash={handleDash} />
             </div>
         </TooltipProvider>
     );

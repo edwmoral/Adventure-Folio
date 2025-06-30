@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import { Heart, Shield, Swords, Footprints } from 'lucide-react';
+import { Heart, Shield, Swords, Footprints, CheckCircle2, XCircle } from 'lucide-react';
 import type { PlayerCharacter, Enemy, Token, Action } from '@/lib/types';
 import { Progress } from './ui/progress';
 
@@ -24,6 +24,14 @@ interface ActionPanelProps {
   enemy: Enemy | null;
   actions: Action[];
   container?: HTMLElement | null;
+  isInCombat?: boolean;
+  combatState?: {
+      movementRemaining: number;
+      hasAction: boolean;
+      hasBonusAction: boolean;
+  } | null;
+  onUseAction?: (type: 'action' | 'bonus') => void;
+  onDash?: () => void;
 }
 
 const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string | number }) => (
@@ -34,10 +42,10 @@ const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: str
     </div>
 );
 
-const ActionButton = ({ name, description }: { name: string, description: string }) => (
+const ActionButton = ({ name, description, ...props }: { name: string, description: string } & React.ComponentProps<typeof Button>) => (
     <Tooltip>
         <TooltipTrigger asChild>
-            <Button variant="outline" className="w-full justify-start">
+            <Button variant="outline" className="w-full justify-start" {...props}>
                 {name}
             </Button>
         </TooltipTrigger>
@@ -57,6 +65,10 @@ export function ActionPanel({
   enemy,
   actions,
   container,
+  isInCombat,
+  combatState,
+  onUseAction,
+  onDash
 }: ActionPanelProps) {
 
   const data = character || enemy;
@@ -74,25 +86,25 @@ export function ActionPanel({
   const speed = isPlayer ? '30 ft.' : enemy?.speed; // Assuming base speed for players
 
   const basePlayerActions = [
-      { name: 'Attack', description: 'Make a melee or ranged attack.' },
-      { name: 'Dash', description: 'Double your movement speed for the turn.' },
-      { name: 'Disengage', description: 'Move without provoking opportunity attacks.' },
-      { name: 'Dodge', description: 'Focus on avoiding attacks. Until the start of your next turn, any attack roll made against you has disadvantage if you can see the attacker, and you make Dexterity saving throws with advantage.' },
-      { name: 'Use an Item', description: 'Interact with an object or item.' },
+      { name: 'Attack', description: 'Make a melee or ranged attack.', type: 'action', action: () => onUseAction?.('action') },
+      { name: 'Dash', description: 'Double your movement speed for the turn.', type: 'action', action: onDash },
+      { name: 'Disengage', description: 'Move without provoking opportunity attacks.', type: 'action', action: () => onUseAction?.('action') },
+      { name: 'Dodge', description: 'Focus on avoiding attacks.', type: 'action', action: () => onUseAction?.('action') },
+      { name: 'Use an Item', description: 'Interact with an object or item.', type: 'action', action: () => onUseAction?.('action') },
   ];
 
   const enemyActions = enemy?.actions
-    .split(/(?<=\.)\s+/) // Split on a period followed by a space
+    .split(/(?<=\.)\s+/) 
     .map(s => s.trim())
     .filter(Boolean)
     .map(actionString => {
         const name = actionString.split('.')[0];
-        return { name, description: actionString };
+        return { name, description: actionString, type: 'action' };
     }) || [];
 
   const characterActions = [
       ...basePlayerActions,
-      ...actions.map(a => ({ name: a.name, description: a.description }))
+      ...actions.map(a => ({ name: a.name, description: a.description, type: a.type.toLowerCase().includes('bonus') ? 'bonus' : 'action' }))
   ];
 
   return (
@@ -102,46 +114,75 @@ export function ActionPanel({
         container={container}
       >
           <TooltipProvider>
-        <SheetHeader className="text-left">
-          <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16 border-2 border-primary">
-                  <AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" />
-                  <AvatarFallback>{token.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div>
-                <SheetTitle className="text-2xl font-headline">{token.name}</SheetTitle>
-                <SheetDescription>
-                  {isPlayer ? `${character.race} ${character.className}` : `${enemy?.type}`}
-                </SheetDescription>
+            <SheetHeader className="text-left">
+              <div className="flex items-center gap-4">
+                  <Avatar className="h-16 w-16 border-2 border-primary">
+                      <AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" />
+                      <AvatarFallback>{token.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <SheetTitle className="text-2xl font-headline">{token.name}</SheetTitle>
+                    <SheetDescription>
+                      {isPlayer ? `${character.race} ${character.className}` : `${enemy?.type}`}
+                    </SheetDescription>
+                  </div>
               </div>
-          </div>
-        </SheetHeader>
-        <div className="py-4 space-y-4">
-            <div className="space-y-2">
-                <div className="flex justify-between text-sm font-medium">
-                    <span>Health</span>
-                    <span>{health} / {maxHealth}</span>
+            </SheetHeader>
+            <div className="py-4 space-y-4">
+                <div className="space-y-2">
+                    <div className="flex justify-between text-sm font-medium">
+                        <span>Health</span>
+                        <span>{health} / {maxHealth}</span>
+                    </div>
+                    <Progress value={healthPercent} className={isPlayer ? "[&>div]:bg-green-500" : "[&>div]:bg-red-500"} />
                 </div>
-                <Progress value={healthPercent} className={isPlayer ? "[&>div]:bg-green-500" : "[&>div]:bg-red-500"} />
-            </div>
 
-            <div className="grid grid-cols-3 gap-2">
-                <StatDisplay icon={<Shield />} label="Armor Class" value={ac || 'N/A'} />
-                <StatDisplay icon={<Swords />} label="Initiative" value={isPlayer && character.stats ? `+${Math.floor((character.stats.dex - 10) / 2)}` : 'N/A'} />
-                <StatDisplay icon={<Footprints />} label="Speed" value={speed || 'N/A'} />
-            </div>
-            
-            <Separator />
+                <div className="grid grid-cols-3 gap-2">
+                    <StatDisplay icon={<Shield />} label="Armor Class" value={ac || 'N/A'} />
+                    <StatDisplay icon={<Swords />} label="Initiative" value={isPlayer && character.stats ? `+${Math.floor((character.stats.dex - 10) / 2)}` : 'N/A'} />
+                    <StatDisplay icon={<Footprints />} label="Speed" value={speed || 'N/A'} />
+                </div>
+                
+                {isInCombat && combatState && (
+                    <>
+                        <Separator />
+                        <div className="grid grid-cols-3 gap-2">
+                            <StatDisplay icon={<Footprints />} label="Movement" value={`${combatState.movementRemaining}ft`} />
+                            <StatDisplay icon={combatState.hasAction ? <CheckCircle2 className="text-green-500" /> : <XCircle className="text-destructive" />} label="Action" value={combatState.hasAction ? 'Ready' : 'Used'} />
+                            <StatDisplay icon={combatState.hasBonusAction ? <CheckCircle2 className="text-green-500" /> : <XCircle className="text-destructive" />} label="Bonus Action" value={combatState.hasBonusAction ? 'Ready' : 'Used'} />
+                        </div>
+                    </>
+                )}
 
-            <div className="space-y-2">
-                <h4 className="font-semibold">Actions</h4>
-                <div className="max-h-[calc(100vh-300px)] overflow-y-auto space-y-2 pr-2">
-                   {(isPlayer ? characterActions : enemyActions).map((action, index) => (
-                       <ActionButton key={`${action.name}-${index}`} name={action.name} description={action.description} />
-                   ))}
+                <Separator />
+
+                <div className="space-y-2">
+                    <h4 className="font-semibold">Actions</h4>
+                    <div className="max-h-[calc(100vh-400px)] overflow-y-auto space-y-2 pr-2">
+                      {(isPlayer ? characterActions : enemyActions).map((action, index) => {
+                          const isDisabled = isInCombat && combatState && (
+                              (action.type === 'action' && !combatState.hasAction) ||
+                              (action.type === 'bonus' && !combatState.hasBonusAction)
+                          );
+                          return (
+                              <ActionButton 
+                                key={`${action.name}-${index}`} 
+                                name={action.name} 
+                                description={action.description} 
+                                disabled={isDisabled}
+                                onClick={() => {
+                                    if (isInCombat && action.action) {
+                                        action.action();
+                                    } else if (isInCombat && onUseAction && (action.type === 'action' || action.type === 'bonus')) {
+                                        onUseAction(action.type);
+                                    }
+                                }}
+                              />
+                          );
+                      })}
+                    </div>
                 </div>
             </div>
-        </div>
           </TooltipProvider>
       </SheetContent>
     </Sheet>

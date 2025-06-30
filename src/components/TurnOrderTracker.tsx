@@ -2,13 +2,13 @@
 'use client';
 
 import type { Token } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from './ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { cn } from '@/lib/utils';
-import { Dices } from 'lucide-react';
+import { Dices, Footprints } from 'lucide-react';
 
 interface TurnOrderTrackerProps {
-  turnOrder: (Token & { initiative: number })[];
+  turnOrder: (Token & { initiative: number, movementRemaining?: number })[];
   activeTokenIndex: number;
   roundNumber: number;
 }
@@ -17,6 +17,8 @@ export function TurnOrderTracker({ turnOrder, activeTokenIndex, roundNumber }: T
   if (turnOrder.length === 0) {
     return null;
   }
+  
+  const activeToken = turnOrder[activeTokenIndex];
 
   return (
     <div className="absolute top-4 left-4 z-20">
@@ -52,6 +54,14 @@ export function TurnOrderTracker({ turnOrder, activeTokenIndex, roundNumber }: T
             ))}
           </ul>
         </CardContent>
+        {activeToken && activeToken.movementRemaining !== undefined && (
+          <CardFooter className="p-2 border-t text-sm text-muted-foreground justify-center">
+            <div className="flex items-center gap-2">
+              <Footprints className="h-4 w-4" />
+              <span>{activeToken.name}'s Movement: <strong>{activeToken.movementRemaining}ft</strong></span>
+            </div>
+          </CardFooter>
+        )}
       </Card>
     </div>
   );
