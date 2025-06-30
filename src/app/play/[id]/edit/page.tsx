@@ -47,6 +47,7 @@ const MOCK_AVAILABLE_CHARACTERS: Character[] = [
 ];
 
 export default function EditCampaignPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const router = useRouter();
   const { toast } = useToast();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
@@ -58,13 +59,13 @@ export default function EditCampaignPage({ params }: { params: { id: string } })
         const storedCampaigns = localStorage.getItem(STORAGE_KEY);
         if (storedCampaigns) {
             const campaigns: Campaign[] = JSON.parse(storedCampaigns);
-            const currentCampaign = campaigns.find(c => c.id === params.id);
+            const currentCampaign = campaigns.find(c => c.id === id);
             setCampaign(currentCampaign || null);
         }
     } catch (error) {
         console.error("Failed to load campaign from localStorage", error);
     }
-  }, [params.id]);
+  }, [id]);
 
   const availableCharacters = MOCK_AVAILABLE_CHARACTERS.filter(
     (char) => !campaign?.characters.some((c) => c.id === char.id)
@@ -174,7 +175,7 @@ export default function EditCampaignPage({ params }: { params: { id: string } })
       <div className="flex items-center justify-between">
         <div>
             <Button asChild variant="ghost">
-                <Link href={`/play/${params.id}`}>
+                <Link href={`/play/${id}`}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Campaign
                 </Link>
@@ -284,7 +285,7 @@ export default function EditCampaignPage({ params }: { params: { id: string } })
                     ))}
                  </div>
                  <Button asChild variant="outline" className="w-full mt-4">
-                    <Link href={`/play/${params.id}/scenes/new`}>Add New Scene</Link>
+                    <Link href={`/play/${id}/scenes/new`}>Add New Scene</Link>
                  </Button>
             </CardContent>
         </Card>

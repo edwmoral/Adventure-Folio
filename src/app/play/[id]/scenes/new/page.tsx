@@ -28,6 +28,7 @@ const RESOLUTION_PRESETS = [
 ];
 
 export default function NewScenePage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const router = useRouter();
   const { toast } = useToast();
   const [sceneName, setSceneName] = useState('');
@@ -49,7 +50,7 @@ export default function NewScenePage({ params }: { params: { id: string } }) {
         }
         
         const campaigns: Campaign[] = JSON.parse(storedCampaigns);
-        const campaignIndex = campaigns.findIndex(c => c.id === params.id);
+        const campaignIndex = campaigns.findIndex(c => c.id === id);
 
         if (campaignIndex === -1) {
             toast({ variant: 'destructive', title: 'Error', description: 'Campaign not found.' });
@@ -72,7 +73,7 @@ export default function NewScenePage({ params }: { params: { id: string } }) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(campaigns));
 
         toast({ title: "Scene Created!", description: "Your new scene has been added to the campaign." });
-        router.push(`/play/${params.id}/edit`);
+        router.push(`/play/${id}/edit`);
 
     } catch (error) {
         console.error("Failed to create scene:", error);
@@ -83,7 +84,7 @@ export default function NewScenePage({ params }: { params: { id: string } }) {
   return (
     <div>
         <Button asChild variant="ghost" className="mb-4">
-             <Link href={`/play/${params.id}/edit`}>
+             <Link href={`/play/${id}/edit`}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Campaign Edit
              </Link>

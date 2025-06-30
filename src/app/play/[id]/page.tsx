@@ -14,6 +14,7 @@ const STORAGE_KEY = 'dnd_campaigns';
 
 
 export default function CampaignDetailPage({ params }: { params: { id: string } }) {
+    const { id } = params;
     const [campaign, setCampaign] = useState<Campaign | null>(null);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
@@ -23,14 +24,14 @@ export default function CampaignDetailPage({ params }: { params: { id: string } 
             const storedCampaigns = localStorage.getItem(STORAGE_KEY);
             if (storedCampaigns) {
                 const campaigns: Campaign[] = JSON.parse(storedCampaigns);
-                const currentCampaign = campaigns.find(c => c.id === params.id);
+                const currentCampaign = campaigns.find(c => c.id === id);
                 setCampaign(currentCampaign || null);
             }
         } catch (error) {
             console.error("Failed to load campaign from localStorage", error);
         }
         setLoading(false);
-    }, [params.id]);
+    }, [id]);
 
     const handleRemoveCharacter = (characterId: string) => {
         if (!campaign) return;
@@ -156,7 +157,7 @@ export default function CampaignDetailPage({ params }: { params: { id: string } 
 
             <div className="flex justify-center">
                  <Button asChild size="lg">
-                    <Link href={`/play/${params.id}/play`}>
+                    <Link href={`/play/${id}/play`}>
                         <Play className="mr-2 h-5 w-5" />
                         Start Session
                     </Link>
