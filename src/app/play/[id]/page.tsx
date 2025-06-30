@@ -3,24 +3,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Play, Users, UserPlus } from "lucide-react";
+import { ArrowLeft, Play, Users, UserPlus, Pencil } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
-type Character = {
-  id: string;
-  name: string;
-  avatarUrl: string;
-};
-
-type Campaign = {
-  id: string;
-  name: string;
-  imageUrl: string;
-  description?: string;
-  characters: Character[];
-};
+import type { Campaign } from '@/lib/types';
 
 const STORAGE_KEY = 'dnd_campaigns';
 
@@ -35,9 +22,6 @@ export default function CampaignDetailPage({ params }: { params: { id: string } 
             if (storedCampaigns) {
                 const campaigns: Campaign[] = JSON.parse(storedCampaigns);
                 const currentCampaign = campaigns.find(c => c.id === params.id);
-                if (currentCampaign && !currentCampaign.description) {
-                    currentCampaign.description = 'A classic adventure filled with mystery, danger, and a fortress swallowed by the earth.';
-                }
                 setCampaign(currentCampaign || null);
             }
         } catch (error) {
@@ -82,8 +66,18 @@ export default function CampaignDetailPage({ params }: { params: { id: string } 
                     />
                 </div>
                 <CardHeader>
-                    <CardTitle className="text-4xl font-headline">{campaign.name}</CardTitle>
-                    <CardDescription>{campaign.description}</CardDescription>
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <CardTitle className="text-4xl font-headline">{campaign.name}</CardTitle>
+                            <CardDescription>A classic adventure filled with mystery, danger, and a fortress swallowed by the earth.</CardDescription>
+                        </div>
+                        <Button asChild variant="outline" size="icon">
+                            <Link href={`/play/${campaign.id}/edit`}>
+                                <Pencil className="h-5 w-5" />
+                                <span className="sr-only">Edit Campaign</span>
+                            </Link>
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
                      <div>

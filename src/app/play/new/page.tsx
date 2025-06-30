@@ -8,22 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-
-type Character = {
-  id: string;
-  name: string;
-  avatarUrl: string;
-};
-
-type Campaign = {
-  id: string;
-  name: string;
-  imageUrl: string;
-  characters: Character[];
-};
+import type { Campaign, Scene } from '@/lib/types';
 
 const STORAGE_KEY = 'dnd_campaigns';
-
 
 export default function NewCampaignPage() {
   const [campaignName, setCampaignName] = useState('');
@@ -39,11 +26,21 @@ export default function NewCampaignPage() {
         const storedCampaigns = localStorage.getItem(STORAGE_KEY);
         const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
         
+        const newScene: Scene = {
+            id: `scene-${Date.now()}`,
+            name: 'My First Scene',
+            background_map_url: 'https://placehold.co/1200x800.png',
+            tokens: [],
+            is_active: true,
+            resolution: { width: 1200, height: 800 }
+        };
+        
         const newCampaign: Campaign = {
-            id: String(Date.now()), // Simple unique ID
+            id: String(Date.now()),
             name: campaignName,
             imageUrl: 'https://placehold.co/400x225.png',
             characters: [],
+            scenes: [newScene],
         };
 
         const updatedCampaigns = [...campaigns, newCampaign];

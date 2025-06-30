@@ -5,19 +5,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import { CampaignCard } from '@/components/campaign-card';
-
-type Character = {
-  id: string;
-  name: string;
-  avatarUrl: string;
-};
-
-type Campaign = {
-  id: string;
-  name: string;
-  imageUrl: string;
-  characters: Character[];
-};
+import type { Campaign } from '@/lib/types';
 
 const initialMockCampaigns: Campaign[] = [
   {
@@ -25,29 +13,45 @@ const initialMockCampaigns: Campaign[] = [
     name: 'The Sunless Citadel',
     imageUrl: 'https://placehold.co/400x225.png',
     characters: [
-      { id: 'char1', name: 'Eldrin', avatarUrl: 'https://placehold.co/40x40.png' },
-      { id: 'char2', name: 'Lyra', avatarUrl: 'https://placehold.co/40x40.png' },
-      { id: 'char3', name: 'Borg', avatarUrl: 'https://placehold.co/40x40.png' },
+      { id: 'char1', name: 'Eldrin', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char2', name: 'Lyra', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char3', name: 'Borg', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
     ],
+    scenes: [
+        {
+            id: 'scene1',
+            name: 'The Goblin Cave',
+            background_map_url: 'https://placehold.co/1200x800.png',
+            tokens: [
+                { id: 'token1', name: 'Eldrin', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char1', position: { x: 20, y: 30 } },
+                { id: 'token2', name: 'Goblin 1', imageUrl: 'https://placehold.co/48x48.png', type: 'monster', position: { x: 60, y: 40 } },
+                { id: 'token3', name: 'Goblin 2', imageUrl: 'https://placehold.co/48x48.png', type: 'monster', position: { x: 65, y: 45 } },
+            ],
+            is_active: true,
+            resolution: { width: 1200, height: 800 }
+        }
+    ]
   },
   {
     id: '2',
     name: 'Curse of Strahd',
     imageUrl: 'https://placehold.co/400x225.png',
      characters: [
-      { id: 'char4', name: 'Gandalf', avatarUrl: 'https://placehold.co/40x40.png' },
+      { id: 'char4', name: 'Gandalf', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
     ],
+    scenes: []
   },
   {
     id: '3',
     name: 'Lost Mine of Phandelver',
     imageUrl: 'https://placehold.co/400x225.png',
     characters: [
-      { id: 'char5', name: 'Bilbo', avatarUrl: 'https://placehold.co/40x40.png' },
-      { id: 'char6', name: 'Frodo', avatarUrl: 'https://placehold.co/40x40.png' },
-      { id: 'char7', name: 'Sam', avatarUrl: 'https://placehold.co/40x40.png' },
-      { id: 'char8', name: 'Pippin', avatarUrl: 'https://placehold.co/40x40.png' },
+      { id: 'char5', name: 'Bilbo', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char6', name: 'Frodo', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char7', name: 'Sam', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char8', name: 'Pippin', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
     ],
+    scenes: []
   },
 ];
 

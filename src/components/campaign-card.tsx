@@ -3,20 +3,11 @@ import Image from 'next/image';
 import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { Campaign, Character } from '@/lib/types';
 
-type Character = {
-  id: string;
-  name: string;
-  avatarUrl: string;
-};
 
 type CampaignCardProps = {
-  campaign: {
-    id: string;
-    name: string;
-    imageUrl: string;
-    characters: Character[];
-  };
+  campaign: Campaign;
 };
 
 export function CampaignCard({ campaign }: CampaignCardProps) {
