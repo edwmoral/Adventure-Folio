@@ -39,6 +39,7 @@ export default function MapViewPage() {
     const [selectedToken, setSelectedToken] = useState<Token | null>(null);
     const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [showGrid, setShowGrid] = useState(false);
 
     useEffect(() => {
         setLoading(true);
@@ -200,6 +201,8 @@ export default function MapViewPage() {
             }
         }
     };
+    
+    const toggleGrid = () => setShowGrid(prev => !prev);
 
     useEffect(() => {
         const handleFullscreenChange = () => {
@@ -268,7 +271,7 @@ export default function MapViewPage() {
                         </Tooltip>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="outline" size="icon"><Grid /></Button>
+                                <Button variant="outline" size="icon" onClick={toggleGrid}><Grid /></Button>
                             </TooltipTrigger>
                             <TooltipContent>
                                 <p>Toggle Grid</p>
@@ -303,6 +306,16 @@ export default function MapViewPage() {
                         data-ai-hint="fantasy map"
                         draggable="false"
                     />
+                    
+                    {showGrid && (
+                        <div 
+                            className="absolute inset-0 pointer-events-none" 
+                            style={{
+                                backgroundSize: '40px 40px',
+                                backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.5) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.5) 1px, transparent 1px)',
+                            }}
+                        />
+                    )}
 
                     {/* Tokens */}
                     {scene.tokens.map(token => {
