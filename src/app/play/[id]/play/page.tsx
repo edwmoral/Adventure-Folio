@@ -72,6 +72,15 @@ export default function MapViewPage() {
                 activeScene = currentCampaign.scenes[0];
                 needsSave = true;
                 toast({ title: "Scene Activated", description: `Defaulted to "${activeScene.name}" as the active scene.` });
+            } else if (activeScene) {
+                const activeScenes = currentCampaign.scenes.filter(s => s.is_active === true);
+                if (activeScenes.length > 1) {
+                    currentCampaign.scenes.forEach(s => s.is_active = false);
+                    currentCampaign.scenes[0].is_active = true;
+                    activeScene = currentCampaign.scenes[0];
+                    needsSave = true;
+                    toast({ title: "Scene Corrected", description: `Multiple active scenes found. Defaulted to "${activeScene.name}".`});
+                }
             }
 
             if (needsSave) {
