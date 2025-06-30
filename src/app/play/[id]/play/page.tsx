@@ -39,67 +39,62 @@ export default function MapViewPage() {
     const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
 
     useEffect(() => {
+        setLoading(true);
         try {
             const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
-            if (storedCampaigns) {
-                const campaigns: Campaign[] = JSON.parse(storedCampaigns);
-                const campaignIndex = campaigns.findIndex(c => c.id === id);
+            if (!storedCampaigns) {
+                setCampaign(null);
+                setScene(null);
+                setLoading(false);
+                return;
+            }
 
-                if (campaignIndex !== -1) {
-                    let campaignToUpdate = { ...campaigns[campaignIndex] };
-                    let needsSave = false;
+            const campaigns: Campaign[] = JSON.parse(storedCampaigns);
+            const campaignIndex = campaigns.findIndex(c => c.id === id);
 
-                    // Ensure scenes array exists
-                    if (!campaignToUpdate.scenes) {
-                        campaignToUpdate.scenes = [];
-                        needsSave = true;
-                    }
+            if (campaignIndex === -1) {
+                setCampaign(null);
+                setScene(null);
+            } else {
+                let campaignToUpdate = { ...campaigns[campaignIndex] };
+                let needsSave = false;
 
-                    const activeScenes = campaignToUpdate.scenes.filter(s => s.is_active);
-                    let activeScene: Scene | undefined = activeScenes[0];
-
-                    // If there is no active scene OR multiple active scenes, we must correct the data.
-                    if ((activeScenes.length === 0 && campaignToUpdate.scenes.length > 0) || activeScenes.length > 1) {
-                        needsSave = true;
-                        // Make the first scene the *only* active one.
-                        campaignToUpdate.scenes = campaignToUpdate.scenes.map((s, index) => ({
-                            ...s,
-                            is_active: index === 0,
-                        }));
-                        activeScene = campaignToUpdate.scenes.length > 0 ? campaignToUpdate.scenes[0] : undefined;
-                        
-                        if (activeScene) {
-                            toast({ title: "Scene Activated", description: `Defaulted to "${activeScene.name}" as the active scene.` });
-                        }
-                    }
-
-                    if (needsSave) {
-                        campaigns[campaignIndex] = campaignToUpdate;
-                        localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
-                    }
-
-                    setCampaign(campaignToUpdate);
-                    setScene(activeScene || null);
+                if (!Array.isArray(campaignToUpdate.scenes)) {
+                    campaignToUpdate.scenes = [];
+                    needsSave = true;
                 }
+
+                let activeScene = campaignToUpdate.scenes.find(s => s.is_active);
+
+                if (!activeScene && campaignToUpdate.scenes.length > 0) {
+                    campaignToUpdate.scenes[0].is_active = true;
+                    activeScene = campaignToUpdate.scenes[0];
+                    needsSave = true;
+                    toast({ title: "Scene Activated", description: `Defaulted to "${activeScene.name}" as the active scene.` });
+                }
+
+                if (needsSave) {
+                    campaigns[campaignIndex] = campaignToUpdate;
+                    localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
+                }
+
+                setCampaign(campaignToUpdate);
+                setScene(activeScene || null);
             }
-            
+
             const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
-            if (storedCharacters) {
-                setAllPlayerCharacters(JSON.parse(storedCharacters));
-            }
+            if (storedCharacters) setAllPlayerCharacters(JSON.parse(storedCharacters));
             
             const storedEnemies = localStorage.getItem(STORAGE_KEY_ENEMIES);
-            if (storedEnemies) {
-              setAllEnemies(JSON.parse(storedEnemies));
-            }
+            if (storedEnemies) setAllEnemies(JSON.parse(storedEnemies));
             
             const storedActions = localStorage.getItem(STORAGE_KEY_ACTIONS);
-            if (storedActions) {
-              setAllActions(JSON.parse(storedActions));
-            }
+            if (storedActions) setAllActions(JSON.parse(storedActions));
 
         } catch (error) {
             console.error("Failed to load data from localStorage", error);
+            // Error will be caught by the error.tsx boundary
+            throw new Error("Failed to load session data. It might be corrupted or in an unexpected format.");
         }
         setLoading(false);
     }, [id, toast]);
