@@ -58,7 +58,7 @@ export default function NewItemPage() {
             type: item.type,
             rarity: item.rarity,
             weight: Number(item.weight) || 0,
-            properties: typeof item.properties === 'string' ? (item.properties as string).split(',').map(s => s.trim()) : [],
+            properties: typeof item.properties === 'string' ? (item.properties as string).split(',').map(s => s.trim()) : item.properties || [],
             description: item.description || '',
             damage: item.damage,
             damage_type: item.damage_type,
@@ -148,7 +148,7 @@ export default function NewItemPage() {
 
                     <div className="space-y-2">
                         <Label htmlFor="properties">Properties (comma-separated)</Label>
-                        <Input id="properties" placeholder="e.g., Versatile, Thrown, Finesse" value={item.properties?.join(', ')} onChange={handleInputChange} />
+                        <Input id="properties" placeholder="e.g., Versatile, Thrown, Finesse" value={Array.isArray(item.properties) ? item.properties.join(', ') : (item.properties || '')} onChange={handleInputChange} />
                     </div>
 
                     <div className="space-y-2">
