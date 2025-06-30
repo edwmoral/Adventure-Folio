@@ -8,12 +8,25 @@ import { PlusCircle } from 'lucide-react';
 import { CampaignCard } from '@/components/campaign-card';
 import type { Campaign } from '@/lib/types';
 import { initialMockCampaigns, initialPlayerCharacters } from '@/lib/mock-data';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 const STORAGE_KEY = 'dnd_campaigns';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 
 export default function PlayDashboardPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaignToDelete, setCampaignToDelete] = useState<Campaign | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     try {
@@ -35,6 +48,21 @@ export default function PlayDashboardPage() {
     }
   }, []);
 
+  const handleDeleteCampaign = () => {
+    if (!campaignToDelete) return;
+
+    const updatedCampaigns = campaigns.filter(c => c.id !== campaignToDelete.id);
+    setCampaigns(updatedCampaigns);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
+    
+    toast({
+      title: "Campaign Deleted",
+      description: `"${campaignToDelete.name}" has been permanently deleted.`
+    });
+    
+    setCampaignToDelete(null);
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -50,7 +78,11 @@ export default function PlayDashboardPage() {
       {campaigns.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {campaigns.map((campaign) => (
-            <CampaignCard key={campaign.id} campaign={campaign} />
+            <CampaignCard 
+              key={campaign.id} 
+              campaign={campaign} 
+              onDelete={() => setCampaignToDelete(campaign)}
+            />
           ))}
         </div>
       ) : (
@@ -65,6 +97,23 @@ export default function PlayDashboardPage() {
           </Button>
         </div>
       )}
+
+      <AlertDialog open={!!campaignToDelete} onOpenChange={(open) => !open && setCampaignToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the "{campaignToDelete?.name}" campaign and all its related scenes and data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setCampaignToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCampaign}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

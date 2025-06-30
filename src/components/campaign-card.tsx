@@ -3,17 +3,33 @@ import Image from 'next/image';
 import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { Campaign, Character } from '@/lib/types';
+import type { Campaign } from '@/lib/types';
+import { Button } from './ui/button';
+import { Trash2 } from 'lucide-react';
 
 
 type CampaignCardProps = {
   campaign: Campaign;
+  onDelete: () => void;
 };
 
-export function CampaignCard({ campaign }: CampaignCardProps) {
+export function CampaignCard({ campaign, onDelete }: CampaignCardProps) {
   return (
-    <Link href={`/play/${campaign.id}`} className="block group">
-        <Card className="overflow-hidden transition-all duration-200 group-hover:border-primary group-hover:shadow-lg">
+    <Card className="relative overflow-hidden transition-all duration-200 hover:border-primary hover:shadow-lg group">
+      <Button
+        variant="destructive"
+        size="icon"
+        className="absolute top-2 right-2 z-10 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onDelete();
+        }}
+      >
+        <Trash2 className="h-4 w-4" />
+        <span className="sr-only">Delete campaign</span>
+      </Button>
+      <Link href={`/play/${campaign.id}`} className="block">
         <div className="relative h-40 w-full">
             <Image
                 src={campaign.imageUrl}
@@ -45,7 +61,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
                 </TooltipProvider>
             </div>
         </CardFooter>
-        </Card>
-    </Link>
+      </Link>
+    </Card>
   );
 }
