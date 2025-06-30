@@ -10,30 +10,17 @@ import { PlusCircle } from 'lucide-react';
 const initialFeats: Feat[] = [
   {
     name: "Sharpshooter",
-    prerequisites: ["Proficiency with ranged weapons"],
-    description: "You can make attacks at long range without disadvantage, and your ranged attacks ignore half and three-quarters cover. Before you make an attack, you can choose to take a -5 penalty to the attack roll. If the attack hits, you add +10 to the damage.",
-    effects: [
-      "Ignore cover",
-      "+10 damage at -5 accuracy",
-      "No disadvantage at long range"
-    ]
+    prerequisite: "Proficiency with ranged weapons",
+    text: "You can make attacks at long range without disadvantage, and your ranged attacks ignore half and three-quarters cover. Before you make an attack, you can choose to take a -5 penalty to the attack roll. If the attack hits, you add +10 to the damage.",
   },
   {
     name: "Tough",
-    prerequisites: [],
-    description: "Your hit point maximum increases by an amount equal to twice your level when you gain this feat. Whenever you gain a level thereafter, your hit point maximum increases by an additional 2 hit points.",
-    effects: [
-      "+2 HP per level"
-    ]
+    text: "Your hit point maximum increases by an amount equal to twice your level when you gain this feat. Whenever you gain a level thereafter, your hit point maximum increases by an additional 2 hit points.",
   },
   {
     name: "Great Weapon Master",
-    prerequisites: ["Proficiency with a melee weapon"],
-    description: "On your turn, when you score a critical hit with a melee weapon or reduce a creature to 0 hit points with one, you can make one melee weapon attack as a bonus action. Before you make a melee attack with a heavy weapon that you are proficient with, you can choose to take a -5 penalty to a he attack roll. If the attack hits, you add +10 to the attack's damage.",
-    effects: [
-      "Bonus action attack on critical or kill",
-      "+10 damage at -5 accuracy with heavy weapons"
-    ]
+    prerequisite: "Proficiency with a melee weapon",
+    text: "On your turn, when you score a critical hit with a melee weapon or reduce a creature to 0 hit points with one, you can make one melee weapon attack as a bonus action. Before you make a melee attack with a heavy weapon that you are proficient with, you can choose to take a -5 penalty to a he attack roll. If the attack hits, you add +10 to the attack's damage.",
   }
 ];
 
@@ -81,8 +68,8 @@ export default function FeaturesPage() {
                   {feats.map(feat => (
                     <TableRow key={feat.name}>
                         <TableCell className="font-medium">{feat.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{feat.prerequisites.join(', ') || 'None'}</TableCell>
-                        <TableCell className="text-muted-foreground">{feat.description}</TableCell>
+                        <TableCell className="text-muted-foreground">{feat.prerequisite || 'None'}</TableCell>
+                        <TableCell className="text-muted-foreground">{feat.text}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

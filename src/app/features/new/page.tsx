@@ -20,14 +20,13 @@ export default function NewFeatPage() {
   const { toast } = useToast();
   
   const [name, setName] = useState('');
-  const [prerequisites, setPrerequisites] = useState('');
-  const [description, setDescription] = useState('');
-  const [effects, setEffects] = useState('');
+  const [prerequisite, setPrerequisite] = useState('');
+  const [text, setText] = useState('');
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!name || !description) {
+    if (!name || !text) {
         toast({ variant: 'destructive', title: 'Error', description: 'Name and description are required.' });
         return;
     }
@@ -38,9 +37,8 @@ export default function NewFeatPage() {
         
         const newFeat: Feat = {
             name,
-            description,
-            prerequisites: prerequisites ? prerequisites.split(',').map(s => s.trim()) : [],
-            effects: effects ? effects.split(',').map(s => s.trim()) : [],
+            text,
+            prerequisite: prerequisite || undefined,
         };
 
         const updatedFeats = [...feats, newFeat];
@@ -67,7 +65,7 @@ export default function NewFeatPage() {
             <CardHeader>
                 <CardTitle>Create New Feat</CardTitle>
                 <CardDescription>
-                    Define a new feat. Use comma-separated values for lists.
+                    Define a new feat.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -77,16 +75,12 @@ export default function NewFeatPage() {
                         <Input id="name" placeholder="e.g., War Caster" value={name} onChange={(e) => setName(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="prerequisites">Prerequisites (comma-separated)</Label>
-                        <Input id="prerequisites" placeholder="e.g., Spellcasting ability" value={prerequisites} onChange={(e) => setPrerequisites(e.target.value)} />
+                        <Label htmlFor="prerequisite">Prerequisites</Label>
+                        <Input id="prerequisite" placeholder="e.g., Spellcasting ability" value={prerequisite} onChange={(e) => setPrerequisite(e.target.value)} />
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea id="description" placeholder="Describe what the feat does." value={description} onChange={(e) => setDescription(e.target.value)} required />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="effects">Effects (comma-separated)</Label>
-                        <Textarea id="effects" placeholder="e.g., Advantage on CON saves for concentration, Cast somatic spells with hands full" value={effects} onChange={(e) => setEffects(e.target.value)} />
+                        <Label htmlFor="text">Description</Label>
+                        <Textarea id="text" placeholder="Describe what the feat does." value={text} onChange={(e) => setText(e.target.value)} required />
                     </div>
                     <div className="flex justify-end">
                         <Button type="submit">Create Feat</Button>

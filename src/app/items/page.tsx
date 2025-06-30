@@ -12,30 +12,26 @@ const initialItems: Item[] = [
   {
     name: "Longsword",
     type: "Weapon",
-    rarity: "Common",
     weight: 3,
-    properties: ["Versatile (1d10)"],
-    description: "A standard steel longsword.",
-    damage: "1d8",
-    damage_type: "Slashing"
+    property: ["Versatile (1d10)"],
+    text: "A standard steel longsword.",
+    dmg1: "1d8",
+    dmgType: "Slashing"
   },
   {
     name: "Potion of Healing",
     type: "Consumable",
-    rarity: "Common",
     weight: 0.5,
-    properties: [],
-    description: "You regain 2d4 + 2 hit points when you drink this potion.",
-    effect: "Heals 2d4 + 2 HP"
+    text: "A character who drinks the magical red fluid in this vial regains 2d4 + 2 hit points.",
+    detail: "Heals 2d4 + 2 HP"
   },
   {
     name: "Cloak of Invisibility",
     type: "Wondrous Item",
-    rarity: "Legendary",
+    magic: true,
     weight: 1,
-    properties: [],
-    description: "While wearing this cloak, you can turn invisible as an action.",
-    effect: "Grants invisibility"
+    text: "While wearing this cloak, you can pull its hood over your head to become invisible. While you are invisible, anything you are carrying or wearing is invisible with you. You remain invisible until you pull the hood back, or until something causes you to become visible.",
+    detail: "Grants invisibility"
   }
 ];
 
@@ -76,21 +72,17 @@ export default function ItemsPage() {
                     <TableRow>
                         <TableHead className="w-[250px]">Name</TableHead>
                         <TableHead>Type</TableHead>
-                        <TableHead>Rarity</TableHead>
+                        <TableHead>Weight</TableHead>
                         <TableHead>Description</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                   {items.map((item) => (
                     <TableRow key={item.name}>
-                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell className="font-medium">{item.name}{item.magic && ' ✨'}</TableCell>
                         <TableCell>{item.type}</TableCell>
-                        <TableCell>
-                            <Badge variant={item.rarity === 'Legendary' ? 'default' : 'secondary'}>
-                                {item.rarity}
-                            </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{item.description}</TableCell>
+                        <TableCell>{item.weight || 0} lb.</TableCell>
+                        <TableCell className="text-muted-foreground">{item.text}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

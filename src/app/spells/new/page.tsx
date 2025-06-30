@@ -21,7 +21,9 @@ export default function NewSpellPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [spell, setSpell] = useState<Partial<Spell>>({ name: '', level: 0, school: '', casting_time: '', range: '', duration: '', components: [], classes: [] });
+  const [spell, setSpell] = useState<Partial<Spell> & { material_component?: string }>({ name: '', level: 0, school: '', time: '', range: '', duration: '', classes: '' });
+  const [hasVerbal, setHasVerbal] = useState(false);
+  const [hasSomatic, setHasSomatic] = useState(false);
   const [hasMaterial, setHasMaterial] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -33,22 +35,10 @@ export default function NewSpellPage() {
     setSpell(prev => ({ ...prev, [id]: value }));
   };
 
-  const handleCheckboxChange = (component: 'V' | 'S' | 'M') => {
-    setSpell(prev => {
-        const newComponents = prev.components?.includes(component)
-            ? prev.components.filter(c => c !== component)
-            : [...(prev.components || []), component];
-        if (component === 'M') {
-            setHasMaterial(newComponents.includes('M'));
-        }
-        return { ...prev, components: newComponents };
-    });
-  };
-
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!spell.name || !spell.school || !spell.description) {
+    if (!spell.name || !spell.school || !spell.text) {
         toast({ variant: 'destructive', title: 'Error', description: 'Name, School, and Description are required.' });
         return;
     }
@@ -57,17 +47,28 @@ export default function NewSpellPage() {
         const storedSpells = localStorage.getItem(STORAGE_KEY);
         const spells: Spell[] = storedSpells ? JSON.parse(storedSpells) : [];
         
+        let components_list = [];
+        if (hasVerbal) components_list.push('V');
+        if (hasSomatic) components_list.push('S');
+        if (hasMaterial) {
+            let material_string = 'M';
+            if (spell.material_component) {
+                material_string += ` (${spell.material_component})`;
+            }
+            components_list.push(material_string);
+        }
+
         const newSpell: Spell = {
-            ...spell,
             name: spell.name,
             level: spell.level || 0,
             school: spell.school,
-            casting_time: spell.casting_time || '1 action',
+            time: spell.time || '1 action',
             range: spell.range || 'N/A',
             duration: spell.duration || 'Instantaneous',
-            components: spell.components || [],
-            description: spell.description,
-            classes: typeof spell.classes === 'string' ? (spell.classes as string).split(',').map(s => s.trim()) : spell.classes || [],
+            components: components_list.join(', '),
+            text: spell.text,
+            classes: spell.classes || '',
+            ritual: spell.ritual || false,
         };
 
         const updatedSpells = [...spells, newSpell];
@@ -118,8 +119,8 @@ export default function NewSpellPage() {
                             </Select>
                         </div>
                          <div className="space-y-2">
-                            <Label htmlFor="casting_time">Casting Time</Label>
-                            <Input id="casting_time" value={spell.casting_time} onChange={handleInputChange} />
+                            <Label htmlFor="time">Casting Time</Label>
+                            <Input id="time" value={spell.time} onChange={handleInputChange} />
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="range">Range</Label>
@@ -133,25 +134,26 @@ export default function NewSpellPage() {
 
                     <div className="space-y-2">
                         <Label>Components</Label>
-                        <div className="flex gap-4 items-center p-2 border rounded-md">
-                            <div className="flex items-center gap-2"><Checkbox id="V" checked={spell.components?.includes('V')} onCheckedChange={() => handleCheckboxChange('V')} /><Label htmlFor="V" className="font-normal">Verbal (V)</Label></div>
-                            <div className="flex items-center gap-2"><Checkbox id="S" checked={spell.components?.includes('S')} onCheckedChange={() => handleCheckboxChange('S')} /><Label htmlFor="S" className="font-normal">Somatic (S)</Label></div>
-                            <div className="flex items-center gap-2"><Checkbox id="M" checked={hasMaterial} onCheckedChange={() => handleCheckboxChange('M')} /><Label htmlFor="M" className="font-normal">Material (M)</Label></div>
+                        <div className="flex flex-wrap gap-4 items-center p-2 border rounded-md">
+                            <div className="flex items-center gap-2"><Checkbox id="V" checked={hasVerbal} onCheckedChange={(checked) => setHasVerbal(!!checked)} /><Label htmlFor="V" className="font-normal">Verbal (V)</Label></div>
+                            <div className="flex items-center gap-2"><Checkbox id="S" checked={hasSomatic} onCheckedChange={(checked) => setHasSomatic(!!checked)} /><Label htmlFor="S" className="font-normal">Somatic (S)</Label></div>
+                            <div className="flex items-center gap-2"><Checkbox id="M" checked={hasMaterial} onCheckedChange={(checked) => setHasMaterial(!!checked)} /><Label htmlFor="M" className="font-normal">Material (M)</Label></div>
+                            <div className="flex items-center gap-2"><Checkbox id="ritual" checked={spell.ritual} onCheckedChange={(checked) => setSpell(p => ({...p, ritual: !!checked}))} /><Label htmlFor="ritual" className="font-normal">Ritual</Label></div>
                         </div>
                     </div>
                     {hasMaterial && (
                          <div className="space-y-2">
-                            <Label htmlFor="material">Material Component</Label>
-                            <Input id="material" value={spell.material} onChange={handleInputChange} placeholder="e.g., A tiny ball of bat guano and sulfur"/>
+                            <Label htmlFor="material_component">Material Component</Label>
+                            <Input id="material_component" value={spell.material_component} onChange={handleInputChange} placeholder="e.g., A tiny ball of bat guano and sulfur"/>
                         </div>
                     )}
                      <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea id="description" value={spell.description} onChange={handleInputChange} required className="min-h-[120px]"/>
+                        <Label htmlFor="text">Description</Label>
+                        <Textarea id="text" value={spell.text} onChange={handleInputChange} required className="min-h-[120px]"/>
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="classes">Classes (comma-separated)</Label>
-                        <Input id="classes" value={Array.isArray(spell.classes) ? spell.classes.join(', ') : ''} onChange={handleInputChange} />
+                        <Input id="classes" value={spell.classes} onChange={handleInputChange} />
                     </div>
 
                     <div className="flex justify-end">

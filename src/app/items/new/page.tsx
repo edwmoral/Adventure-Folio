@@ -13,10 +13,10 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const STORAGE_KEY = 'dnd_items';
 const ITEM_TYPES = ['Weapon', 'Armor', 'Consumable', 'Wondrous Item', 'Mundane'];
-const RARITIES = ['Common', 'Uncommon', 'Rare', 'Very Rare', 'Legendary', 'Artifact'];
 const DAMAGE_TYPES = ['Slashing', 'Piercing', 'Bludgeoning', 'Fire', 'Cold', 'Lightning', 'Thunder', 'Poison', 'Acid', 'Psychic', 'Necrotic', 'Radiant', 'Force'];
 
 export default function NewItemPage() {
@@ -25,11 +25,11 @@ export default function NewItemPage() {
   
   const [item, setItem] = useState<Partial<Item>>({
     name: '',
-    type: '',
-    rarity: 'Common',
+    type: 'Mundane',
     weight: 0,
-    properties: [],
-    description: '',
+    property: [],
+    text: '',
+    magic: false,
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -40,12 +40,16 @@ export default function NewItemPage() {
   const handleSelectChange = (id: keyof Item, value: string) => {
     setItem(prev => ({ ...prev, [id]: value }));
   };
+  
+  const handleCheckboxChange = (id: keyof Item, checked: boolean) => {
+    setItem(prev => ({ ...prev, [id]: checked }));
+  };
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!item.name || !item.type || !item.rarity) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Name, Type, and Rarity are required.' });
+    if (!item.name || !item.type) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Name and Type are required.' });
         return;
     }
 
@@ -56,13 +60,13 @@ export default function NewItemPage() {
         const newItem: Item = {
             name: item.name,
             type: item.type,
-            rarity: item.rarity,
             weight: Number(item.weight) || 0,
-            properties: typeof item.properties === 'string' ? (item.properties as string).split(',').map(s => s.trim()) : item.properties || [],
-            description: item.description || '',
-            damage: item.damage,
-            damage_type: item.damage_type,
-            effect: item.effect,
+            property: typeof item.property === 'string' ? (item.property as string).split(',').map(s => s.trim()) : item.property || [],
+            text: item.text || '',
+            magic: item.magic,
+            dmg1: item.dmg1,
+            dmgType: item.dmgType,
+            detail: item.detail,
         };
 
         const updatedItems = [...items, newItem];
@@ -108,31 +112,26 @@ export default function NewItemPage() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="rarity">Rarity</Label>
-                            <Select value={item.rarity} onValueChange={(val) => handleSelectChange('rarity', val)}>
-                                <SelectTrigger id="rarity"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {RARITIES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
                          <div className="space-y-2">
                             <Label htmlFor="weight">Weight (lbs)</Label>
                             <Input id="weight" type="number" placeholder="e.g., 3" value={item.weight} onChange={handleInputChange} />
+                        </div>
+                        <div className="flex items-center space-x-2 pt-6">
+                            <Checkbox id="magic" checked={item.magic} onCheckedChange={(checked) => handleCheckboxChange('magic', !!checked)} />
+                            <Label htmlFor="magic">Is this a magical item?</Label>
                         </div>
                     </div>
 
                     {item.type === 'Weapon' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-md">
                             <div className="space-y-2">
-                                <Label htmlFor="damage">Damage</Label>
-                                <Input id="damage" placeholder="e.g., 1d8" value={item.damage} onChange={handleInputChange} />
+                                <Label htmlFor="dmg1">Damage</Label>
+                                <Input id="dmg1" placeholder="e.g., 1d8" value={item.dmg1} onChange={handleInputChange} />
                             </div>
                              <div className="space-y-2">
-                                <Label htmlFor="damage_type">Damage Type</Label>
-                                <Select value={item.damage_type} onValueChange={(val) => handleSelectChange('damage_type', val)}>
-                                    <SelectTrigger id="damage_type"><SelectValue placeholder="Select damage type..."/></SelectTrigger>
+                                <Label htmlFor="dmgType">Damage Type</Label>
+                                <Select value={item.dmgType} onValueChange={(val) => handleSelectChange('dmgType', val)}>
+                                    <SelectTrigger id="dmgType"><SelectValue placeholder="Select damage type..."/></SelectTrigger>
                                     <SelectContent>
                                         {DAMAGE_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
                                     </SelectContent>
@@ -142,18 +141,18 @@ export default function NewItemPage() {
                     )}
                     
                     <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea id="description" placeholder="Describe the item and its appearance." value={item.description} onChange={handleInputChange} required />
+                        <Label htmlFor="text">Description</Label>
+                        <Textarea id="text" placeholder="Describe the item, its appearance, and any non-magical effects." value={item.text} onChange={handleInputChange} required />
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="properties">Properties (comma-separated)</Label>
-                        <Input id="properties" placeholder="e.g., Versatile, Thrown, Finesse" value={Array.isArray(item.properties) ? item.properties.join(', ') : (item.properties || '')} onChange={handleInputChange} />
+                        <Label htmlFor="property">Properties (comma-separated)</Label>
+                        <Input id="property" placeholder="e.g., Versatile, Thrown, Finesse" value={Array.isArray(item.property) ? item.property.join(', ') : (item.property || '')} onChange={handleInputChange} />
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="effect">Special Effect</Label>
-                        <Input id="effect" placeholder="e.g., Heals 2d4+2 HP, Grants invisibility" value={item.effect} onChange={handleInputChange} />
+                        <Label htmlFor="detail">Special Effect / Detail</Label>
+                        <Input id="detail" placeholder="e.g., Heals 2d4+2 HP, Grants invisibility" value={item.detail} onChange={handleInputChange} />
                     </div>
 
                     <div className="flex justify-end">

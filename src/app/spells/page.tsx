@@ -13,28 +13,23 @@ const initialSpells: Spell[] = [
     name: "Fireball",
     level: 3,
     school: "Evocation",
-    casting_time: "1 action",
+    time: "1 action",
     range: "150 feet",
+    components: "V, S, M (A tiny ball of bat guano and sulfur)",
     duration: "Instantaneous",
-    components: ["V", "S", "M"],
-    material: "A tiny ball of bat guano and sulfur",
-    description: "A bright streak flashes from your pointing finger to a point you choose within range and then blossoms with a low roar into an explosion of flame. Each creature in a 20-foot-radius sphere centered on that point must make a Dexterity saving throw. A target takes 8d6 fire damage on a failed save, or half as much damage on a successful one.",
-    classes: ["Sorcerer", "Wizard"],
-    damage: { type: "Fire", base: "8d6", scaling: "1d6" },
-    area_of_effect: { type: "sphere", size: 20 },
-    save: { type: "Dexterity", effect: "Half damage on success" }
+    text: "A bright streak flashes from your pointing finger to a point you choose within range and then blossoms with a low roar into an explosion of flame. Each creature in a 20-foot-radius sphere centered on that point must make a Dexterity saving throw. A target takes 8d6 fire damage on a failed save, or half as much damage on a successful one.",
+    classes: "Sorcerer, Wizard",
   },
   {
     name: "Magic Missile",
     level: 1,
     school: "Evocation",
-    casting_time: "1 action",
+    time: "1 action",
     range: "120 feet",
+    components: "V, S",
     duration: "Instantaneous",
-    components: ["V", "S"],
-    description: "You create three glowing darts of magical force. Each dart hits a creature of your choice that you can see within range. A dart deals 1d4 + 1 force damage to its target. The darts all strike simultaneously, and you can direct them to hit one creature or several.",
-    classes: ["Sorcerer", "Wizard"],
-    damage: { type: "Force", base: "1d4+1" },
+    text: "You create three glowing darts of magical force. Each dart hits a creature of your choice that you can see within range. A dart deals 1d4 + 1 force damage to its target. The darts all strike simultaneously, and you can direct them to hit one creature or several.",
+    classes: "Sorcerer, Wizard",
   }
 ];
 
@@ -85,7 +80,7 @@ export default function SpellsPage() {
                         <TableCell className="font-medium">{spell.name}</TableCell>
                         <TableCell>{spell.level === 0 ? "Cantrip" : spell.level}</TableCell>
                         <TableCell><Badge variant="outline">{spell.school}</Badge></TableCell>
-                        <TableCell className="text-muted-foreground">{spell.casting_time}</TableCell>
+                        <TableCell className="text-muted-foreground">{spell.time}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
