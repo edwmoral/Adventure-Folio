@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Star } from 'lucide-react';
 
 import type { Campaign, Character, Scene, Token } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const STORAGE_KEY = 'dnd_campaigns';
 
@@ -40,6 +51,7 @@ export default function EditCampaignPage({ params }: { params: { id: string } })
   const { toast } = useToast();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [characterToAdd, setCharacterToAdd] = useState<string>('');
+  const [sceneToDelete, setSceneToDelete] = useState<string | null>(null);
   
   useEffect(() => {
     try {
@@ -97,23 +109,61 @@ export default function EditCampaignPage({ params }: { params: { id: string } })
     const newCampaign = { ...campaign };
     newCampaign.characters.push(character);
     
-    const activeScene = newCampaign.scenes.find(s => s.is_active);
-    if (activeScene) {
+    newCampaign.scenes.forEach(scene => {
         const newToken: Token = {
-            id: `token-${Date.now()}`,
+            id: `token-${Date.now()}-${Math.random()}`,
             name: character.name,
             imageUrl: character.tokenImageUrl || 'https://placehold.co/48x48.png',
             type: 'character',
             linked_character_id: character.id,
-            position: { x: 10 + Math.random() * 10, y: 10 + Math.random() * 10 }
+            position: { x: 10 + Math.floor(Math.random() * 10), y: 10 + Math.floor(Math.random() * 10) }
         };
-        activeScene.tokens.push(newToken);
-    }
+        scene.tokens.push(newToken);
+    });
     
     setCampaign(newCampaign);
     setCharacterToAdd('');
     toast({ title: "Character Added", description: `${character.name} is ready for adventure!` });
   };
+
+  const handleSetSceneActive = (sceneId: string) => {
+    if (!campaign) return;
+
+    const newCampaign = {
+        ...campaign,
+        scenes: campaign.scenes.map(s => ({
+            ...s,
+            is_active: s.id === sceneId,
+        }))
+    };
+    
+    setCampaign(newCampaign);
+    toast({ title: "Active Scene Changed", description: "The new scene is now active for your next session." });
+  };
+
+  const handleDeleteScene = () => {
+    if (!campaign || !sceneToDelete) return;
+
+    let newCampaign = { ...campaign };
+    
+    if (newCampaign.scenes.length <= 1) {
+        toast({ variant: "destructive", title: "Cannot Delete", description: "A campaign must have at least one scene." });
+        setSceneToDelete(null);
+        return;
+    }
+
+    const deletedScene = newCampaign.scenes.find(s => s.id === sceneToDelete);
+    newCampaign.scenes = newCampaign.scenes.filter(s => s.id !== sceneToDelete);
+
+    if (deletedScene?.is_active && newCampaign.scenes.length > 0) {
+        newCampaign.scenes[0].is_active = true;
+    }
+    
+    setCampaign(newCampaign);
+    toast({ title: "Scene Deleted", description: "The scene has been removed from the campaign." });
+    setSceneToDelete(null);
+  };
+
 
   if (!campaign) {
     return <div className="text-center p-8">Loading...</div>;
@@ -206,7 +256,7 @@ export default function EditCampaignPage({ params }: { params: { id: string } })
             </Card>
         </div>
         
-        {/* Scene Management (Placeholder) */}
+        {/* Scene Management */}
         <Card>
             <CardHeader>
                 <CardTitle>Manage Scenes</CardTitle>
@@ -215,20 +265,45 @@ export default function EditCampaignPage({ params }: { params: { id: string } })
             <CardContent>
                  <div className="space-y-2">
                     {campaign.scenes.map(scene => (
-                        <div key={scene.id} className="flex items-center justify-between p-3 rounded-md border">
-                            <p className="font-medium">{scene.name}</p>
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="sm" disabled>Edit</Button>
-                                {scene.is_active && <span className="text-xs font-bold text-primary self-center">ACTIVE</span>}
+                        <div key={scene.id} className="flex items-center justify-between p-2 pl-3 rounded-md border">
+                           <div>
+                             <p className="font-medium">{scene.name}</p>
+                             {scene.is_active && <span className="text-xs font-bold text-primary flex items-center gap-1"><Star className="h-3 w-3" />ACTIVE</span>}
+                           </div>
+                            <div className="flex items-center">
+                                {!scene.is_active && (
+                                    <Button variant="outline" size="sm" onClick={() => handleSetSceneActive(scene.id)}>Set Active</Button>
+                                )}
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="ml-1" onClick={() => setSceneToDelete(scene.id)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </AlertDialogTrigger>
                             </div>
                         </div>
                     ))}
                  </div>
-                 <Button variant="outline" className="w-full mt-4" disabled>Add New Scene</Button>
+                 <Button asChild variant="outline" className="w-full mt-4">
+                    <Link href={`/play/${params.id}/scenes/new`}>Add New Scene</Link>
+                 </Button>
             </CardContent>
         </Card>
-
       </div>
+
+       <AlertDialog open={!!sceneToDelete} onOpenChange={(open) => !open && setSceneToDelete(null)}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete the scene and all its tokens from your campaign.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setSceneToDelete(null)}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteScene}>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
