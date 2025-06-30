@@ -10,8 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Book, Heart, Shield, Swords, ArrowUp, UserPlus, Sparkles } from "lucide-react"
-import type { PlayerCharacter, Class } from "@/lib/types";
+import { Book, Heart, Shield, Swords, ArrowUp, UserPlus, Sparkles, Target } from "lucide-react"
+import type { PlayerCharacter, Class, Action, Spell, Skill } from "@/lib/types";
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -35,11 +35,17 @@ const StatCard = ({ name, value, modifier }: { name: string, value: string, modi
 
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 const STORAGE_KEY_CLASSES = 'dnd_classes';
+const STORAGE_KEY_ACTIONS = 'dnd_actions';
+const STORAGE_KEY_SPELLS = 'dnd_spells';
+const STORAGE_KEY_SKILLS = 'dnd_skills';
 
 export default function CharacterSheetPage() {
     const [character, setCharacter] = useState<PlayerCharacter | null>(null);
     const [allClasses, setAllClasses] = useState<Class[]>([]);
     const [characterFeatures, setCharacterFeatures] = useState<{name: string, description: string}[]>([]);
+    const [allActions, setAllActions] = useState<Action[]>([]);
+    const [allSpells, setAllSpells] = useState<Spell[]>([]);
+    const [allSkills, setAllSkills] = useState<Skill[]>([]);
     const { toast } = useToast();
 
     // State for level up modals
@@ -60,9 +66,17 @@ export default function CharacterSheetPage() {
             }
 
             const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
-            if (storedClasses) {
-                setAllClasses(JSON.parse(storedClasses));
-            }
+            if (storedClasses) setAllClasses(JSON.parse(storedClasses));
+
+            const storedActions = localStorage.getItem(STORAGE_KEY_ACTIONS);
+            if (storedActions) setAllActions(JSON.parse(storedActions));
+
+            const storedSpells = localStorage.getItem(STORAGE_KEY_SPELLS);
+            if (storedSpells) setAllSpells(JSON.parse(storedSpells));
+
+            const storedSkills = localStorage.getItem(STORAGE_KEY_SKILLS);
+            if (storedSkills) setAllSkills(JSON.parse(storedSkills));
+
         } catch (error) {
             console.error("Failed to load data from localStorage", error);
         }
@@ -88,6 +102,14 @@ export default function CharacterSheetPage() {
     const getModifier = (score: number) => {
         const mod = Math.floor((score - 10) / 2);
         return mod >= 0 ? `+${mod}` : `${mod}`;
+    };
+
+    const getModifierValue = (score: number) => {
+        return Math.floor((score - 10) / 2);
+    }
+    
+    const getProficiencyBonus = (level: number) => {
+        return Math.ceil(1 + level / 4);
     };
 
     const handleHpIncrease = (method: 'roll' | 'average') => {
@@ -165,6 +187,47 @@ export default function CharacterSheetPage() {
             </div>
         )
     }
+
+    const proficiencyBonus = getProficiencyBonus(character.level);
+    const strModifier = getModifierValue(character.stats.str);
+
+    const getAbilityModifier = (ability: string) => {
+        switch (ability.toLowerCase()) {
+            case 'strength': return getModifier(character.stats.str);
+            case 'dexterity': return getModifier(character.stats.dex);
+            case 'constitution': return getModifier(character.stats.con);
+            case 'intelligence': return getModifier(character.stats.int);
+            case 'wisdom': return getModifier(character.stats.wis);
+            case 'charisma': return getModifier(character.stats.cha);
+            default: return '+0';
+        }
+    };
+    
+    const basicActions: Action[] = [
+        {
+            name: 'Unarmed Strike',
+            type: 'Action',
+            action_type: 'Standard',
+            description: 'A basic attack with your fists. You are proficient with your unarmed strikes.',
+            usage: { type: 'At Will' },
+            effects: `Damage: ${1 + strModifier} bludgeoning.`
+        },
+        {
+            name: 'Weapon Attack',
+            type: 'Action',
+            action_type: 'Standard',
+            description: 'A basic attack with your currently equipped weapon. Assumes proficiency.',
+            usage: { type: 'At Will' },
+            effects: `To Hit: +${strModifier + proficiencyBonus}, Damage: 1d8 + ${strModifier} slashing (assumed longsword).`
+        },
+        {
+            name: 'Grapple',
+            type: 'Action',
+            action_type: 'Standard',
+            description: "You attempt to grapple a creature using a contested Strength (Athletics) check.",
+            usage: { type: 'At Will' }
+        }
+    ];
 
     return (
         <TooltipProvider>
@@ -250,16 +313,48 @@ export default function CharacterSheetPage() {
                                 </div>
                             </CardContent>
                         </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Skills</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-1 text-sm">
+                                {allSkills.map(skill => (
+                                    <div key={skill.name} className="flex justify-between">
+                                        <span>{skill.name} <span className="text-muted-foreground text-xs">({skill.ability.substring(0,3)})</span></span>
+                                        <span className="font-medium">{getAbilityModifier(skill.ability)}</span>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
                     </div>
 
                     {/* Right Column: Tabs */}
                     <div className="md:col-span-2">
-                        <Tabs defaultValue="inventory" className="w-full">
-                            <TabsList className="grid w-full grid-cols-3">
-                                <TabsTrigger value="inventory">Inventory</TabsTrigger>
+                        <Tabs defaultValue="actions" className="w-full">
+                            <TabsList className="grid w-full grid-cols-4">
+                                <TabsTrigger value="actions">Actions</TabsTrigger>
                                 <TabsTrigger value="spells">Spells</TabsTrigger>
+                                <TabsTrigger value="inventory">Inventory</TabsTrigger>
                                 <TabsTrigger value="features">Features & Traits</TabsTrigger>
                             </TabsList>
+                             <TabsContent value="actions" className="mt-4">
+                                <Card>
+                                    <CardContent className="p-6 space-y-4">
+                                        {[...basicActions, ...allActions].map((action, index) => (
+                                            <div key={`${action.name}-${index}`}>
+                                                <h4 className="font-semibold">{action.name} <Badge variant="secondary">{action.type}</Badge></h4>
+                                                <p className="text-sm text-muted-foreground mt-1">{action.description}</p>
+                                                {action.effects && (
+                                                    <div className="text-sm mt-1 flex items-start gap-2">
+                                                        <Target className="h-4 w-4 mt-0.5 text-accent flex-shrink-0" />
+                                                        <span>{action.effects}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
                             <TabsContent value="inventory" className="mt-4">
                                 <Card>
                                     <CardContent className="p-6">
@@ -272,10 +367,25 @@ export default function CharacterSheetPage() {
                             </TabsContent>
                             <TabsContent value="spells" className="mt-4">
                                <Card>
-                                    <CardContent className="p-6 text-center">
-                                       <Book className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                                       <h3 className="font-semibold">Spellbook is empty.</h3>
-                                       <p className="text-sm text-muted-foreground">Spell management coming soon...</p>
+                                    <CardHeader>
+                                        <CardTitle>Spellbook</CardTitle>
+                                        <CardDescription>All available spells. Your character's specific spells will be tracked here soon.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                      {allSpells.length > 0 ? (
+                                        allSpells.map(spell => (
+                                          <div key={spell.name}>
+                                              <h4 className="font-semibold">{spell.name} <span className="text-xs text-muted-foreground">({spell.level === 0 ? "Cantrip" : `Lvl ${spell.level}`}, {spell.school})</span></h4>
+                                              <p className="text-sm text-muted-foreground mt-1">{spell.description}</p>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <div className="text-center">
+                                            <Book className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                                            <h3 className="font-semibold">Spellbook is empty.</h3>
+                                            <p className="text-sm text-muted-foreground">Add spells in the main Spells page.</p>
+                                        </div>
+                                      )}
                                     </CardContent>
                                 </Card>
                             </TabsContent>
@@ -327,5 +437,4 @@ export default function CharacterSheetPage() {
             </AlertDialog>
         </TooltipProvider>
     );
-
-    
+}
