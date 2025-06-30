@@ -43,20 +43,25 @@ const generateCharacterPortraitFlow = ai.defineFlow(
     outputSchema: GenerateCharacterPortraitOutputSchema,
   },
   async ({characterRace, characterClass, characterDescription}) => {
-    // Step 1: Generate an optimized prompt for image generation.
+    // Step 1: Generate an optimized, keyword-based prompt for the image model.
     const {text: optimizedPrompt} = await ai.generate({
       prompt: `You are an expert prompt engineer for a fantasy character portrait generation AI.
-      Your task is to refine a user's request into a vivid, detailed, and effective prompt for a text-to-image model.
-      The final output should be a single paragraph describing a fantasy character portrait.
-      Focus on a "head and shoulders" or "upper body" portrait style. Do not describe a full body pose unless specified.
-      The style should be painterly and realistic fantasy art.
+      Your task is to refine a user's request into a vivid, detailed, and effective prompt.
+      The final output should be a single, comma-separated list of keywords and phrases.
+      Example: "fantasy art, painterly, intricate detail, head and shoulders portrait, male elf wizard, silver hair, glowing blue eyes, holding a gnarled wooden staff, wearing dark blue robes with silver trim, mysterious, magical aura, dramatic lighting"
+
+      Style Guidelines:
+      - Art Style: Painterly, realistic fantasy art, detailed, atmospheric.
+      - Framing: "Head and shoulders portrait" or "upper body portrait". Avoid full-body descriptions.
+      - Detail: Add specific, evocative details about clothing, expression, and mood based on the provided character information.
+      - Lighting: Suggest dramatic or cinematic lighting.
 
       Use the following details to craft the prompt:
       - Race: ${characterRace}
       - Class: ${characterClass}
       - Description/Backstory: ${characterDescription}
 
-      Return ONLY the optimized prompt paragraph and nothing else.`,
+      Return ONLY the comma-separated list of keywords and nothing else.`,
     });
 
     // Step 2: Use the optimized prompt to generate the image.

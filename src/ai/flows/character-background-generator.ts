@@ -43,37 +43,53 @@ export async function generateCharacterBackground(
   return generateCharacterBackgroundFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'generateCharacterBackgroundPrompt',
-  input: {schema: GenerateCharacterBackgroundInputSchema},
-  output: {schema: GenerateCharacterBackgroundOutputSchema},
-  prompt: `You are a creative storyteller specializing in D&D character backgrounds.
-
-  Given the following information, craft a compelling and detailed background story for the character.
-
-  Character Name: {{{characterName}}}
-  Race: {{{characterRace}}}
-  Class: {{{characterClass}}}
-  Desired Tone: {{#if desiredTone}}{{{desiredTone}}}{{else}}No specific tone.{{/if}}
-  Additional Details: {{#if additionalDetails}}{{{additionalDetails}}}{{else}}None.{{/if}}
-
-  Consider the character's potential motivations, flaws, and key events that shaped their past.
-  The background story should be engaging and provide a solid foundation for roleplaying.
-  Write in a narrative style, bringing the character to life.
-  Do not include any introductory or concluding remarks.
-  Focus solely on the character's background story.
-
-  Background Story:`,
-});
-
 const generateCharacterBackgroundFlow = ai.defineFlow(
   {
     name: 'generateCharacterBackgroundFlow',
     inputSchema: GenerateCharacterBackgroundInputSchema,
     outputSchema: GenerateCharacterBackgroundOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
+  async ({
+    characterName,
+    characterRace,
+    characterClass,
+    desiredTone,
+    additionalDetails,
+  }) => {
+    // Step 1: Generate an outline/story points to guide the narrative.
+    const {text: storyOutline} = await ai.generate({
+      prompt: `You are a master D&D storyteller. Based on the following character concept, generate a list of 3-5 key bullet points for a compelling background story. These points should include a core motivation, a significant past event, and a personal connection or secret.
+
+      Character Name: ${characterName}
+      Race: ${characterRace}
+      Class: ${characterClass}
+      Desired Tone: ${desiredTone || 'Not specified'}
+      Additional Details: ${additionalDetails || 'None'}
+
+      Return ONLY the bullet points.`,
+    });
+
+    // Step 2: Use the outline to write the full, narrative story.
+    const {output} = await ai.generate({
+      prompt: `You are a creative storyteller specializing in D&D character backgrounds.
+      Given the following character information and key story points, craft a compelling and detailed background story.
+      Write in a rich, narrative style, bringing the character to life.
+      Do not include any introductory or concluding remarks. Focus solely on the character's background story.
+
+      Character Name: ${characterName}
+      Race: ${characterRace}
+      Class: ${characterClass}
+      Desired Tone: ${desiredTone || 'Not specified'}
+
+      Key Story Points to use as inspiration:
+      ${storyOutline}
+
+      Generate the background story now.`,
+      output: {
+        schema: GenerateCharacterBackgroundOutputSchema,
+      },
+    });
+
     return output!;
   }
 );
