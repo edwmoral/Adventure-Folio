@@ -1,25 +1,26 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import type { Class } from '@/lib/types';
+import type { Class, Skill, Feat } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-const STORAGE_KEY = 'dnd_classes';
+const STORAGE_KEY_CLASSES = 'dnd_classes';
+const STORAGE_KEY_SKILLS = 'dnd_skills';
+const STORAGE_KEY_FEATS = 'dnd_feats';
+
 const ABILITIES = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
 const HIT_DICE = ['d6', 'd8', 'd10', 'd12'];
-const SKILL_LIST = "Acrobatics, Animal Handling, Arcana, Athletics, Deception, History, Insight, Intimidation, Investigation, Medicine, Nature, Perception, Performance, Persuasion, Religion, Sleight of Hand, Stealth, Survival";
-
 
 export default function NewClassPage() {
   const router = useRouter();
@@ -30,8 +31,24 @@ export default function NewClassPage() {
   const [hitDie, setHitDie] = useState('');
   const [primaryAbility, setPrimaryAbility] = useState('');
   const [selectedSavingThrows, setSelectedSavingThrows] = useState<string[]>([]);
-  const [skills, setSkills] = useState('');
-  const [features, setFeatures] = useState('');
+
+  const [allSkills, setAllSkills] = useState<Skill[]>([]);
+  const [allFeats, setAllFeats] = useState<Feat[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const storedSkills = localStorage.getItem(STORAGE_KEY_SKILLS);
+      if (storedSkills) setAllSkills(JSON.parse(storedSkills));
+
+      const storedFeats = localStorage.getItem(STORAGE_KEY_FEATS);
+      if (storedFeats) setAllFeats(JSON.parse(storedFeats));
+    } catch (error) {
+      console.error("Failed to load skills/feats from localStorage", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not load skills and features data.' });
+    }
+  }, [toast]);
 
   const handleSavingThrowChange = (ability: string) => {
     setSelectedSavingThrows(prev => {
@@ -47,17 +64,33 @@ export default function NewClassPage() {
         }
     });
   };
+
+  const handleSkillChange = (skillName: string) => {
+    setSelectedSkills(prev => 
+      prev.includes(skillName) 
+        ? prev.filter(item => item !== skillName) 
+        : [...prev, skillName]
+    );
+  };
+
+  const handleFeatureChange = (featureName: string) => {
+    setSelectedFeatures(prev => 
+      prev.includes(featureName) 
+        ? prev.filter(item => item !== featureName) 
+        : [...prev, featureName]
+    );
+  };
   
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!name || !subclass || !hitDie || !primaryAbility || selectedSavingThrows.length !== 2 || !skills.trim() || !features.trim()) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please fill all fields and select exactly 2 saving throws.' });
+    if (!name || !subclass || !hitDie || !primaryAbility || selectedSavingThrows.length !== 2 || selectedSkills.length === 0 || selectedFeatures.length === 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please fill all fields, select exactly 2 saving throws, and at least one skill and feature.' });
         return;
     }
 
     try {
-        const storedClasses = localStorage.getItem(STORAGE_KEY);
+        const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
         const classes: Class[] = storedClasses ? JSON.parse(storedClasses) : [];
         
         const newClass: Class = {
@@ -66,12 +99,12 @@ export default function NewClassPage() {
             hit_die: hitDie,
             primary_ability: primaryAbility,
             saving_throws: selectedSavingThrows,
-            skills: skills.split(',').map(s => s.trim()),
-            levels: [{ level: 1, features: features.split(',').map(f => f.trim()) }]
+            skills: selectedSkills,
+            levels: [{ level: 1, features: selectedFeatures }]
         };
 
         const updatedClasses = [...classes, newClass];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedClasses));
+        localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(updatedClasses));
 
         toast({ title: "Class Created!", description: "The new class has been added." });
         router.push(`/classes`);
@@ -94,7 +127,7 @@ export default function NewClassPage() {
             <CardHeader>
                 <CardTitle>Create New Class</CardTitle>
                 <CardDescription>
-                    Define a new class and its first subclass. Use comma-separated values for lists.
+                    Define a new class and its first subclass.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -147,15 +180,38 @@ export default function NewClassPage() {
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="skills">Skills (comma-separated)</Label>
-                        <Textarea id="skills" placeholder="e.g., Arcana, Investigation, Medicine" value={skills} onChange={(e) => setSkills(e.target.value)} required />
-                        <p className="text-sm text-muted-foreground">
-                            <strong>Available:</strong> {SKILL_LIST}
-                        </p>
+                        <Label>Skills (Choose from list)</Label>
+                        <ScrollArea className="h-40 w-full rounded-md border p-4">
+                            <div className="grid grid-cols-2 gap-2">
+                                {allSkills.length > 0 ? allSkills.map(skill => (
+                                    <div key={skill.name} className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id={`skill-${skill.name}`}
+                                            checked={selectedSkills.includes(skill.name)}
+                                            onCheckedChange={() => handleSkillChange(skill.name)}
+                                        />
+                                        <Label htmlFor={`skill-${skill.name}`} className="font-normal">{skill.name}</Label>
+                                    </div>
+                                )) : <p className="text-sm text-muted-foreground col-span-2">No skills found. Add them on the Skills page.</p>}
+                            </div>
+                        </ScrollArea>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="features">Level 1 Features (comma-separated)</Label>
-                        <Textarea id="features" placeholder="e.g., Magical Tinkering, Spellcasting" value={features} onChange={(e) => setFeatures(e.target.value)} required />
+                        <Label>Level 1 Features (Choose from list)</Label>
+                        <ScrollArea className="h-40 w-full rounded-md border p-4">
+                            <div className="space-y-2">
+                                {allFeats.length > 0 ? allFeats.map(feat => (
+                                    <div key={feat.name} className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id={`feat-${feat.name}`}
+                                            checked={selectedFeatures.includes(feat.name)}
+                                            onCheckedChange={() => handleFeatureChange(feat.name)}
+                                        />
+                                        <Label htmlFor={`feat-${feat.name}`} className="font-normal">{feat.name}</Label>
+                                    </div>
+                                )) : <p className="text-sm text-muted-foreground">No features found. Add them on the Features page.</p>}
+                            </div>
+                        </ScrollArea>
                     </div>
                     <div className="flex justify-end">
                         <Button type="submit">Create Class</Button>
