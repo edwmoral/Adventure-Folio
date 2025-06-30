@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Trash2, Star } from 'lucide-react';
 
@@ -46,8 +47,9 @@ const MOCK_AVAILABLE_CHARACTERS: Character[] = [
     { id: 'char8', name: 'Pippin', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png', class: 'Fool of a Took', level: 2 },
 ];
 
-export default function EditCampaignPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default function EditCampaignPage() {
+  const params = useParams();
+  const id = params.id as string;
   const router = useRouter();
   const { toast } = useToast();
   const [campaign, setCampaign] = useState<Campaign | null>(null);

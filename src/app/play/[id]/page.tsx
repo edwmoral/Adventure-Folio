@@ -1,6 +1,8 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Play, Users, UserPlus, Pencil, X } from "lucide-react";
@@ -13,8 +15,9 @@ import { useToast } from '@/hooks/use-toast';
 const STORAGE_KEY = 'dnd_campaigns';
 
 
-export default function CampaignDetailPage({ params }: { params: { id: string } }) {
-    const { id } = params;
+export default function CampaignDetailPage() {
+    const params = useParams();
+    const id = params.id as string;
     const [campaign, setCampaign] = useState<Campaign | null>(null);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
@@ -145,7 +148,7 @@ export default function CampaignDetailPage({ params }: { params: { id: string } 
                                 </div>
                             ))}
                              <Button asChild variant="outline" className="h-auto p-2 flex items-center justify-center flex-col gap-1 w-[68px] h-[60px] border-dashed hover:border-solid">
-                                <Link href={`/play/${campaign.id}/edit`}>
+                                <Link href={`/play/${id}/edit`}>
                                     <UserPlus className="h-5 w-5" />
                                     <span className="text-xs">Add</span>
                                 </Link>

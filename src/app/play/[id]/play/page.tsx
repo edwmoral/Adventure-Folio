@@ -1,6 +1,8 @@
+
 'use client';
 
 import { useState, useEffect } from "react";
+import { useParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ZoomIn, ZoomOut, Grid } from "lucide-react";
 import Link from "next/link";
@@ -10,8 +12,9 @@ import type { Campaign, Scene } from '@/lib/types';
 
 const STORAGE_KEY = 'dnd_campaigns';
 
-export default function MapViewPage({ params }: { params: { id: string } }) {
-    const { id } = params;
+export default function MapViewPage() {
+    const params = useParams();
+    const id = params.id as string;
     const [scene, setScene] = useState<Scene | null>(null);
     const [loading, setLoading] =useState(true);
 

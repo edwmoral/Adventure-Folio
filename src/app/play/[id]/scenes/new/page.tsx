@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Sparkles } from "lucide-react";
@@ -19,8 +20,9 @@ import { generateMapAction } from "./actions";
 const STORAGE_KEY = 'dnd_campaigns';
 
 
-export default function NewScenePage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default function NewScenePage() {
+  const params = useParams();
+  const id = params.id as string;
   const router = useRouter();
   const { toast } = useToast();
   const [sceneName, setSceneName] = useState('');
