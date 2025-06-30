@@ -14,6 +14,7 @@ export type Token = {
   maxHp?: number;
   mp?: number;
   maxMp?: number;
+  statusEffects?: ('dodging')[];
 };
 
 export type Scene = {
@@ -185,12 +186,12 @@ export type Spell = {
     name: string;
     text: string;
     level: number;
-    school?: string;
+    school: string;
     ritual?: boolean;
-    time?: string;
-    range?: string;
+    time: string;
+    range: string;
     components?: string;
-    duration?: string;
+    duration: string;
     classes?: string;
 };
 

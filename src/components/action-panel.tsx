@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Heart, Shield, Swords, Footprints, CheckCircle2, XCircle } from 'lucide-react';
-import type { PlayerCharacter, Enemy, Token, Action } from '@/lib/types';
+import type { PlayerCharacter, Enemy, Token, Action, MonsterAction } from '@/lib/types';
 import { Progress } from './ui/progress';
 
 interface ActionPanelProps {
@@ -32,6 +32,8 @@ interface ActionPanelProps {
   } | null;
   onUseAction?: (type: 'action' | 'bonus') => void;
   onDash?: () => void;
+  onAttack?: () => void;
+  onDodge?: () => void;
 }
 
 const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string | number }) => (
@@ -68,7 +70,9 @@ export function ActionPanel({
   isInCombat,
   combatState,
   onUseAction,
-  onDash
+  onDash,
+  onAttack,
+  onDodge,
 }: ActionPanelProps) {
 
   const data = character || enemy;
@@ -77,34 +81,36 @@ export function ActionPanel({
   }
   
   const isPlayer = !!character;
-
-  const health = isPlayer ? character.hp : (token.hp ?? enemy?.hit_points);
-  const maxHealth = isPlayer ? character.maxHp : (token.maxHp ?? enemy?.hit_points);
-  const healthPercent = ((health || 0) / (maxHealth || 1)) * 100;
+  const health = token.hp ?? (isPlayer ? character.hp : (enemy ? parseInt(enemy.hp.split(' ')[0]) : undefined));
+  const maxHealth = token.maxHp ?? (isPlayer ? character.maxHp : (enemy ? parseInt(enemy.hp.split(' ')[0]) : undefined));
+  const healthPercent = (health !== undefined && maxHealth) ? (health / maxHealth) * 100 : 100;
   
-  const ac = isPlayer ? character.ac : enemy?.armor_class;
+  const ac = isPlayer ? character.ac : (enemy ? parseInt(enemy.ac) : 'N/A');
   const speed = isPlayer ? '30 ft.' : enemy?.speed; // Assuming base speed for players
 
   const basePlayerActions = [
-      { name: 'Attack', description: 'Make a melee or ranged attack.', type: 'action', action: () => onUseAction?.('action') },
+      { name: 'Attack', description: 'Make a melee or ranged attack.', type: 'action', action: onAttack },
       { name: 'Dash', description: 'Double your movement speed for the turn.', type: 'action', action: onDash },
       { name: 'Disengage', description: 'Move without provoking opportunity attacks.', type: 'action', action: () => onUseAction?.('action') },
-      { name: 'Dodge', description: 'Focus on avoiding attacks.', type: 'action', action: () => onUseAction?.('action') },
+      { name: 'Dodge', description: 'Focus on avoiding attacks.', type: 'action', action: onDodge },
       { name: 'Use an Item', description: 'Interact with an object or item.', type: 'action', action: () => onUseAction?.('action') },
   ];
 
-  const enemyActions = enemy?.actions
-    .split(/(?<=\.)\s+/) 
-    .map(s => s.trim())
-    .filter(Boolean)
-    .map(actionString => {
-        const name = actionString.split('.')[0];
-        return { name, description: actionString, type: 'action' };
-    }) || [];
+  const enemyActions = enemy?.action?.map(action => ({
+    name: action.name,
+    description: action.text,
+    type: 'action',
+    action: onAttack,
+  })) || [];
 
   const characterActions = [
       ...basePlayerActions,
-      ...actions.map(a => ({ name: a.name, description: a.description, type: a.type.toLowerCase().includes('bonus') ? 'bonus' : 'action' }))
+      ...actions.map(a => ({ 
+          name: a.name, 
+          description: a.description, 
+          type: a.type.toLowerCase().includes('bonus') ? 'bonus' : 'action',
+          action: () => onUseAction?.(a.type.toLowerCase().includes('bonus') ? 'bonus' : 'action')
+      }))
   ];
 
   return (
@@ -171,10 +177,8 @@ export function ActionPanel({
                                 description={action.description} 
                                 disabled={isDisabled}
                                 onClick={() => {
-                                    if (isInCombat && action.action) {
+                                    if (action.action) {
                                         action.action();
-                                    } else if (isInCombat && onUseAction && (action.type === 'action' || action.type === 'bonus')) {
-                                        onUseAction(action.type);
                                     }
                                 }}
                               />

@@ -4,12 +4,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ZoomIn, ZoomOut, Grid, Maximize, Minimize, Swords, ShieldClose } from "lucide-react";
+import { ArrowLeft, ZoomIn, ZoomOut, Grid, Maximize, Minimize, Swords, ShieldClose, Shield } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
-import type { Campaign, Scene, Token, PlayerCharacter, Enemy, Action } from '@/lib/types';
+import type { Campaign, Scene, Token, PlayerCharacter, Enemy, Action, MonsterAction } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ type Combatant = Token & {
     movementRemaining: number;
     hasAction: boolean;
     hasBonusAction: boolean;
+    statusEffects: ('dodging')[];
 };
 
 export default function MapViewPage() {
@@ -63,6 +64,8 @@ export default function MapViewPage() {
     const [turnOrder, setTurnOrder] = useState<Combatant[]>([]);
     const [activeTokenIndex, setActiveTokenIndex] = useState(0);
     const [roundNumber, setRoundNumber] = useState(1);
+    const [targetingMode, setTargetingMode] = useState<boolean>(false);
+    const [attacker, setAttacker] = useState<Combatant | null>(null);
 
 
     useEffect(() => {
@@ -199,6 +202,7 @@ export default function MapViewPage() {
                 movementRemaining: Number(speedInFt),
                 hasAction: true,
                 hasBonusAction: true,
+                statusEffects: [],
             };
         });
 
@@ -237,6 +241,7 @@ export default function MapViewPage() {
                     movementRemaining: c.speed,
                     hasAction: true,
                     hasBonusAction: true,
+                    statusEffects: [],
                 };
             }
             return c;
@@ -255,10 +260,89 @@ export default function MapViewPage() {
         setRoundNumber(1);
         toast({ title: "Combat Ended" });
     };
+
+    const resolveAttack = (target: Token) => {
+        if (!attacker) return;
+
+        const attackerData = attacker.type === 'character' 
+            ? allPlayerCharacters.find(c => c.id === attacker.linked_character_id) 
+            : allEnemies.find(e => e.id === attacker.linked_enemy_id);
+        const targetData = target.type === 'character' 
+            ? allPlayerCharacters.find(c => c.id === target.linked_character_id) 
+            : allEnemies.find(e => e.id === target.linked_enemy_id);
+        
+        if (!attackerData || !targetData) return;
+
+        const getModifierValue = (score: number) => Math.floor((score - 10) / 2);
+        const getProficiencyBonus = (level: number) => Math.ceil(1 + level / 4);
+        const getMonsterProficiency = (cr: string) => {
+            try {
+                const crNum = eval(cr);
+                if (crNum < 5) return 2;
+                if (crNum < 9) return 3;
+                if (crNum < 13) return 4;
+                if (crNum < 17) return 5;
+                return 6;
+            } catch { return 2; }
+        };
+
+        const defenderAC = parseInt(String(targetData.ac));
+        const attackerProficiency = attacker.type === 'character' ? getProficiencyBonus((attackerData as PlayerCharacter).level) : getMonsterProficiency((attackerData as Enemy).cr);
+        const strMod = getModifierValue(attackerData.str);
+        const attackBonus = strMod + attackerProficiency;
+
+        const targetCombatant = turnOrder.find(c => c.id === target.id);
+        const hasDisadvantage = targetCombatant?.statusEffects.includes('dodging') || false;
+
+        const d20_1 = Math.floor(Math.random() * 20) + 1;
+        let attackRoll = d20_1;
+        let rollDescription = `Rolled ${d20_1}`;
+
+        if (hasDisadvantage) {
+            const d20_2 = Math.floor(Math.random() * 20) + 1;
+            attackRoll = Math.min(d20_1, d20_2);
+            rollDescription = `Rolled ${d20_1}, ${d20_2} (disadvantage) -> ${attackRoll}`;
+        }
+        
+        const totalAttack = attackRoll + attackBonus;
+        toast({ title: "Attack Roll", description: `${rollDescription} + ${attackBonus} = ${totalAttack} vs AC ${defenderAC}` });
+
+        if (totalAttack >= defenderAC || attackRoll === 20) {
+            const damageRoll = Math.floor(Math.random() * 8) + 1;
+            const totalDamage = Math.max(1, damageRoll + strMod);
+
+            const currentHp = target.hp ?? (targetData.type === 'Humanoid' ? (targetData as PlayerCharacter).hp : parseInt((targetData as Enemy).hp.split(' ')[0]));
+            const newHp = currentHp - totalDamage;
+
+            const newTurnOrder = turnOrder.map(c => c.id === target.id ? { ...c, hp: newHp } : c);
+            setTurnOrder(newTurnOrder);
+            
+            if (scene) {
+                const newScene = { ...scene, tokens: scene.tokens.map(t => t.id === target.id ? { ...t, hp: newHp } : t) };
+                setScene(newScene);
+                saveCampaignChanges(newScene);
+            }
+            
+            toast({ title: "HIT!", description: `${attacker.name} hits ${target.name} for ${totalDamage} damage!` });
+        } else {
+            toast({ title: "MISS!", description: `${attacker.name} missed ${target.name}.` });
+        }
+
+        setTargetingMode(false);
+        setAttacker(null);
+    };
     
     const handleTokenClick = (token: Token) => {
-        setSelectedToken(token);
-        setIsActionPanelOpen(true);
+        if (targetingMode) {
+            if (attacker && token.id === attacker.id) {
+                toast({ variant: 'destructive', title: 'Invalid Target', description: "You cannot target yourself." });
+                return;
+            }
+            resolveAttack(token);
+        } else {
+            setSelectedToken(token);
+            setIsActionPanelOpen(true);
+        }
     };
 
     const handleTokenMouseDown = (e: React.MouseEvent<HTMLDivElement>, tokenId: string) => {
@@ -455,6 +539,29 @@ export default function MapViewPage() {
         toast({ title: 'Dashed!', description: 'You gain extra movement for this turn.' });
     };
 
+    const handleDodge = () => {
+        const activeCombatant = turnOrder[activeTokenIndex];
+        if (!activeCombatant?.hasAction) {
+            toast({ variant: 'destructive', title: 'No Action', description: 'You have already used your action this turn.'});
+            return;
+        }
+        handleUseAction('action');
+        setTurnOrder(prev => prev.map((c, i) => i === activeTokenIndex ? { ...c, statusEffects: ['dodging'] } : c));
+        toast({ title: 'Dodging!', description: `${activeCombatant.name} will be harder to hit until their next turn.`});
+    };
+
+    const handleAttack = () => {
+        const activeCombatant = turnOrder[activeTokenIndex];
+        if (!activeCombatant?.hasAction) {
+            toast({ variant: 'destructive', title: 'No Action', description: 'You have already used your action this turn.'});
+            return;
+        }
+        handleUseAction('action');
+        setTargetingMode(true);
+        setAttacker(activeCombatant);
+        toast({ title: 'Select a Target', description: 'Click on a creature to attack.'});
+    };
+
     if (loading) return <div className="text-center p-8">Loading scene...</div>;
 
     if (!scene) {
@@ -496,7 +603,7 @@ export default function MapViewPage() {
 
                 {isInCombat && <TurnOrderTracker turnOrder={turnOrder} activeTokenIndex={activeTokenIndex} roundNumber={roundNumber} />}
                 
-                <div ref={mapInteractionRef} className="flex-grow relative overflow-hidden bg-card-foreground/10 rounded-b-lg select-none" onMouseDown={handleInteractionMouseDown} onMouseMove={handleInteractionMouseMove} onMouseUp={handleInteractionMouseUp} onMouseLeave={handleInteractionMouseUp} onWheel={handleWheel} onContextMenu={handleContextMenu}>
+                <div ref={mapInteractionRef} className={cn("flex-grow relative overflow-hidden bg-card-foreground/10 rounded-b-lg select-none", targetingMode && "cursor-crosshair")} onMouseDown={handleInteractionMouseDown} onMouseMove={handleInteractionMouseMove} onMouseUp={handleInteractionMouseUp} onMouseLeave={handleInteractionMouseUp} onWheel={handleWheel} onContextMenu={handleContextMenu}>
                     <div className="absolute top-0 left-0 w-full h-full" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', cursor: isPanning ? 'grabbing' : 'default' }}>
                         <div className="relative w-full h-full" style={{ aspectRatio: `${scene.width || 30}/${scene.height || 20}` }}>
                             <Image src={scene.background_map_url} alt="Fantasy battle map" fill className="object-contain" data-ai-hint="fantasy map" draggable="false" />
@@ -570,24 +677,27 @@ export default function MapViewPage() {
                                 const isPlayer = token.type === 'character';
                                 const playerChar = isPlayer ? allPlayerCharacters.find(pc => pc.id === token.linked_character_id) : null;
                                 const enemy = !isPlayer ? allEnemies.find(e => e.id === token.linked_enemy_id) : null;
-                                const health = isPlayer ? playerChar?.hp : (token.hp ?? enemy?.hit_points);
-                                const maxHealth = isPlayer ? playerChar?.maxHp : (token.maxHp ?? enemy?.hit_points);
-                                const ac = isPlayer ? playerChar?.ac : enemy?.armor_class;
-                                const healthPercent = ((health || 0) / (maxHealth || 1)) * 100;
+                                const health = token.hp ?? (isPlayer ? playerChar?.hp : (enemy ? parseInt(enemy.hp.split(' ')[0]) : undefined));
+                                const maxHealth = token.maxHp ?? (isPlayer ? playerChar?.maxHp : (enemy ? parseInt(enemy.hp.split(' ')[0]) : undefined));
+                                const ac = isPlayer ? playerChar?.ac : (enemy ? parseInt(enemy.ac) : undefined);
+                                const healthPercent = (health !== undefined && maxHealth) ? (health / maxHealth) * 100 : 100;
                                 const tokenWidth = 100 / (scene.width || 30);
                                 const tokenHeight = 100 / (scene.height || 20);
                                 const activeTokenIdInCombat = isInCombat ? turnOrder[activeTokenIndex]?.id : null;
+                                const isDodging = isInCombat && turnOrder.find(c => c.id === token.id)?.statusEffects?.includes('dodging');
+                                
                                 return (
                                     <Tooltip key={token.id}>
                                         <TooltipTrigger asChild>
                                             <div className={cn("absolute group transition-opacity", isInCombat && activeTokenIdInCombat !== token.id && "opacity-70", isInCombat && activeTokenIdInCombat === token.id && "ring-4 ring-yellow-400 ring-offset-2 ring-offset-background rounded-full z-10")} style={{ left: `${token.position.x}%`, top: `${token.position.y}%`, width: `${tokenWidth}%`, height: `${tokenHeight}%`, transform: 'translate(-50%, -50%)', cursor: (draggedToken?.id === token.id) || (isInCombat && activeTokenIdInCombat === token.id) ? 'grabbing' : 'grab' }} onClick={() => handleTokenClick(token)} onMouseDown={(e) => handleTokenMouseDown(e, token.id)}>
                                                 <div className="relative w-full h-full flex flex-col items-center justify-center p-[5%]">
-                                                    {maxHealth && maxHealth > 0 && <Progress value={healthPercent} className={cn("absolute -top-1 w-full h-1", isPlayer ? "bg-green-900/50 [&>div]:bg-green-500" : "bg-red-900/50 [&>div]:bg-red-500")} />}
+                                                    {isDodging && <Shield className="absolute -top-1 -right-1 h-4 w-4 text-blue-400 bg-background rounded-full p-0.5 z-10" />}
+                                                    {maxHealth && <Progress value={healthPercent} className={cn("absolute -top-1 w-full h-1", isPlayer ? "bg-green-900/50 [&>div]:bg-green-500" : "bg-red-900/50 [&>div]:bg-red-500")} />}
                                                     <Avatar className="h-full w-full border-2 border-primary shadow-lg transition-transform group-hover:scale-105"><AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" /><AvatarFallback>{token.name.substring(0,1)}</AvatarFallback></Avatar>
                                                 </div>
                                             </div>
                                         </TooltipTrigger>
-                                        <TooltipContent><div className="space-y-1 text-sm text-left"><p className="font-bold">{token.name}</p>{maxHealth && maxHealth > 0 && <p>HP: {health} / {maxHealth}</p>}{ac !== undefined && <p>AC: {ac} 🛡️</p>}{isPlayer && playerChar?.spell_slots && Object.keys(playerChar.spell_slots).length > 0 && (<div className="pt-1 mt-1 border-t border-border/50"><p className="font-semibold text-xs mb-1">Spell Slots</p><div className="space-y-0.5">{Object.entries(playerChar.spell_slots).sort(([a], [b]) => parseInt(a) - parseInt(b)).map(([level, slots]) => (<p key={level} className="text-xs text-muted-foreground">Lvl {level}: {slots.current} / {slots.max}</p>))}</div></div>)}</div></TooltipContent>
+                                        <TooltipContent><div className="space-y-1 text-sm text-left"><p className="font-bold">{token.name}</p>{health !== undefined && maxHealth && <p>HP: {health} / {maxHealth}</p>}{ac !== undefined && <p>AC: {ac} 🛡️</p>}{isPlayer && playerChar?.spell_slots && Object.keys(playerChar.spell_slots).length > 0 && (<div className="pt-1 mt-1 border-t border-border/50"><p className="font-semibold text-xs mb-1">Spell Slots</p><div className="space-y-0.5">{Object.entries(playerChar.spell_slots).sort(([a], [b]) => parseInt(a) - parseInt(b)).map(([level, slots]) => (<p key={level} className="text-xs text-muted-foreground">Lvl {level}: {slots.current} / {slots.max}</p>))}</div></div>)}</div></TooltipContent>
                                     </Tooltip>
                                 );
                             })}
@@ -597,7 +707,7 @@ export default function MapViewPage() {
                  <div className="absolute bottom-4 right-4 z-20 flex gap-2">
                     {!isInCombat ? <Button size="lg" onClick={handleStartCombat}><Swords className="mr-2" /> Start Combat</Button> : (<><Button size="lg" variant="destructive" onClick={handleEndCombat}><ShieldClose className="mr-2" /> End Combat</Button><Button size="lg" onClick={handleEndTurn}>End Turn</Button></>)}
                 </div>
-                 <ActionPanel open={isActionPanelOpen} onOpenChange={setIsActionPanelOpen} token={selectedToken} character={selectedToken?.type === 'character' ? allPlayerCharacters.find(p => p.id === selectedToken.linked_character_id) || null : null} enemy={selectedToken?.type === 'monster' ? allEnemies.find(e => e.id === selectedToken.linked_enemy_id) || null : null} actions={allActions} container={fullscreenContainerRef.current} isInCombat={isInCombat} combatState={activeCombatant} onUseAction={handleUseAction} onDash={handleDash} />
+                 <ActionPanel open={isActionPanelOpen} onOpenChange={setIsActionPanelOpen} token={selectedToken} character={selectedToken?.type === 'character' ? allPlayerCharacters.find(p => p.id === selectedToken.linked_character_id) || null : null} enemy={selectedToken?.type === 'monster' ? allEnemies.find(e => e.id === selectedToken.linked_enemy_id) || null : null} actions={allActions} container={fullscreenContainerRef.current} isInCombat={isInCombat} combatState={activeCombatant} onUseAction={handleUseAction} onDash={handleDash} onAttack={handleAttack} onDodge={handleDodge} />
             </div>
         </TooltipProvider>
     );
