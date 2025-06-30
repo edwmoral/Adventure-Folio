@@ -1,8 +1,13 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+'use client';
+
+import { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import type { Skill } from '@/lib/types';
+import { PlusCircle } from 'lucide-react';
 
-const skills: Skill[] = [
+const initialSkills: Skill[] = [
   {
     name: "Athletics",
     ability: "Strength",
@@ -31,23 +36,36 @@ const skills: Skill[] = [
 ];
 
 export default function SkillsPage() {
+    const [skills, setSkills] = useState<Skill[]>(initialSkills);
+
   return (
     <div className="space-y-8">
-        <h1 className="text-4xl font-bold text-primary font-headline">SKILLS</h1>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {skills.map(skill => (
-            <Card key={skill.name}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>{skill.name}</CardTitle>
-                  <Badge variant="outline">{skill.ability}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">{skill.description}</p>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="flex items-center justify-between">
+            <h1 className="text-4xl font-bold text-primary font-headline">SKILLS</h1>
+            <Button>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Skill
+            </Button>
+        </div>
+        <div className="border rounded-lg">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[200px]">Name</TableHead>
+                        <TableHead className="w-[150px]">Ability</TableHead>
+                        <TableHead>Description</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {skills.map(skill => (
+                    <TableRow key={skill.name}>
+                        <TableCell className="font-medium">{skill.name}</TableCell>
+                        <TableCell><Badge variant="outline">{skill.ability}</Badge></TableCell>
+                        <TableCell className="text-muted-foreground">{skill.description}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+            </Table>
         </div>
     </div>
   );
