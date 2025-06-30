@@ -491,6 +491,35 @@ export default function MapViewPage() {
                         <div className="relative w-full h-full" style={{ aspectRatio: `${scene.width || 30}/${scene.height || 20}` }}>
                             <Image src={scene.background_map_url} alt="Fantasy battle map" fill className="object-contain" data-ai-hint="fantasy map" draggable="false" />
                             {showGrid && <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`, backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.5) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.5) 1px, transparent 1px)' }} />}
+                            
+                            {/* Movement Range Indicator */}
+                            {draggedToken && isInCombat && dragStartPos && activeCombatant && activeCombatant.id === draggedToken.id && (
+                                <div
+                                    className="absolute bg-blue-500/20 border border-blue-400 rounded-sm pointer-events-none"
+                                    style={{
+                                        width: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.width || 30))}%`,
+                                        height: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.height || 20))}%`,
+                                        left: `${dragStartPos.x}%`,
+                                        top: `${dragStartPos.y}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                    }}
+                                />
+                            )}
+
+                            {/* Original Position Indicator */}
+                            {draggedToken && dragStartPos && (
+                                <div
+                                    className="absolute bg-black/30 border-2 border-dashed border-white pointer-events-none"
+                                    style={{
+                                        left: `${dragStartPos.x}%`,
+                                        top: `${dragStartPos.y}%`,
+                                        width: `${100 / (scene.width || 30)}%`,
+                                        height: `${100 / (scene.height || 20)}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                    }}
+                                />
+                            )}
+                            
                             {scene.tokens.map(token => {
                                 const isPlayer = token.type === 'character';
                                 const playerChar = isPlayer ? allPlayerCharacters.find(pc => pc.id === token.linked_character_id) : null;
