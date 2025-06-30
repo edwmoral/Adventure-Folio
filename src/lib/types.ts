@@ -67,6 +67,8 @@ export type PlayerCharacter = {
   hp: number;
   maxHp: number;
   ac: number;
+  mp?: number;
+  maxMp?: number;
 };
 
 export type Skill = {

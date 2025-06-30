@@ -126,6 +126,8 @@ export function CharacterCreationForm() {
             hp: 10,
             maxHp: 10,
             ac: 10,
+            mp: 10,
+            maxMp: 10,
         };
 
         const updatedCharacters = [...playerCharacters, newCharacter];
