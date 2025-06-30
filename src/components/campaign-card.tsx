@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type Character = {
+  id: string;
   name: string;
   avatarUrl: string;
 };
@@ -37,8 +38,8 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
         <CardFooter>
             <div className="flex -space-x-2 overflow-hidden">
                 <TooltipProvider delayDuration={100}>
-                    {campaign.characters.map((char, index) => (
-                        <Tooltip key={index}>
+                    {campaign.characters.map((char) => (
+                        <Tooltip key={char.id}>
                             <TooltipTrigger asChild>
                                 <Avatar className="h-8 w-8 border-2 border-background">
                                     <AvatarImage src={char.avatarUrl} data-ai-hint="fantasy character" />

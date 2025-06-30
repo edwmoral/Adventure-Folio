@@ -1,17 +1,33 @@
+'use client';
+
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import { CampaignCard } from '@/components/campaign-card';
 
-const mockCampaigns = [
+type Character = {
+  id: string;
+  name: string;
+  avatarUrl: string;
+};
+
+type Campaign = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  characters: Character[];
+};
+
+const initialMockCampaigns: Campaign[] = [
   {
     id: '1',
     name: 'The Sunless Citadel',
     imageUrl: 'https://placehold.co/400x225.png',
     characters: [
-      { name: 'Eldrin', avatarUrl: 'https://placehold.co/40x40.png' },
-      { name: 'Lyra', avatarUrl: 'https://placehold.co/40x40.png' },
-      { name: 'Borg', avatarUrl: 'https://placehold.co/40x40.png' },
+      { id: 'char1', name: 'Eldrin', avatarUrl: 'https://placehold.co/40x40.png' },
+      { id: 'char2', name: 'Lyra', avatarUrl: 'https://placehold.co/40x40.png' },
+      { id: 'char3', name: 'Borg', avatarUrl: 'https://placehold.co/40x40.png' },
     ],
   },
   {
@@ -19,7 +35,7 @@ const mockCampaigns = [
     name: 'Curse of Strahd',
     imageUrl: 'https://placehold.co/400x225.png',
      characters: [
-      { name: 'Gandalf', avatarUrl: 'https://placehold.co/40x40.png' },
+      { id: 'char4', name: 'Gandalf', avatarUrl: 'https://placehold.co/40x40.png' },
     ],
   },
   {
@@ -27,15 +43,34 @@ const mockCampaigns = [
     name: 'Lost Mine of Phandelver',
     imageUrl: 'https://placehold.co/400x225.png',
     characters: [
-      { name: 'Bilbo', avatarUrl: 'https://placehold.co/40x40.png' },
-      { name: 'Frodo', avatarUrl: 'https://placehold.co/40x40.png' },
-      { name: 'Sam', avatarUrl: 'https://placehold.co/40x40.png' },
-       { name: 'Pippin', avatarUrl: 'https://placehold.co/40x40.png' },
+      { id: 'char5', name: 'Bilbo', avatarUrl: 'https://placehold.co/40x40.png' },
+      { id: 'char6', name: 'Frodo', avatarUrl: 'https://placehold.co/40x40.png' },
+      { id: 'char7', name: 'Sam', avatarUrl: 'https://placehold.co/40x40.png' },
+      { id: 'char8', name: 'Pippin', avatarUrl: 'https://placehold.co/40x40.png' },
     ],
   },
 ];
 
+const STORAGE_KEY = 'dnd_campaigns';
+
 export default function PlayDashboardPage() {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+
+  useEffect(() => {
+    try {
+      const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+      if (storedCampaigns) {
+        setCampaigns(JSON.parse(storedCampaigns));
+      } else {
+        setCampaigns(initialMockCampaigns);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialMockCampaigns));
+      }
+    } catch (error) {
+      console.error("Failed to access localStorage:", error);
+      setCampaigns(initialMockCampaigns);
+    }
+  }, []);
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -48,9 +83,9 @@ export default function PlayDashboardPage() {
         </Button>
       </div>
       
-      {mockCampaigns.length > 0 ? (
+      {campaigns.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {mockCampaigns.map((campaign) => (
+          {campaigns.map((campaign) => (
             <CampaignCard key={campaign.id} campaign={campaign} />
           ))}
         </div>

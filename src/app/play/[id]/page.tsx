@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Play, Users, UserPlus } from "lucide-react";
@@ -5,21 +8,60 @@ import Link from "next/link";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-// Mock data, in a real app this would be fetched based on params.id
-const mockCampaign = {
-    id: '1',
-    name: 'The Sunless Citadel',
-    imageUrl: 'https://placehold.co/800x300.png',
-    description: 'A classic adventure filled with mystery, danger, and a fortress swallowed by the earth.',
-    characters: [
-      { id: 'char1', name: 'Eldrin', avatarUrl: 'https://placehold.co/40x40.png' },
-      { id: 'char2', name: 'Lyra', avatarUrl: 'https://placehold.co/40x40.png' },
-      { id: 'char3', name: 'Borg', avatarUrl: 'https://placehold.co/40x40.png' },
-    ],
+type Character = {
+  id: string;
+  name: string;
+  avatarUrl: string;
 };
+
+type Campaign = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  description?: string;
+  characters: Character[];
+};
+
+const STORAGE_KEY = 'dnd_campaigns';
 
 
 export default function CampaignDetailPage({ params }: { params: { id: string } }) {
+    const [campaign, setCampaign] = useState<Campaign | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        try {
+            const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+            if (storedCampaigns) {
+                const campaigns: Campaign[] = JSON.parse(storedCampaigns);
+                const currentCampaign = campaigns.find(c => c.id === params.id);
+                if (currentCampaign && !currentCampaign.description) {
+                    currentCampaign.description = 'A classic adventure filled with mystery, danger, and a fortress swallowed by the earth.';
+                }
+                setCampaign(currentCampaign || null);
+            }
+        } catch (error) {
+            console.error("Failed to load campaign from localStorage", error);
+        }
+        setLoading(false);
+    }, [params.id]);
+
+    if (loading) {
+        return <div className="text-center p-8">Loading campaign...</div>;
+    }
+    
+    if (!campaign) {
+        return (
+            <div className="text-center">
+                <h1 className="text-2xl font-bold">Campaign not found</h1>
+                <p className="text-muted-foreground">The campaign you are looking for does not exist.</p>
+                <Button asChild variant="link" className="mt-4">
+                    <Link href="/play">Back to Campaigns</Link>
+                </Button>
+            </div>
+        )
+    }
+
     return (
         <div className="space-y-6">
              <Button asChild variant="ghost">
@@ -32,16 +74,16 @@ export default function CampaignDetailPage({ params }: { params: { id: string } 
             <Card className="overflow-hidden">
                 <div className="relative h-48 md:h-64 w-full">
                     <Image
-                        src={mockCampaign.imageUrl}
-                        alt={`${mockCampaign.name} banner image`}
+                        src={campaign.imageUrl}
+                        alt={`${campaign.name} banner image`}
                         fill
                         className="object-cover"
                         data-ai-hint="fantasy landscape"
                     />
                 </div>
                 <CardHeader>
-                    <CardTitle className="text-4xl font-headline">{mockCampaign.name}</CardTitle>
-                    <CardDescription>{mockCampaign.description}</CardDescription>
+                    <CardTitle className="text-4xl font-headline">{campaign.name}</CardTitle>
+                    <CardDescription>{campaign.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                      <div>
@@ -50,7 +92,7 @@ export default function CampaignDetailPage({ params }: { params: { id: string } 
                             Characters in this Campaign
                         </h3>
                         <div className="flex flex-wrap items-center gap-4">
-                            {mockCampaign.characters.map(char => (
+                            {campaign.characters.map(char => (
                                 <div key={char.id} className="flex items-center gap-2 p-2 border rounded-lg bg-card-foreground/5">
                                     <Avatar className="h-10 w-10">
                                         <AvatarImage src={char.avatarUrl} data-ai-hint="fantasy character" />

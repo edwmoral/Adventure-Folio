@@ -1,3 +1,7 @@
+'use client';
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -5,7 +9,53 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
+type Character = {
+  id: string;
+  name: string;
+  avatarUrl: string;
+};
+
+type Campaign = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  characters: Character[];
+};
+
+const STORAGE_KEY = 'dnd_campaigns';
+
+
 export default function NewCampaignPage() {
+  const [campaignName, setCampaignName] = useState('');
+  const router = useRouter();
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!campaignName.trim()) {
+      return;
+    }
+
+    try {
+        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+        const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
+        
+        const newCampaign: Campaign = {
+            id: String(Date.now()), // Simple unique ID
+            name: campaignName,
+            imageUrl: 'https://placehold.co/400x225.png',
+            characters: [],
+        };
+
+        const updatedCampaigns = [...campaigns, newCampaign];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
+
+        router.push('/play');
+
+    } catch (error) {
+        console.error("Failed to create campaign:", error);
+    }
+  }
+
   return (
     <div>
         <Button asChild variant="ghost" className="mb-4">
@@ -22,12 +72,17 @@ export default function NewCampaignPage() {
             </CardDescription>
         </CardHeader>
         <CardContent>
-            <form className="space-y-6">
+            <form className="space-y-6" onSubmit={handleSubmit}>
                 <div className="space-y-2">
                     <Label htmlFor="campaign-name">Campaign Name</Label>
-                    <Input id="campaign-name" placeholder="e.g., The Dragon's Demise" />
+                    <Input 
+                        id="campaign-name" 
+                        placeholder="e.g., The Dragon's Demise" 
+                        value={campaignName}
+                        onChange={(e) => setCampaignName(e.target.value)}
+                        required
+                    />
                 </div>
-                {/* We'll add image upload later */}
                 <div className="flex justify-end">
                     <Button type="submit">Create Campaign</Button>
                 </div>
