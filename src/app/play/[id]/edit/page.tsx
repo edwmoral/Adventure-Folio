@@ -61,6 +61,14 @@ export default function EditCampaignPage() {
         if (storedCampaigns) {
             const campaigns: Campaign[] = JSON.parse(storedCampaigns);
             const currentCampaign = campaigns.find(c => c.id === id);
+            
+            if (currentCampaign) {
+                // Ensure scenes array exists to prevent runtime errors with legacy data
+                if (!currentCampaign.scenes) {
+                    currentCampaign.scenes = [];
+                }
+            }
+
             setCampaign(currentCampaign || null);
         }
     } catch (error) {
