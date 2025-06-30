@@ -9,11 +9,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
-import type { Campaign, Scene, Token, PlayerCharacter } from '@/lib/types';
+import type { Campaign, Scene, Token, PlayerCharacter, Enemy } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
+const STORAGE_KEY_ENEMIES = 'dnd_enemies';
 
 export default function MapViewPage() {
     const params = useParams();
@@ -23,6 +26,7 @@ export default function MapViewPage() {
     const [campaign, setCampaign] = useState<Campaign | null>(null);
     const [scene, setScene] = useState<Scene | null>(null);
     const [allPlayerCharacters, setAllPlayerCharacters] = useState<PlayerCharacter[]>([]);
+    const [allEnemies, setAllEnemies] = useState<Enemy[]>([]);
     const [loading, setLoading] = useState(true);
 
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -43,6 +47,12 @@ export default function MapViewPage() {
             if (storedCharacters) {
                 setAllPlayerCharacters(JSON.parse(storedCharacters));
             }
+            
+            const storedEnemies = localStorage.getItem(STORAGE_KEY_ENEMIES);
+            if (storedEnemies) {
+              setAllEnemies(JSON.parse(storedEnemies));
+            }
+
         } catch (error) {
             console.error("Failed to load data from localStorage", error);
         }
@@ -138,99 +148,110 @@ export default function MapViewPage() {
     }
 
     return (
-        <div className="h-[calc(100vh-10rem)] w-full flex flex-col">
-            {/* Header Controls */}
-            <div className="flex-shrink-0 bg-background/80 backdrop-blur-sm p-2 border-b rounded-t-lg flex items-center justify-between">
-                <div>
-                     <Button asChild variant="ghost">
-                        <Link href={`/play/${id}`}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Campaign
-                        </Link>
-                    </Button>
+        <TooltipProvider>
+            <div className="h-[calc(100vh-10rem)] w-full flex flex-col">
+                {/* Header Controls */}
+                <div className="flex-shrink-0 bg-background/80 backdrop-blur-sm p-2 border-b rounded-t-lg flex items-center justify-between">
+                    <div>
+                         <Button asChild variant="ghost">
+                            <Link href={`/play/${id}`}>
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Back to Campaign
+                            </Link>
+                        </Button>
+                    </div>
+                     <h2 className="text-lg font-semibold">Active Scene: {scene.name}</h2>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon"><ZoomIn /></Button>
+                        <Button variant="outline" size="icon"><ZoomOut /></Button>
+                        <Button variant="outline" size="icon"><Grid /></Button>
+                    </div>
                 </div>
-                 <h2 className="text-lg font-semibold">Active Scene: {scene.name}</h2>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="icon"><ZoomIn /></Button>
-                    <Button variant="outline" size="icon"><ZoomOut /></Button>
-                    <Button variant="outline" size="icon"><Grid /></Button>
-                </div>
-            </div>
-            
-            {/* Map Area */}
-            <div 
-                className="flex-grow relative overflow-hidden bg-card-foreground/10 rounded-b-lg select-none"
-                ref={mapContainerRef}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp} // Stop dragging if mouse leaves the area
-            >
-                <Image
-                    src={scene.background_map_url}
-                    alt="Fantasy battle map"
-                    fill
-                    className="object-cover"
-                    data-ai-hint="fantasy map"
-                    draggable="false"
-                />
+                
+                {/* Map Area */}
+                <div 
+                    className="flex-grow relative overflow-hidden bg-card-foreground/10 rounded-b-lg select-none"
+                    ref={mapContainerRef}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp} // Stop dragging if mouse leaves the area
+                >
+                    <Image
+                        src={scene.background_map_url}
+                        alt="Fantasy battle map"
+                        fill
+                        className="object-cover"
+                        data-ai-hint="fantasy map"
+                        draggable="false"
+                    />
 
-                {/* Tokens */}
-                {scene.tokens.map(token => {
-                    const isPlayer = token.type === 'character';
-                    const playerChar = isPlayer 
-                        ? allPlayerCharacters.find(pc => pc.id === token.linked_character_id)
-                        : null;
+                    {/* Tokens */}
+                    {scene.tokens.map(token => {
+                        const isPlayer = token.type === 'character';
+                        const playerChar = isPlayer 
+                            ? allPlayerCharacters.find(pc => pc.id === token.linked_character_id)
+                            : null;
 
-                    const health = isPlayer ? playerChar?.hp : token.hp;
-                    const maxHealth = isPlayer ? playerChar?.maxHp : token.maxHp;
-                    const magic = isPlayer ? playerChar?.mp : token.mp;
-                    const maxMagic = isPlayer ? playerChar?.maxMp : token.maxMp;
+                        const enemy = !isPlayer ? allEnemies.find(e => e.id === token.linked_enemy_id) : null;
 
-                    const healthPercent = ((health || 0) / (maxHealth || 1)) * 100;
-                    const magicPercent = ((magic || 0) / (maxMagic || 1)) * 100;
-                    
-                    const showHealthBar = maxHealth !== undefined && maxHealth > 0;
-                    const showMagicBar = maxMagic !== undefined && maxMagic > 0;
+                        const health = isPlayer ? playerChar?.hp : token.hp;
+                        const maxHealth = isPlayer ? playerChar?.maxHp : token.maxHp;
+                        const magic = isPlayer ? playerChar?.mp : token.mp;
+                        const maxMagic = isPlayer ? playerChar?.maxMp : token.maxMp;
+                        const ac = isPlayer ? playerChar?.ac : enemy?.armor_class;
 
-                    return (
-                        <div
-                            key={token.id}
-                            className="absolute group"
-                            style={{
-                                left: `${token.position.x}%`,
-                                top: `${token.position.y}%`,
-                                transform: 'translate(-50%, -50%)',
-                                cursor: draggedToken?.id === token.id ? 'grabbing' : 'grab',
-                                zIndex: draggedToken?.id === token.id ? 10 : 1,
-                            }}
-                            onMouseDown={(e) => handleMouseDown(e, token.id)}
-                        >
-                            <div className="relative w-16 flex flex-col items-center">
-                                {/* Health and Magic Bars */}
-                                {(showHealthBar || showMagicBar) && (
-                                    <div className="w-12 mb-1 space-y-0.5">
-                                        {showHealthBar && (
-                                            <Progress value={healthPercent} className="h-1.5 bg-red-900/50 [&>div]:bg-red-500" />
-                                        )}
-                                        {showMagicBar && (
-                                            <Progress value={magicPercent} className="h-1.5 bg-blue-900/50 [&>div]:bg-blue-500" />
-                                        )}
+                        const healthPercent = ((health || 0) / (maxHealth || 1)) * 100;
+                        const magicPercent = ((magic || 0) / (maxMagic || 1)) * 100;
+                        
+                        const showHealthBar = maxHealth !== undefined && maxHealth > 0;
+                        const showMagicBar = maxMagic !== undefined && maxMagic > 0;
+
+                        return (
+                             <Tooltip key={token.id}>
+                                <TooltipTrigger asChild>
+                                    <div
+                                        className="absolute group"
+                                        style={{
+                                            left: `${token.position.x}%`,
+                                            top: `${token.position.y}%`,
+                                            transform: 'translate(-50%, -50%)',
+                                            cursor: draggedToken?.id === token.id ? 'grabbing' : 'grab',
+                                            zIndex: draggedToken?.id === token.id ? 10 : 1,
+                                        }}
+                                        onMouseDown={(e) => handleMouseDown(e, token.id)}
+                                    >
+                                        <div className="relative w-16 flex flex-col items-center">
+                                            {/* Health and Magic Bars */}
+                                            {(showHealthBar || showMagicBar) && (
+                                                <div className="w-12 mb-1 space-y-0.5">
+                                                    {showHealthBar && (
+                                                        <Progress value={healthPercent} className="h-1.5 bg-red-900/50 [&>div]:bg-red-500" />
+                                                    )}
+                                                    {showMagicBar && (
+                                                        <Progress value={magicPercent} className="h-1.5 bg-blue-900/50 [&>div]:bg-blue-500" />
+                                                    )}
+                                                </div>
+                                            )}
+                                            
+                                            <Avatar className="h-12 w-12 border-2 border-primary shadow-lg transition-transform group-hover:scale-110">
+                                                <AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" />
+                                                <AvatarFallback>{token.name.substring(0,1)}</AvatarFallback>
+                                            </Avatar>
+                                        </div>
                                     </div>
-                                )}
-                                
-                                <Avatar className="h-12 w-12 border-2 border-primary shadow-lg transition-transform group-hover:scale-110">
-                                    <AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" />
-                                    <AvatarFallback>{token.name.substring(0,1)}</AvatarFallback>
-                                </Avatar>
-                                
-                                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-background/80 text-foreground text-xs px-2 py-0.5 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {token.name}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <div className="space-y-1 text-sm text-left">
+                                        <p className="font-bold">{token.name}</p>
+                                        {showHealthBar && <p>HP: {health} / {maxHealth}</p>}
+                                        {ac !== undefined && <p>AC: {ac} 🛡️</p>}
+                                    </div>
+                                </TooltipContent>
+                            </Tooltip>
+                        );
+                    })}
+                </div>
             </div>
-        </div>
+        </TooltipProvider>
     );
 }
