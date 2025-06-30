@@ -331,27 +331,69 @@ export default function CharacterSheetPage() {
                     {/* Right Column: Tabs */}
                     <div className="md:col-span-2">
                         <Tabs defaultValue="actions" className="w-full">
-                            <TabsList className="grid w-full grid-cols-4">
-                                <TabsTrigger value="actions">Actions</TabsTrigger>
-                                <TabsTrigger value="spells">Spells</TabsTrigger>
+                            <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="actions">Combat & Abilities</TabsTrigger>
                                 <TabsTrigger value="inventory">Inventory</TabsTrigger>
-                                <TabsTrigger value="features">Features & Traits</TabsTrigger>
                             </TabsList>
-                             <TabsContent value="actions" className="mt-4">
+                            <TabsContent value="actions" className="mt-4">
                                 <Card>
-                                    <CardContent className="p-6 space-y-4">
-                                        {[...basicActions, ...allActions].map((action, index) => (
-                                            <div key={`${action.name}-${index}`}>
-                                                <h4 className="font-semibold">{action.name} <Badge variant="secondary">{action.type}</Badge></h4>
-                                                <p className="text-sm text-muted-foreground mt-1">{action.description}</p>
-                                                {action.effects && (
-                                                    <div className="text-sm mt-1 flex items-start gap-2">
-                                                        <Target className="h-4 w-4 mt-0.5 text-accent flex-shrink-0" />
-                                                        <span>{action.effects}</span>
+                                    <CardContent className="p-6 space-y-6">
+                                        <div>
+                                            <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Swords className="h-6 w-6" /> Actions</h3>
+                                            <div className="space-y-4">
+                                                {[...basicActions, ...allActions].map((action, index) => (
+                                                    <div key={`${action.name}-${index}`}>
+                                                        <h4 className="font-semibold">{action.name} <Badge variant="secondary">{action.type}</Badge></h4>
+                                                        <p className="text-sm text-muted-foreground mt-1">{action.description}</p>
+                                                        {action.effects && (
+                                                            <div className="text-sm mt-1 flex items-start gap-2">
+                                                                <Target className="h-4 w-4 mt-0.5 text-accent flex-shrink-0" />
+                                                                <span>{action.effects}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <Separator />
+
+                                        <div>
+                                            <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Book className="h-6 w-6" /> Spells</h3>
+                                            <div className="space-y-4">
+                                                {allSpells.length > 0 ? (
+                                                    allSpells.map(spell => (
+                                                      <div key={spell.name}>
+                                                          <h4 className="font-semibold">{spell.name} <span className="text-xs text-muted-foreground">({spell.level === 0 ? "Cantrip" : `Lvl ${spell.level}`}, {spell.school})</span></h4>
+                                                          <p className="text-sm text-muted-foreground mt-1">{spell.description}</p>
+                                                      </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="text-center text-muted-foreground py-4">
+                                                        <Book className="mx-auto h-8 w-8 mb-2" />
+                                                        <p className="text-sm">No spells added to the compendium yet.</p>
                                                     </div>
                                                 )}
                                             </div>
-                                        ))}
+                                        </div>
+
+                                        <Separator />
+
+                                        <div>
+                                            <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Sparkles className="h-6 w-6" /> Features & Traits</h3>
+                                            <div className="space-y-4">
+                                                {characterFeatures.length > 0 ? (
+                                                    characterFeatures.map(feature => (
+                                                        <div key={feature.name}>
+                                                            <h4 className="font-semibold">{feature.name}</h4>
+                                                            <p className="text-sm text-muted-foreground">{feature.description}</p>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-sm text-muted-foreground">No special features found for this class at the current level.</p>
+                                                )}
+                                            </div>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             </TabsContent>
@@ -362,46 +404,6 @@ export default function CharacterSheetPage() {
                                             <h3 className="font-semibold">Backpack</h3>
                                             <p className="text-sm text-muted-foreground">Inventory management coming soon...</p>
                                         </div>
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
-                            <TabsContent value="spells" className="mt-4">
-                               <Card>
-                                    <CardHeader>
-                                        <CardTitle>Spellbook</CardTitle>
-                                        <CardDescription>All available spells. Your character's specific spells will be tracked here soon.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                      {allSpells.length > 0 ? (
-                                        allSpells.map(spell => (
-                                          <div key={spell.name}>
-                                              <h4 className="font-semibold">{spell.name} <span className="text-xs text-muted-foreground">({spell.level === 0 ? "Cantrip" : `Lvl ${spell.level}`}, {spell.school})</span></h4>
-                                              <p className="text-sm text-muted-foreground mt-1">{spell.description}</p>
-                                          </div>
-                                        ))
-                                      ) : (
-                                        <div className="text-center">
-                                            <Book className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                                            <h3 className="font-semibold">Spellbook is empty.</h3>
-                                            <p className="text-sm text-muted-foreground">Add spells in the main Spells page.</p>
-                                        </div>
-                                      )}
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
-                            <TabsContent value="features" className="mt-4">
-                                <Card>
-                                    <CardContent className="p-6 space-y-4">
-                                        {characterFeatures.length > 0 ? (
-                                            characterFeatures.map(feature => (
-                                                <div key={feature.name}>
-                                                    <h4 className="font-semibold">{feature.name}</h4>
-                                                    <p className="text-sm text-muted-foreground">{feature.description}</p>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <p className="text-sm text-muted-foreground">No special features found for this class at the current level.</p>
-                                        )}
                                     </CardContent>
                                 </Card>
                             </TabsContent>
