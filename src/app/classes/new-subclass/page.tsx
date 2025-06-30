@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import type { Class } from '@/lib/types';
+import type { Class, ClassAutolevel } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -63,11 +63,23 @@ export default function NewSubclassPage() {
         }
         
         const newSubclass: Class = {
-            ...baseClass, // Copy properties from base class
+            ...baseClass,
             subclass: subclassName,
-            // You might want to ask for the level at which these features are gained
-            levels: [{ level: 3, features: features.split(',').map(f => f.trim()) }] 
+            autolevel: [...baseClass.autolevel],
         };
+
+        const subclassFeatures = features.split(',').map(f => ({ name: f.trim(), text: '' }));
+        const level3Index = newSubclass.autolevel.findIndex(l => l.level === 3);
+        
+        if (level3Index > -1) {
+            newSubclass.autolevel[level3Index].feature = [
+                ...(newSubclass.autolevel[level3Index].feature || []),
+                ...subclassFeatures,
+            ];
+        } else {
+            newSubclass.autolevel.push({ level: 3, feature: subclassFeatures });
+            newSubclass.autolevel.sort((a,b) => a.level - b.level);
+        }
 
         const updatedClasses = [...allClasses, newSubclass];
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedClasses));

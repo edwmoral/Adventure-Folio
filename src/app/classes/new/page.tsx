@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import type { Class, Skill, Feat } from '@/lib/types';
+import type { Class, Skill, Feat, ClassFeature } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -99,12 +99,20 @@ export default function NewClassPage() {
         const newClass: Class = {
             name: name,
             subclass: subclass,
-            hit_die: hitDie,
+            hd: parseInt(hitDie.replace('d', '')),
             primary_ability: primaryAbility,
             saving_throws: selectedSavingThrows,
             spellcasting_type: spellcastingType,
             skills: selectedSkills,
-            levels: [{ level: 1, features: selectedFeatures }]
+            autolevel: [
+                {
+                    level: 1,
+                    feature: selectedFeatures.map(f => {
+                        const feat = allFeats.find(feat => feat.name === f);
+                        return { name: f, text: feat?.text || '' };
+                    })
+                }
+            ]
         };
 
         const updatedClasses = [...classes, newClass];

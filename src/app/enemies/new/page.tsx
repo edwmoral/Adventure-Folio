@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import type { Enemy } from '@/lib/types';
+import type { Monster, MonsterAction } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,28 +21,40 @@ const CREATURE_TYPES = ['Aberration', 'Beast', 'Celestial', 'Construct', 'Dragon
 const ALIGNMENTS = ['Lawful Good', 'Neutral Good', 'Chaotic Good', 'Lawful Neutral', 'True Neutral', 'Chaotic Neutral', 'Lawful Evil', 'Neutral Evil', 'Chaotic Evil', 'Unaligned'];
 const CHALLENGE_RATINGS = ['0', '1/8', '1/4', '1/2', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '30'];
 
+const parseActions = (text: string): MonsterAction[] => {
+    if (!text) return [];
+    return text.split('\n').filter(Boolean).map(line => {
+        const parts = line.split('. ');
+        const name = parts[0];
+        const description = parts.slice(1).join('. ');
+        return { name, text: description };
+    });
+}
 
 export default function NewEnemyPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [enemy, setEnemy] = useState<Partial<Enemy>>({
+  const [enemy, setEnemy] = useState<Partial<Monster>>({
     name: '',
     type: 'Humanoid',
     alignment: 'Unaligned',
-    challenge_rating: '0',
-    hit_points: 10,
-    mp: 0,
-    armor_class: 10,
+    cr: '0',
+    hp: '10',
+    ac: '10',
     speed: '30 ft.',
     str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10,
     description: '',
     tokenImageUrl: 'https://placehold.co/48x48.png',
     senses: '',
     languages: '',
-    traits: '',
-    actions: '',
   });
+  
+  const [traitsText, setTraitsText] = useState('');
+  const [actionsText, setActionsText] = useState('');
+  const [legendaryActionsText, setLegendaryActionsText] = useState('');
+  const [reactionsText, setReactionsText] = useState('');
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value, type } = e.target;
@@ -50,7 +62,7 @@ export default function NewEnemyPage() {
     setEnemy(prev => ({ ...prev, [id]: isNumber ? parseInt(value) : value }));
   };
   
-  const handleSelectChange = (id: keyof Enemy, value: string) => {
+  const handleSelectChange = (id: keyof Monster, value: string) => {
     setEnemy(prev => ({ ...prev, [id]: value }));
   };
 
@@ -64,17 +76,16 @@ export default function NewEnemyPage() {
 
     try {
         const storedEnemies = localStorage.getItem(STORAGE_KEY);
-        const enemies: Enemy[] = storedEnemies ? JSON.parse(storedEnemies) : [];
+        const enemies: Monster[] = storedEnemies ? JSON.parse(storedEnemies) : [];
         
-        const newEnemy: Enemy = {
+        const newEnemy: Monster = {
             id: `enemy-${Date.now()}`,
             name: enemy.name,
             type: enemy.type,
             alignment: enemy.alignment,
-            challenge_rating: enemy.challenge_rating || '0',
-            hit_points: Number(enemy.hit_points) || 10,
-            mp: Number(enemy.mp) || 0,
-            armor_class: Number(enemy.armor_class) || 10,
+            cr: enemy.cr || '0',
+            hp: enemy.hp,
+            ac: enemy.ac,
             speed: enemy.speed || '30 ft.',
             str: Number(enemy.str) || 10,
             dex: Number(enemy.dex) || 10,
@@ -84,8 +95,10 @@ export default function NewEnemyPage() {
             cha: Number(enemy.cha) || 10,
             senses: enemy.senses || '',
             languages: enemy.languages || '',
-            traits: enemy.traits || '',
-            actions: enemy.actions || '',
+            trait: parseActions(traitsText),
+            action: parseActions(actionsText),
+            legendary: parseActions(legendaryActionsText),
+            reaction: parseActions(reactionsText),
             description: enemy.description || '',
             tokenImageUrl: enemy.tokenImageUrl || 'https://placehold.co/48x48.png',
         };
@@ -114,7 +127,7 @@ export default function NewEnemyPage() {
             <CardHeader>
                 <CardTitle>Create New Enemy</CardTitle>
                 <CardDescription>
-                    Define a new creature for your bestiary. Use comma-separated values for lists.
+                    Define a new creature for your bestiary. Use new lines for separate actions/traits.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -148,25 +161,21 @@ export default function NewEnemyPage() {
                     {/* Combat Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="armor_class">Armor Class</Label>
-                            <Input id="armor_class" type="number" value={enemy.armor_class || ''} onChange={handleInputChange} />
+                            <Label htmlFor="ac">Armor Class</Label>
+                            <Input id="ac" type="text" value={enemy.ac || ''} onChange={handleInputChange} placeholder="e.g., 15 (natural armor)" />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="hit_points">Hit Points</Label>
-                            <Input id="hit_points" type="number" value={enemy.hit_points || ''} onChange={handleInputChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="mp">Magic Points</Label>
-                            <Input id="mp" type="number" value={enemy.mp || ''} onChange={handleInputChange} />
+                            <Label htmlFor="hp">Hit Points</Label>
+                            <Input id="hp" type="text" value={enemy.hp || ''} onChange={handleInputChange} placeholder="e.g., 7 (2d6)" />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="speed">Speed</Label>
                             <Input id="speed" value={enemy.speed} onChange={handleInputChange} />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="challenge_rating">Challenge Rating (CR)</Label>
-                             <Select value={enemy.challenge_rating} onValueChange={(val) => handleSelectChange('challenge_rating', val)}>
-                                <SelectTrigger id="challenge_rating"><SelectValue/></SelectTrigger>
+                            <Label htmlFor="cr">Challenge Rating (CR)</Label>
+                             <Select value={enemy.cr} onValueChange={(val) => handleSelectChange('cr', val)}>
+                                <SelectTrigger id="cr"><SelectValue/></SelectTrigger>
                                 <SelectContent>{CHALLENGE_RATINGS.map(cr => <SelectItem key={cr} value={cr}>{cr}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
@@ -189,8 +198,10 @@ export default function NewEnemyPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2"><Label htmlFor="senses">Senses</Label><Input id="senses" value={enemy.senses} onChange={handleInputChange} placeholder="e.g. Darkvision 60 ft." /></div>
                         <div className="space-y-2"><Label htmlFor="languages">Languages</Label><Input id="languages" value={enemy.languages} onChange={handleInputChange} placeholder="e.g. Common, Goblin" /></div>
-                        <div className="space-y-2"><Label htmlFor="traits">Traits</Label><Textarea id="traits" value={enemy.traits} onChange={handleInputChange} placeholder="Comma-separated traits..." /></div>
-                        <div className="space-y-2"><Label htmlFor="actions">Actions</Label><Textarea id="actions" value={enemy.actions} onChange={handleInputChange} placeholder="Comma-separated actions..." /></div>
+                        <div className="space-y-2"><Label htmlFor="traits">Traits</Label><Textarea id="traits" value={traitsText} onChange={(e) => setTraitsText(e.target.value)} placeholder="Trait Name. Description..." /></div>
+                        <div className="space-y-2"><Label htmlFor="actions">Actions</Label><Textarea id="actions" value={actionsText} onChange={(e) => setActionsText(e.target.value)} placeholder="Action Name. Description..." /></div>
+                        <div className="space-y-2"><Label htmlFor="legendaryActions">Legendary Actions</Label><Textarea id="legendaryActions" value={legendaryActionsText} onChange={(e) => setLegendaryActionsText(e.target.value)} placeholder="Action Name. Description..." /></div>
+                        <div className="space-y-2"><Label htmlFor="reactions">Reactions</Label><Textarea id="reactions" value={reactionsText} onChange={(e) => setReactionsText(e.target.value)} placeholder="Action Name. Description..." /></div>
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="tokenImageUrl">Token Image URL</Label>

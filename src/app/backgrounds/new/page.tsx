@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import type { Background } from '@/lib/types';
+import type { Background, RaceTrait } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,15 +22,9 @@ export default function NewBackgroundPage() {
   
   const [background, setBackground] = useState({
     name: '',
-    description: '',
-    skill_proficiencies: '',
-    tool_proficiencies: '',
-    equipment: '',
+    text: '',
+    proficiency: '',
     features: '',
-    personality_traits: '',
-    ideals: '',
-    bonds: '',
-    flaws: '',
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -40,7 +34,7 @@ export default function NewBackgroundPage() {
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!background.name || !background.description) {
+    if (!background.name || !background.text) {
         toast({ variant: 'destructive', title: 'Error', description: 'Name and Description are required.' });
         return;
     }
@@ -51,15 +45,9 @@ export default function NewBackgroundPage() {
         
         const newBackground: Background = {
             name: background.name,
-            description: background.description,
-            skill_proficiencies: toArray(background.skill_proficiencies),
-            tool_proficiencies: toArray(background.tool_proficiencies),
-            equipment: toArray(background.equipment),
-            features: toArray(background.features),
-            personality_traits: toArray(background.personality_traits),
-            ideals: toArray(background.ideals),
-            bonds: toArray(background.bonds),
-            flaws: toArray(background.flaws),
+            text: background.text,
+            proficiency: toArray(background.proficiency),
+            trait: toArray(background.features).map(f => ({ name: f, text: 'Feature provided by background.' })),
         };
 
         const updatedBackgrounds = [...allBackgrounds, newBackground];
@@ -96,40 +84,16 @@ export default function NewBackgroundPage() {
                         <Input id="name" value={background.name} onChange={handleInputChange} required />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea id="description" value={background.description} onChange={handleInputChange} required />
+                        <Label htmlFor="text">Description</Label>
+                        <Textarea id="text" value={background.text} onChange={handleInputChange} required />
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="skill_proficiencies">Skill Proficiencies</Label>
-                        <Textarea id="skill_proficiencies" value={background.skill_proficiencies} onChange={handleInputChange} />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="tool_proficiencies">Tool Proficiencies</Label>
-                        <Textarea id="tool_proficiencies" value={background.tool_proficiencies} onChange={handleInputChange} />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="equipment">Equipment</Label>
-                        <Textarea id="equipment" value={background.equipment} onChange={handleInputChange} />
+                        <Label htmlFor="proficiency">Proficiencies (Skills, Tools, etc.)</Label>
+                        <Textarea id="proficiency" value={background.proficiency} onChange={handleInputChange} placeholder="e.g., Athletics, Intimidation, Gaming Set, Vehicles (Land)"/>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="features">Features</Label>
-                        <Textarea id="features" value={background.features} onChange={handleInputChange} />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="personality_traits">Personality Traits</Label>
-                        <Textarea id="personality_traits" value={background.personality_traits} onChange={handleInputChange} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="ideals">Ideals</Label>
-                        <Textarea id="ideals" value={background.ideals} onChange={handleInputChange} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="bonds">Bonds</Label>
-                        <Textarea id="bonds" value={background.bonds} onChange={handleInputChange} />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="flaws">Flaws</Label>
-                        <Textarea id="flaws" value={background.flaws} onChange={handleInputChange} />
+                        <Textarea id="features" value={background.features} onChange={handleInputChange} placeholder="e.g., Military Rank, Wanderer" />
                     </div>
                     <div className="flex justify-end pt-4">
                         <Button type="submit">Create Background</Button>

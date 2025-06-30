@@ -11,25 +11,9 @@ import { PlusCircle } from 'lucide-react';
 const initialBackgrounds: Background[] = [
   {
     name: "Soldier",
-    description: "You trained for war and fought in one or more conflicts. You're skilled in military tactics and combat.",
-    skill_proficiencies: ["Athletics", "Intimidation"],
-    tool_proficiencies: ["One type of gaming set", "Vehicles (land)"],
-    equipment: ["Insignia of rank", "Trophy from a fallen enemy", "Set of bone dice", "Common clothes", "10 gp"],
-    features: ["Military Rank"],
-    personality_traits: [
-      "I'm always polite and respectful.",
-      "I'm haunted by memories of war."
-    ],
-    ideals: [
-      "Respect. Those who fight beside me are worth dying for. (Good)",
-      "Might. In life as in war, the stronger force wins. (Evil)"
-    ],
-    bonds: [
-      "I would still lay down my life for the people I served with."
-    ],
-    flaws: [
-      "I obey the law, even if the law causes misery."
-    ]
+    text: "You trained for war and fought in one or more conflicts. You're skilled in military tactics and combat.",
+    proficiency: ["Athletics", "Intimidation", "One type of gaming set", "Vehicles (land)"],
+    trait: [{ name: "Military Rank", text: "You have a military rank from your career as a soldier." }],
   }
 ];
 
@@ -70,17 +54,17 @@ export default function BackgroundsPage() {
                     <TableRow>
                         <TableHead className="w-[200px]">Name</TableHead>
                         <TableHead>Description</TableHead>
-                        <TableHead>Skill Proficiencies</TableHead>
+                        <TableHead>Proficiencies</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                   {backgrounds.map((background) => (
                     <TableRow key={background.name}>
                         <TableCell className="font-medium">{background.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{background.description}</TableCell>
+                        <TableCell className="text-muted-foreground">{background.text}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {background.skill_proficiencies.map(skill => (
+                            {background.proficiency?.map(skill => (
                               <Badge key={skill} variant="outline">{skill}</Badge>
                             ))}
                           </div>

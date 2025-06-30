@@ -11,62 +11,62 @@ const initialMockClasses: Class[] = [
   {
     name: "Fighter",
     subclass: "Champion",
-    hit_die: "d10",
+    hd: 10,
     primary_ability: "Strength or Dexterity",
     saving_throws: ["Strength", "Constitution"],
     spellcasting_type: "none",
     skills: ["Acrobatics", "Animal Handling", "Athletics", "History", "Insight", "Intimidation", "Perception", "Survival"],
-    levels: [{ level: 1, features: ["Fighting Style", "Second Wind"] }]
+    autolevel: [{ level: 1, feature: [{ name: "Fighting Style", text: "" }, { name: "Second Wind", text: "" }] }]
   },
   {
     name: "Fighter",
     subclass: "Battle Master",
-    hit_die: "d10",
+    hd: 10,
     primary_ability: "Strength or Dexterity",
     saving_throws: ["Strength", "Constitution"],
     spellcasting_type: "none",
     skills: ["Acrobatics", "Animal Handling", "Athletics", "History", "Insight", "Intimidation", "Perception", "Survival"],
-    levels: [{ level: 3, features: ["Combat Superiority"] }]
+    autolevel: [{ level: 3, feature: [{ name: "Combat Superiority", text: "" }] }]
   },
   {
     name: "Wizard",
     subclass: "School of Evocation",
-    hit_die: "d6",
+    hd: 6,
     primary_ability: "Intelligence",
     saving_throws: ["Intelligence", "Wisdom"],
     spellcasting_type: "prepared",
     skills: ["Arcana", "History", "Insight", "Investigation", "Medicine", "Religion"],
-    levels: [{ level: 2, features: ["Evocation Savant", "Sculpt Spells"] }]
+    autolevel: [{ level: 2, feature: [{ name: "Evocation Savant", text: "" }, { name: "Sculpt Spells", text: "" }] }]
   },
   {
     name: "Wizard",
     subclass: "School of Abjuration",
-    hit_die: "d6",
+    hd: 6,
     primary_ability: "Intelligence",
     saving_throws: ["Intelligence", "Wisdom"],
     spellcasting_type: "prepared",
     skills: ["Arcana", "History", "Insight", "Investigation", "Medicine", "Religion"],
-    levels: [{ level: 2, features: ["Abjuration Savant", "Arcane Ward"] }]
+    autolevel: [{ level: 2, feature: [{ name: "Abjuration Savant", text: "" }, { name: "Arcane Ward", text: "" }] }]
   },
   {
     name: "Rogue",
     subclass: "Thief",
-    hit_die: "d8",
+    hd: 8,
     primary_ability: "Dexterity",
     saving_throws: ["Dexterity", "Intelligence"],
     spellcasting_type: "none",
     skills: ["Acrobatics", "Athletics", "Deception", "Insight", "Intimidation", "Investigation", "Perception", "Performance", "Persuasion", "Sleight of Hand", "Stealth"],
-    levels: [{ level: 1, features: ["Expertise", "Sneak Attack", "Thieves' Cant"] }]
+    autolevel: [{ level: 1, feature: [{ name: "Expertise", text: "" }, { name: "Sneak Attack", text: "" }, { name: "Thieves' Cant", text: "" }] }]
   },
   {
     name: "Rogue",
     subclass: "Assassin",
-    hit_die: "d8",
+    hd: 8,
     primary_ability: "Dexterity",
     saving_throws: ["Dexterity", "Intelligence"],
     spellcasting_type: "none",
     skills: ["Acrobatics", "Athletics", "Deception", "Insight", "Intimidation", "Investigation", "Perception", "Performance", "Persuasion", "Sleight of Hand", "Stealth"],
-    levels: [{ level: 3, features: ["Assassinate"] }]
+    autolevel: [{ level: 3, feature: [{ name: "Assassinate", text: "" }] }]
   },
 ];
 
@@ -138,7 +138,7 @@ export default function ClassesPage() {
                     <TableRow key={subclass.subclass}>
                       <TableCell className="font-medium">{subclass.subclass}</TableCell>
                       <TableCell>{subclass.primary_ability}</TableCell>
-                      <TableCell>{subclass.hit_die}</TableCell>
+                      <TableCell>d{subclass.hd}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

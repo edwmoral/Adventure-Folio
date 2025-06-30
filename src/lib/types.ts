@@ -148,6 +148,7 @@ export type ClassAutolevel = {
 
 export type Class = {
     name: string;
+    subclass: string;
     hd: number;
     numSkills?: number;
     armor?: string[];
@@ -156,6 +157,11 @@ export type Class = {
     wealth?: string;
     autolevel: ClassAutolevel[];
     slotsReset?: 'long rest' | 'short rest';
+    // Kept for compatibility with character sheet and creation
+    primary_ability: string;
+    saving_throws: string[];
+    spellcasting_type: "none" | "prepared" | "known";
+    skills: string[];
 };
 
 export type Feat = {
@@ -192,6 +198,7 @@ export type MonsterAction = {
 };
 
 export type Monster = {
+    id?: string;
     name: string;
     size?: string;
     type?: string;
@@ -222,5 +229,6 @@ export type Monster = {
     spells?: string;
     slots?: string;
     environment?: string;
+    description?: string;
     tokenImageUrl?: string;
 };
