@@ -12,36 +12,48 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const STORAGE_KEY = 'dnd_classes';
+const ABILITIES = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
+const HIT_DICE = ['d6', 'd8', 'd10', 'd12'];
+const SKILL_LIST = "Acrobatics, Animal Handling, Arcana, Athletics, Deception, History, Insight, Intimidation, Investigation, Medicine, Nature, Perception, Performance, Persuasion, Religion, Sleight of Hand, Stealth, Survival";
+
 
 export default function NewClassPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    name: '',
-    subclass: '',
-    hit_die: '',
-    primary_ability: '',
-    saving_throws: '',
-    skills: '',
-    features: '',
-  });
+  
+  const [name, setName] = useState('');
+  const [subclass, setSubclass] = useState('');
+  const [hitDie, setHitDie] = useState('');
+  const [primaryAbility, setPrimaryAbility] = useState('');
+  const [selectedSavingThrows, setSelectedSavingThrows] = useState<string[]>([]);
+  const [skills, setSkills] = useState('');
+  const [features, setFeatures] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { id, value } = e.target;
-    setFormData(prev => ({ ...prev, [id]: value }));
+  const handleSavingThrowChange = (ability: string) => {
+    setSelectedSavingThrows(prev => {
+        if (prev.includes(ability)) {
+            return prev.filter(item => item !== ability);
+        } else {
+            // D&D classes typically have 2 saving throw proficiencies
+            if (prev.length < 2) {
+                return [...prev, ability];
+            }
+            toast({ variant: 'destructive', title: 'Limit Reached', description: 'You can only select up to 2 saving throws.' });
+            return prev;
+        }
+    });
   };
   
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    // Basic validation
-    for (const key in formData) {
-      if (formData[key as keyof typeof formData].trim() === '') {
-          toast({ variant: 'destructive', title: 'Error', description: 'All fields are required.' });
-          return;
-      }
+    if (!name || !subclass || !hitDie || !primaryAbility || selectedSavingThrows.length !== 2 || !skills.trim() || !features.trim()) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please fill all fields and select exactly 2 saving throws.' });
+        return;
     }
 
     try {
@@ -49,13 +61,13 @@ export default function NewClassPage() {
         const classes: Class[] = storedClasses ? JSON.parse(storedClasses) : [];
         
         const newClass: Class = {
-            name: formData.name,
-            subclass: formData.subclass,
-            hit_die: formData.hit_die,
-            primary_ability: formData.primary_ability,
-            saving_throws: formData.saving_throws.split(',').map(s => s.trim()),
-            skills: formData.skills.split(',').map(s => s.trim()),
-            levels: [{ level: 1, features: formData.features.split(',').map(f => f.trim()) }]
+            name: name,
+            subclass: subclass,
+            hit_die: hitDie,
+            primary_ability: primaryAbility,
+            saving_throws: selectedSavingThrows,
+            skills: skills.split(',').map(s => s.trim()),
+            levels: [{ level: 1, features: features.split(',').map(f => f.trim()) }]
         };
 
         const updatedClasses = [...classes, newClass];
@@ -90,32 +102,60 @@ export default function NewClassPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="name">Class Name</Label>
-                            <Input id="name" placeholder="e.g., Artificer" value={formData.name} onChange={handleChange} required />
+                            <Input id="name" placeholder="e.g., Artificer" value={name} onChange={(e) => setName(e.target.value)} required />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="subclass">First Subclass Name</Label>
-                            <Input id="subclass" placeholder="e.g., Alchemist" value={formData.subclass} onChange={handleChange} required />
+                            <Input id="subclass" placeholder="e.g., Alchemist" value={subclass} onChange={(e) => setSubclass(e.target.value)} required />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="hit_die">Hit Die</Label>
-                            <Input id="hit_die" placeholder="e.g., d8" value={formData.hit_die} onChange={handleChange} required />
+                            <Select value={hitDie} onValueChange={setHitDie}>
+                                <SelectTrigger id="hit_die">
+                                    <SelectValue placeholder="Select a hit die..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {HIT_DICE.map(die => <SelectItem key={die} value={die}>{die}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="primary_ability">Primary Ability</Label>
-                            <Input id="primary_ability" placeholder="e.g., Intelligence" value={formData.primary_ability} onChange={handleChange} required />
+                            <Select value={primaryAbility} onValueChange={setPrimaryAbility}>
+                                <SelectTrigger id="primary_ability">
+                                    <SelectValue placeholder="Select a primary ability..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {ABILITIES.map(ability => <SelectItem key={ability} value={ability}>{ability}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="saving_throws">Saving Throws</Label>
-                        <Input id="saving_throws" placeholder="e.g., Constitution, Intelligence" value={formData.saving_throws} onChange={handleChange} required />
+                        <Label>Saving Throws (Choose 2)</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-4 border rounded-md bg-transparent">
+                          {ABILITIES.map(ability => (
+                              <div key={ability} className="flex items-center space-x-2">
+                                  <Checkbox
+                                      id={`saving-throw-${ability}`}
+                                      checked={selectedSavingThrows.includes(ability)}
+                                      onCheckedChange={() => handleSavingThrowChange(ability)}
+                                  />
+                                  <Label htmlFor={`saving-throw-${ability}`} className="font-normal">{ability}</Label>
+                              </div>
+                          ))}
+                        </div>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="skills">Skills</Label>
-                        <Textarea id="skills" placeholder="e.g., Arcana, Investigation, Medicine" value={formData.skills} onChange={handleChange} required />
+                        <Label htmlFor="skills">Skills (comma-separated)</Label>
+                        <Textarea id="skills" placeholder="e.g., Arcana, Investigation, Medicine" value={skills} onChange={(e) => setSkills(e.target.value)} required />
+                        <p className="text-sm text-muted-foreground">
+                            <strong>Available:</strong> {SKILL_LIST}
+                        </p>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="features">Level 1 Features</Label>
-                        <Textarea id="features" placeholder="e.g., Magical Tinkering, Spellcasting" value={formData.features} onChange={handleChange} required />
+                        <Label htmlFor="features">Level 1 Features (comma-separated)</Label>
+                        <Textarea id="features" placeholder="e.g., Magical Tinkering, Spellcasting" value={features} onChange={(e) => setFeatures(e.target.value)} required />
                     </div>
                     <div className="flex justify-end">
                         <Button type="submit">Create Class</Button>

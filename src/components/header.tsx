@@ -32,16 +32,16 @@ export default function Header() {
             Classes
           </Link>
           <Link
-            href="/items"
+            href="/skills"
             className="transition-colors hover:text-foreground/80 text-foreground/60"
           >
-            Items
+            Skills
           </Link>
           <Link
-            href="/spells"
+            href="/features"
             className="transition-colors hover:text-foreground/80 text-foreground/60"
           >
-            Spells
+            Features
           </Link>
         </nav>
         <div className="flex flex-1 items-center justify-end space-x-2">
