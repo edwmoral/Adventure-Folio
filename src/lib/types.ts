@@ -107,3 +107,41 @@ export type Background = {
   bonds: string[];
   flaws: string[];
 };
+
+export type Spell = {
+  name: string;
+  level: number;
+  school: string;
+  casting_time: string;
+  range: string;
+  duration: string;
+  components: string[];
+  material?: string;
+  description: string;
+  classes: string[];
+  damage?: {
+    type: string;
+    base: string;
+    scaling?: string;
+  };
+  area_of_effect?: {
+    type: string;
+    size: number;
+  };
+  save?: {
+    type: string;
+    effect: string;
+  };
+};
+
+export type Action = {
+  name: string;
+  type: string;
+  action_type: string;
+  description: string;
+  usage: {
+    type: string;
+    limit?: number;
+  };
+  effects?: string;
+};

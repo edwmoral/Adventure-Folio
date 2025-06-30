@@ -1,0 +1,147 @@
+'use client';
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import type { Action } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const STORAGE_KEY = 'dnd_actions';
+const ACTION_TYPES = ['Action', 'Bonus Action', 'Reaction', 'Legendary', 'Lair'];
+const USAGE_TYPES = ['At Will', 'Per Turn', 'Per Round', 'Recharge', 'Per Day'];
+
+export default function NewActionPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  
+  const [action, setAction] = useState<Partial<Action>>({
+      name: '',
+      type: 'Action',
+      action_type: 'Standard',
+      description: '',
+      usage: { type: 'At Will' },
+      effects: ''
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setAction(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleSelectChange = (id: keyof Action, value: string) => {
+    setAction(prev => ({ ...prev, [id]: value }));
+  };
+  
+  const handleUsageChange = (field: 'type' | 'limit', value: string | number) => {
+      setAction(prev => ({
+          ...prev,
+          usage: { ...prev.usage, [field]: value } as Action['usage']
+      }));
+  }
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!action.name || !action.description) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Name and Description are required.' });
+        return;
+    }
+
+    try {
+        const storedActions = localStorage.getItem(STORAGE_KEY);
+        const actions: Action[] = storedActions ? JSON.parse(storedActions) : [];
+        
+        const newAction: Action = {
+            name: action.name,
+            type: action.type || 'Action',
+            action_type: action.action_type || 'Standard',
+            description: action.description,
+            usage: action.usage || { type: 'At Will' },
+            effects: action.effects
+        };
+
+        const updatedActions = [...actions, newAction];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedActions));
+
+        toast({ title: "Action Created!", description: "The new action has been added." });
+        router.push(`/actions`);
+
+    } catch (error) {
+        console.error("Failed to create action:", error);
+        toast({ variant: "destructive", title: "Creation Failed", description: "Could not create the new action." });
+    }
+  }
+
+  return (
+    <div>
+        <Button asChild variant="ghost" className="mb-4">
+             <Link href="/actions">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Actions
+             </Link>
+        </Button>
+        <Card className="max-w-2xl mx-auto">
+            <CardHeader>
+                <CardTitle>Create New Action</CardTitle>
+                <CardDescription>
+                    Define a new action, such as an attack, spell, or special ability.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <form className="space-y-6" onSubmit={handleSubmit}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Action Name</Label>
+                            <Input id="name" value={action.name} onChange={handleInputChange} required />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="type">Action Type</Label>
+                            <Select value={action.type} onValueChange={(val) => handleSelectChange('type', val)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {ACTION_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea id="description" value={action.description} onChange={handleInputChange} required />
+                    </div>
+                     <div className="border p-4 rounded-md space-y-4">
+                        <h4 className="font-medium">Usage</h4>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div className="space-y-2">
+                                <Label htmlFor="usage-type">Frequency</Label>
+                                <Select value={action.usage?.type} onValueChange={(val) => handleUsageChange('type', val)}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {USAGE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="usage-limit">Limit / Recharge</Label>
+                                <Input id="usage-limit" value={action.usage?.limit || ''} onChange={(e) => handleUsageChange('limit', e.target.value)} placeholder="e.g., 3 or 5-6" />
+                            </div>
+                         </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="effects">Effects</Label>
+                        <Textarea id="effects" value={action.effects} onChange={handleInputChange} placeholder="Describe the mechanical effects, such as damage rolls, conditions, etc. For complex actions like multi-attack, a more advanced editor may be needed."/>
+                    </div>
+                    <div className="flex justify-end">
+                        <Button type="submit">Create Action</Button>
+                    </div>
+                </form>
+            </CardContent>
+        </Card>
+    </div>
+  );
+}
