@@ -10,6 +10,7 @@ import { PlusCircle } from 'lucide-react';
 
 const initialItems: Item[] = [
   {
+    id: 'item-1',
     name: "Longsword",
     type: "Weapon",
     weight: 3,
@@ -19,19 +20,21 @@ const initialItems: Item[] = [
     dmgType: "Slashing"
   },
   {
+    id: 'item-2',
     name: "Potion of Healing",
     type: "Consumable",
     weight: 0.5,
     text: "A character who drinks the magical red fluid in this vial regains 2d4 + 2 hit points.",
-    detail: "Heals 2d4 + 2 HP"
+    detail: ["Heals 2d4 + 2 HP"]
   },
   {
+    id: 'item-3',
     name: "Cloak of Invisibility",
     type: "Wondrous Item",
     magic: true,
     weight: 1,
     text: "While wearing this cloak, you can pull its hood over your head to become invisible. While you are invisible, anything you are carrying or wearing is invisible with you. You remain invisible until you pull the hood back, or until something causes you to become visible.",
-    detail: "Grants invisibility"
+    detail: ["Grants invisibility"]
   }
 ];
 
@@ -72,16 +75,25 @@ export default function ItemsPage() {
                     <TableRow>
                         <TableHead className="w-[250px]">Name</TableHead>
                         <TableHead>Type</TableHead>
-                        <TableHead>Weight</TableHead>
+                        <TableHead>Details</TableHead>
                         <TableHead>Description</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                   {items.map((item) => (
-                    <TableRow key={item.name}>
+                    <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.name}{item.magic && ' ✨'}</TableCell>
                         <TableCell>{item.type}</TableCell>
-                        <TableCell>{item.weight || 0} lb.</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {item.property?.map(p => (
+                              <Badge key={p} variant="secondary">{p}</Badge>
+                            ))}
+                             {item.detail?.map(d => (
+                              <Badge key={d} variant="outline">{d}</Badge>
+                            ))}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{item.text}</TableCell>
                     </TableRow>
                   ))}

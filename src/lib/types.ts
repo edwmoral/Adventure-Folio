@@ -1,4 +1,5 @@
 
+
 // --- Base & Container Types ---
 
 export type Token = {
@@ -97,6 +98,7 @@ export type Modifier = {
 };
 
 export type Item = {
+    id: string;
     name: string;
     type?: string;
     weight?: number;
@@ -112,7 +114,7 @@ export type Item = {
     property?: string[];
     range?: string;
     magic?: boolean;
-    detail?: string;
+    detail?: string[];
     modifier?: Modifier[];
 };
 
@@ -150,6 +152,7 @@ export type Class = {
     name: string;
     subclass: string;
     hd: number;
+    hit_die: string;
     numSkills?: number;
     armor?: string[];
     weapons?: string[];
@@ -157,11 +160,11 @@ export type Class = {
     wealth?: string;
     autolevel: ClassAutolevel[];
     slotsReset?: 'long rest' | 'short rest';
-    // Kept for compatibility with character sheet and creation
     primary_ability: string;
     saving_throws: string[];
     spellcasting_type: "none" | "prepared" | "known";
     skills: string[];
+    levels: ClassAutolevel[];
 };
 
 export type Feat = {
@@ -198,20 +201,19 @@ export type MonsterAction = {
 };
 
 export type Monster = {
-    id?: string;
+    id: string;
     name: string;
-    size?: string;
-    type?: string;
-    alignment?: string;
-    ac?: string;
-    hp?: string;
-    speed?: string;
-    str?: number;
-    dex?: number;
-    con?: number;
-    int?: number;
-    wis?: number;
-    cha?: number;
+    type: string;
+    alignment: string;
+    ac: string;
+    hp: string;
+    speed: string;
+    str: number;
+    dex: number;
+    con: number;
+    int: number;
+    wis: number;
+    cha: number;
     save?: string;
     skill?: string;
     resist?: string[];
@@ -221,7 +223,7 @@ export type Monster = {
     senses?: string;
     passive?: number;
     languages?: string;
-    cr?: string;
+    cr: string;
     trait?: MonsterAction[];
     action?: MonsterAction[];
     legendary?: MonsterAction[];
