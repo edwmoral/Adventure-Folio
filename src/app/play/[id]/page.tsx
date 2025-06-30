@@ -9,10 +9,14 @@ import { ArrowLeft, Play, Users, UserPlus, Pencil, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { Campaign } from '@/lib/types';
+import type { Campaign, Character, PlayerCharacter, Token } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
-const STORAGE_KEY = 'dnd_campaigns';
+const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
+const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 
 
 export default function CampaignDetailPage() {
@@ -22,16 +26,34 @@ export default function CampaignDetailPage() {
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
 
+    const [allPlayerCharacters, setAllPlayerCharacters] = useState<Character[]>([]);
+    const [characterToAdd, setCharacterToAdd] = useState('');
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
     useEffect(() => {
         try {
-            const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+            const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
             if (storedCampaigns) {
                 const campaigns: Campaign[] = JSON.parse(storedCampaigns);
                 const currentCampaign = campaigns.find(c => c.id === id);
                 setCampaign(currentCampaign || null);
             }
+            
+            const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
+            if (storedCharacters) {
+                const playerCharacters: PlayerCharacter[] = JSON.parse(storedCharacters);
+                const charactersForCampaign: Character[] = playerCharacters.map(pc => ({
+                    id: pc.id,
+                    name: pc.name,
+                    avatarUrl: pc.avatar,
+                    class: pc.className,
+                    level: pc.level,
+                    tokenImageUrl: `https://placehold.co/48x48.png`
+                }));
+                setAllPlayerCharacters(charactersForCampaign);
+            }
         } catch (error) {
-            console.error("Failed to load campaign from localStorage", error);
+            console.error("Failed to load data from localStorage", error);
         }
         setLoading(false);
     }, [id]);
@@ -40,7 +62,7 @@ export default function CampaignDetailPage() {
         if (!campaign) return;
 
         try {
-            const storedCampaigns = localStorage.getItem(STORAGE_KEY);
+            const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
             if (!storedCampaigns) return;
 
             let campaigns: Campaign[] = JSON.parse(storedCampaigns);
@@ -60,7 +82,7 @@ export default function CampaignDetailPage() {
 
             campaigns[campaignIndex] = updatedCampaign;
 
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(campaigns));
+            localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
 
             setCampaign(updatedCampaign);
 
@@ -70,6 +92,54 @@ export default function CampaignDetailPage() {
             toast({ variant: "destructive", title: "Error", description: "Could not remove character." });
         }
     };
+    
+    const handleAddCharacter = () => {
+        if (!characterToAdd || !campaign) return;
+
+        const character = allPlayerCharacters.find(c => c.id === characterToAdd);
+        if (!character) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Selected character not found.' });
+            return;
+        }
+
+        const newCampaign: Campaign = { 
+            ...campaign,
+            characters: [...campaign.characters, character],
+            scenes: campaign.scenes.map(scene => ({
+                ...scene,
+                tokens: [
+                    ...scene.tokens,
+                    {
+                        id: `token-${Date.now()}-${Math.random()}`,
+                        name: character.name,
+                        imageUrl: character.tokenImageUrl || 'https://placehold.co/48x48.png',
+                        type: 'character',
+                        linked_character_id: character.id,
+                        position: { x: 10 + Math.floor(Math.random() * 10), y: 10 + Math.floor(Math.random() * 10) }
+                    } as Token
+                ]
+            }))
+        };
+        
+        try {
+            const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
+            const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
+            const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
+            localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(updatedCampaigns));
+            
+            setCampaign(newCampaign);
+            setCharacterToAdd('');
+            setIsAddDialogOpen(false);
+            toast({ title: 'Character Added', description: `${character.name} has joined the campaign!` });
+        } catch (error) {
+            console.error("Failed to save character to campaign:", error);
+            toast({ variant: "destructive", title: "Save Failed", description: "Could not add character to the campaign." });
+        }
+    };
+
+    const availableCharacters = campaign ? allPlayerCharacters.filter(
+      (char) => !campaign.characters.some((c) => c.id === char.id)
+    ) : [];
 
     if (loading) {
         return <div className="text-center p-8">Loading campaign...</div>;
@@ -147,12 +217,45 @@ export default function CampaignDetailPage() {
                                     </Button>
                                 </div>
                             ))}
-                             <Button asChild variant="outline" className="h-auto p-2 flex items-center justify-center flex-col gap-1 w-[68px] h-[60px] border-dashed hover:border-solid">
-                                <Link href={`/play/${id}/edit`}>
-                                    <UserPlus className="h-5 w-5" />
-                                    <span className="text-xs">Add</span>
-                                </Link>
-                            </Button>
+                             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" className="h-auto p-2 flex items-center justify-center flex-col gap-1 w-[68px] h-[60px] border-dashed hover:border-solid">
+                                        <UserPlus className="h-5 w-5" />
+                                        <span className="text-xs">Add</span>
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Add Character to Campaign</DialogTitle>
+                                        <DialogDescription>
+                                            Select a character from your roster to add to "{campaign.name}".
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="py-4">
+                                        <Label htmlFor="character-select" className="mb-2 block">Available Characters</Label>
+                                        <Select value={characterToAdd} onValueChange={setCharacterToAdd}>
+                                            <SelectTrigger id="character-select">
+                                                <SelectValue placeholder="Select a character..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableCharacters.length > 0 ? (
+                                                    availableCharacters.map(char => (
+                                                        <SelectItem key={char.id} value={char.id}>
+                                                            {char.name} ({char.class} Lvl {char.level})
+                                                        </SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <SelectItem value="none" disabled>No available characters</SelectItem>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button variant="ghost" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                                        <Button onClick={handleAddCharacter} disabled={!characterToAdd || characterToAdd === 'none'}>Add Character</Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
                         </div>
                     </div>
                 </CardContent>
