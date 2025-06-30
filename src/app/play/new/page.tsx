@@ -32,7 +32,6 @@ export default function NewCampaignPage() {
             background_map_url: 'https://placehold.co/1200x800.png',
             tokens: [],
             is_active: true,
-            resolution: { width: 1200, height: 800 }
         };
         
         const newCampaign: Campaign = {

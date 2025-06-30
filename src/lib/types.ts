@@ -14,7 +14,6 @@ export type Scene = {
   background_map_url: string;
   tokens: Token[];
   is_active: boolean;
-  resolution: { width: number; height: number };
 };
 
 export type Character = {
