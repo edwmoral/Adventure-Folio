@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -5,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Book, Dices, Heart, Shield, Swords } from "lucide-react"
+import { Book, Heart, Shield, Swords, ArrowUp } from "lucide-react"
 
 const StatCard = ({ name, value, modifier }: { name: string, value: string, modifier: string }) => (
     <div className="flex flex-col items-center justify-center p-4 bg-card-foreground/5 rounded-lg">
@@ -16,31 +19,70 @@ const StatCard = ({ name, value, modifier }: { name: string, value: string, modi
 )
 
 export default function CharacterSheetPage() {
+    const [character, setCharacter] = useState({
+        name: "Eldrin Kael",
+        level: 5,
+        race: "Elf",
+        class: "Ranger",
+        avatar: "https://placehold.co/100x100.png",
+        tags: ["Archery", "Stealth", "Survival", "Beast Master"],
+        stats: {
+            str: 12,
+            dex: 18,
+            con: 14,
+            int: 10,
+            wis: 16,
+            cha: 8,
+        },
+        hp: 42,
+        maxHp: 42,
+        ac: 16,
+    });
+
+    const getModifier = (score: number) => {
+        const mod = Math.floor((score - 10) / 2);
+        return mod >= 0 ? `+${mod}` : `${mod}`;
+    };
+
+    const handleLevelUp = () => {
+        setCharacter(prev => {
+            const newLevel = prev.level + 1;
+            const conModifier = Math.floor((prev.stats.con - 10) / 2);
+            const hitDieRoll = Math.floor(Math.random() * 10) + 1; // d10 for Ranger
+            const hpIncrease = Math.max(1, hitDieRoll + conModifier);
+            const newMaxHp = prev.maxHp + hpIncrease;
+
+            return {
+                ...prev,
+                level: newLevel,
+                maxHp: newMaxHp,
+                hp: newMaxHp, // Heal to full on level up
+            };
+        });
+    };
+
     return (
         <TooltipProvider>
             <div className="max-w-7xl mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row gap-6 items-start">
                     <Avatar className="w-24 h-24 border-4 border-primary">
-                        <AvatarImage src="https://placehold.co/100x100.png" data-ai-hint="fantasy character" alt="Character Portrait" />
-                        <AvatarFallback>EK</AvatarFallback>
+                        <AvatarImage src={character.avatar} data-ai-hint="fantasy character" alt="Character Portrait" />
+                        <AvatarFallback>{character.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <h1 className="text-4xl font-bold font-headline">Eldrin Kael</h1>
-                                <p className="text-lg text-muted-foreground">Level 5 Elf Ranger</p>
+                                <h1 className="text-4xl font-bold font-headline">{character.name}</h1>
+                                <p className="text-lg text-muted-foreground">Level {character.level} {character.race} {character.class}</p>
                             </div>
-                            <Button disabled variant="secondary" size="lg" className="mt-4 sm:mt-0">
-                                <Dices className="mr-2 h-5 w-5" />
-                                Play Session (Coming Soon)
+                            <Button onClick={handleLevelUp} size="lg" className="mt-4 sm:mt-0">
+                                <ArrowUp className="mr-2 h-5 w-5" />
+                                Level Up
                             </Button>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-2">
-                            <Badge variant="outline">Archery</Badge>
-                            <Badge variant="outline">Stealth</Badge>
-                            <Badge variant="outline">Survival</Badge>
-                            <Badge variant="outline">Beast Master</Badge>
+                            {character.tags.map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
                         </div>
                     </div>
                 </div>
@@ -56,12 +98,12 @@ export default function CharacterSheetPage() {
                                 <CardTitle>Ability Scores</CardTitle>
                             </CardHeader>
                             <CardContent className="grid grid-cols-3 gap-2">
-                                <StatCard name="STR" value="12" modifier="+1" />
-                                <StatCard name="DEX" value="18" modifier="+4" />
-                                <StatCard name="CON" value="14" modifier="+2" />
-                                <StatCard name="INT" value="10" modifier="+0" />
-                                <StatCard name="WIS" value="16" modifier="+3" />
-                                <StatCard name="CHA" value="8" modifier="-1" />
+                                <StatCard name="STR" value={String(character.stats.str)} modifier={getModifier(character.stats.str)} />
+                                <StatCard name="DEX" value={String(character.stats.dex)} modifier={getModifier(character.stats.dex)} />
+                                <StatCard name="CON" value={String(character.stats.con)} modifier={getModifier(character.stats.con)} />
+                                <StatCard name="INT" value={String(character.stats.int)} modifier={getModifier(character.stats.int)} />
+                                <StatCard name="WIS" value={String(character.stats.wis)} modifier={getModifier(character.stats.wis)} />
+                                <StatCard name="CHA" value={String(character.stats.cha)} modifier={getModifier(character.stats.cha)} />
                             </CardContent>
                         </Card>
                          <Card>
@@ -71,15 +113,15 @@ export default function CharacterSheetPage() {
                             <CardContent className="space-y-4">
                                 <div className="flex justify-between items-center">
                                     <span className="font-medium flex items-center gap-2"><Heart className="text-destructive" /> Hit Points</span>
-                                    <span className="font-bold text-lg">42 / 42</span>
+                                    <span className="font-bold text-lg">{character.hp} / {character.maxHp}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="font-medium flex items-center gap-2"><Shield /> Armor Class</span>
-                                    <span className="font-bold text-lg">16</span>
+                                    <span className="font-bold text-lg">{character.ac}</span>
                                 </div>
                                  <div className="flex justify-between items-center">
                                     <span className="font-medium flex items-center gap-2"><Swords /> Initiative</span>
-                                    <span className="font-bold text-lg">+4</span>
+                                    <span className="font-bold text-lg">{getModifier(character.stats.dex)}</span>
                                 </div>
                             </CardContent>
                         </Card>
