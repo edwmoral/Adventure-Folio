@@ -21,6 +21,8 @@ const STORAGE_KEY_FEATS = 'dnd_feats';
 
 const ABILITIES = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
 const HIT_DICE = ['d6', 'd8', 'd10', 'd12'];
+const SPELLCASTING_TYPES: Array<'none' | 'prepared' | 'known'> = ['none', 'prepared', 'known'];
+
 
 export default function NewClassPage() {
   const router = useRouter();
@@ -30,6 +32,7 @@ export default function NewClassPage() {
   const [subclass, setSubclass] = useState('');
   const [hitDie, setHitDie] = useState('');
   const [primaryAbility, setPrimaryAbility] = useState('');
+  const [spellcastingType, setSpellcastingType] = useState<'none' | 'prepared' | 'known'>('none');
   const [selectedSavingThrows, setSelectedSavingThrows] = useState<string[]>([]);
 
   const [allSkills, setAllSkills] = useState<Skill[]>([]);
@@ -84,7 +87,7 @@ export default function NewClassPage() {
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!name || !subclass || !hitDie || !primaryAbility || selectedSavingThrows.length !== 2 || selectedSkills.length === 0 || selectedFeatures.length === 0) {
+    if (!name || !subclass || !hitDie || !primaryAbility || !spellcastingType || selectedSavingThrows.length !== 2 || selectedSkills.length === 0 || selectedFeatures.length === 0) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please fill all fields, select exactly 2 saving throws, and at least one skill and feature.' });
         return;
     }
@@ -99,6 +102,7 @@ export default function NewClassPage() {
             hit_die: hitDie,
             primary_ability: primaryAbility,
             saving_throws: selectedSavingThrows,
+            spellcasting_type: spellcastingType,
             skills: selectedSkills,
             levels: [{ level: 1, features: selectedFeatures }]
         };
@@ -160,6 +164,17 @@ export default function NewClassPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {ABILITIES.map(ability => <SelectItem key={ability} value={ability}>{ability}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="spellcasting_type">Spellcasting Type</Label>
+                            <Select value={spellcastingType} onValueChange={(val) => setSpellcastingType(val as 'none' | 'prepared' | 'known')}>
+                                <SelectTrigger id="spellcasting_type">
+                                    <SelectValue placeholder="Select a spellcasting type..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {SPELLCASTING_TYPES.map(type => <SelectItem key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
