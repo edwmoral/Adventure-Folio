@@ -241,12 +241,40 @@ export default function MapViewPage() {
                     </div>
                      <h2 className="text-lg font-semibold">Active Scene: {scene.name}</h2>
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" size="icon"><ZoomIn /></Button>
-                        <Button variant="outline" size="icon"><ZoomOut /></Button>
-                        <Button variant="outline" size="icon"><Grid /></Button>
-                        <Button variant="outline" size="icon" onClick={toggleFullscreen}>
-                            {isFullscreen ? <Minimize /> : <Maximize />}
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon"><ZoomIn /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Zoom In</p>
+                            </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon"><ZoomOut /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Zoom Out</p>
+                            </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon"><Grid /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Toggle Grid</p>
+                            </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" onClick={toggleFullscreen}>
+                                    {isFullscreen ? <Minimize /> : <Maximize />}
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}</p>
+                            </TooltipContent>
+                        </Tooltip>
                     </div>
                 </div>
                 
