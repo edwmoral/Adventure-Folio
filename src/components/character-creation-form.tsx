@@ -1,9 +1,11 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useTransition } from 'react';
+import { useTransition, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +28,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { generateBackgroundAction } from '@/app/character/create/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles } from 'lucide-react';
+import type { Class, PlayerCharacter } from '@/lib/types';
+
+const STORAGE_KEY_CLASSES = 'dnd_classes';
+const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 
 const characterFormSchema = z.object({
   characterName: z.string().min(2, {
@@ -44,7 +50,21 @@ const characterFormSchema = z.object({
 
 export function CharacterCreationForm() {
   const { toast } = useToast();
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [classes, setClasses] = useState<Class[]>([]);
+
+  useEffect(() => {
+    try {
+      const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
+      if (storedClasses) {
+        setClasses(JSON.parse(storedClasses));
+      }
+    } catch (error) {
+      console.error("Failed to load classes from localStorage", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not load class data.' });
+    }
+  }, [toast]);
 
   const form = useForm<z.infer<typeof characterFormSchema>>({
     resolver: zodResolver(characterFormSchema),
@@ -61,7 +81,9 @@ export function CharacterCreationForm() {
       const formData = new FormData();
       formData.append('characterName', form.getValues('characterName'));
       formData.append('characterRace', form.getValues('characterRace'));
-      formData.append('characterClass', form.getValues('characterClass'));
+      // For the AI, we only need the base class name
+      const [className] = (form.getValues('characterClass') || ':').split(':');
+      formData.append('characterClass', className);
       formData.append('desiredTone', form.getValues('desiredTone'));
       formData.append('additionalDetails', form.getValues('additionalDetails'));
 
@@ -85,13 +107,41 @@ export function CharacterCreationForm() {
   };
 
   function onSubmit(values: z.infer<typeof characterFormSchema>) {
-    // For now, we just log the data.
-    // In a real app, this would save to a database.
-    console.log(values);
-    toast({
-      title: 'Character Created!',
-      description: 'Your character has been saved (to the console).',
-    });
+    try {
+        const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
+        const playerCharacters: PlayerCharacter[] = storedCharacters ? JSON.parse(storedCharacters) : [];
+        
+        const [className, subclass] = values.characterClass.split(':');
+
+        const newCharacter: PlayerCharacter = {
+            id: String(Date.now()),
+            name: values.characterName,
+            race: values.characterRace,
+            className: className,
+            subclass: subclass,
+            level: 1,
+            avatar: `https://placehold.co/100x100.png`,
+            backgroundStory: values.backgroundStory || '',
+            stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+            hp: 10,
+            maxHp: 10,
+            ac: 10,
+        };
+
+        const updatedCharacters = [...playerCharacters, newCharacter];
+        localStorage.setItem(STORAGE_KEY_PLAYER_CHARACTERS, JSON.stringify(updatedCharacters));
+
+        toast({
+          title: 'Character Created!',
+          description: 'Your new hero is ready for adventure.',
+        });
+
+        router.push('/character-sheet');
+
+    } catch (error) {
+        console.error("Failed to save character:", error);
+        toast({ variant: "destructive", title: "Save Failed", description: "Could not save the character." });
+    }
   }
 
   return (
@@ -149,12 +199,11 @@ export function CharacterCreationForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Fighter">Fighter</SelectItem>
-                      <SelectItem value="Wizard">Wizard</SelectItem>
-                      <SelectItem value="Rogue">Rogue</SelectItem>
-                      <SelectItem value="Cleric">Cleric</SelectItem>
-                      <SelectItem value="Barbarian">Barbarian</SelectItem>
-                      <SelectItem value="Bard">Bard</SelectItem>
+                      {classes.map((c) => (
+                        <SelectItem key={`${c.name}-${c.subclass}`} value={`${c.name}:${c.subclass}`}>
+                          {c.name} - {c.subclass}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

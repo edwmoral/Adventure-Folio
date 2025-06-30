@@ -48,6 +48,28 @@ export type Class = {
     }[];
 };
 
+export type PlayerCharacter = {
+  id: string;
+  name: string;
+  race: string;
+  className: string;
+  subclass: string;
+  level: number;
+  avatar: string;
+  backgroundStory: string;
+  stats: {
+    str: number;
+    dex: number;
+    con: number;
+    int: number;
+    wis: number;
+    cha: number;
+  };
+  hp: number;
+  maxHp: number;
+  ac: number;
+};
+
 export type Skill = {
   name: string;
   ability: string;

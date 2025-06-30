@@ -1,14 +1,17 @@
+
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Book, Heart, Shield, Swords, ArrowUp } from "lucide-react"
+import { Book, Heart, Shield, Swords, ArrowUp, UserPlus } from "lucide-react"
+import type { PlayerCharacter, Class } from "@/lib/types";
 
 const StatCard = ({ name, value, modifier }: { name: string, value: string, modifier: string }) => (
     <div className="flex flex-col items-center justify-center p-4 bg-card-foreground/5 rounded-lg">
@@ -16,28 +19,52 @@ const StatCard = ({ name, value, modifier }: { name: string, value: string, modi
         <div className="text-3xl font-bold">{value}</div>
         <div className="text-sm text-accent font-medium">{modifier}</div>
     </div>
-)
+);
+
+const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
+const STORAGE_KEY_CLASSES = 'dnd_classes';
 
 export default function CharacterSheetPage() {
-    const [character, setCharacter] = useState({
-        name: "Eldrin Kael",
-        level: 5,
-        race: "Elf",
-        class: "Ranger",
-        avatar: "https://placehold.co/100x100.png",
-        tags: ["Archery", "Stealth", "Survival", "Beast Master"],
-        stats: {
-            str: 12,
-            dex: 18,
-            con: 14,
-            int: 10,
-            wis: 16,
-            cha: 8,
-        },
-        hp: 42,
-        maxHp: 42,
-        ac: 16,
-    });
+    const [character, setCharacter] = useState<PlayerCharacter | null>(null);
+    const [allClasses, setAllClasses] = useState<Class[]>([]);
+    const [characterFeatures, setCharacterFeatures] = useState<{name: string, description: string}[]>([]);
+
+    useEffect(() => {
+        try {
+            const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
+            if (storedCharacters) {
+                const playerCharacters: PlayerCharacter[] = JSON.parse(storedCharacters);
+                if (playerCharacters.length > 0) {
+                    // For now, load the first character
+                    setCharacter(playerCharacters[0]);
+                }
+            }
+
+            const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
+            if (storedClasses) {
+                setAllClasses(JSON.parse(storedClasses));
+            }
+        } catch (error) {
+            console.error("Failed to load data from localStorage", error);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (character && allClasses.length > 0) {
+            const characterClass = allClasses.find(
+                c => c.name === character.className && c.subclass === character.subclass
+            );
+
+            if (characterClass) {
+                const features = characterClass.levels
+                    .filter(l => l.level <= character.level)
+                    .flatMap(l => l.features)
+                    .map(name => ({ name, description: "Feature description from class data would go here." })); 
+                setCharacterFeatures(features);
+            }
+        }
+    }, [character, allClasses]);
+
 
     const getModifier = (score: number) => {
         const mod = Math.floor((score - 10) / 2);
@@ -45,21 +72,50 @@ export default function CharacterSheetPage() {
     };
 
     const handleLevelUp = () => {
+        if (!character) return;
+        
         setCharacter(prev => {
+            if (!prev) return null;
+
             const newLevel = prev.level + 1;
             const conModifier = Math.floor((prev.stats.con - 10) / 2);
-            const hitDieRoll = Math.floor(Math.random() * 10) + 1; // d10 for Ranger
+            // This is a simplification. Hit die depends on class.
+            const hitDieRoll = Math.floor(Math.random() * 10) + 1; 
             const hpIncrease = Math.max(1, hitDieRoll + conModifier);
             const newMaxHp = prev.maxHp + hpIncrease;
 
-            return {
+            const updatedCharacter = {
                 ...prev,
                 level: newLevel,
                 maxHp: newMaxHp,
-                hp: newMaxHp, // Heal to full on level up
+                hp: newMaxHp,
             };
+
+            // Note: This does not persist the change. A "Save" button would be needed.
+            return updatedCharacter;
         });
     };
+
+    if (!character) {
+        return (
+            <div className="flex flex-col items-center justify-center text-center h-full">
+                <Card className="max-w-md w-full">
+                    <CardHeader>
+                        <CardTitle>No Characters Found</CardTitle>
+                        <CardDescription>You haven't created any characters yet. Let's forge your first hero!</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild size="lg">
+                            <Link href="/character/create">
+                                <UserPlus className="mr-2 h-5 w-5" />
+                                Create a Character
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
 
     return (
         <TooltipProvider>
@@ -74,7 +130,7 @@ export default function CharacterSheetPage() {
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <h1 className="text-4xl font-bold font-headline">{character.name}</h1>
-                                <p className="text-lg text-muted-foreground">Level {character.level} {character.race} {character.class}</p>
+                                <p className="text-lg text-muted-foreground">Level {character.level} {character.race} {character.className} ({character.subclass})</p>
                             </div>
                             <Button onClick={handleLevelUp} size="lg" className="mt-4 sm:mt-0">
                                 <ArrowUp className="mr-2 h-5 w-5" />
@@ -82,7 +138,10 @@ export default function CharacterSheetPage() {
                             </Button>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-2">
-                            {character.tags.map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
+                            {/* Tags could be derived from skills/features in a more advanced implementation */}
+                            <Badge variant="outline">{character.race}</Badge>
+                            <Badge variant="outline">{character.className}</Badge>
+                            <Badge variant="outline">{character.subclass}</Badge>
                         </div>
                     </div>
                 </div>
@@ -139,15 +198,8 @@ export default function CharacterSheetPage() {
                                 <Card>
                                     <CardContent className="p-6">
                                         <div className="space-y-4">
-                                            <h3 className="font-semibold">Equipped Items</h3>
-                                            <ul className="space-y-2">
-                                                <li className="flex items-center justify-between"><span>+1 Longbow</span><Badge>Attuned</Badge></li>
-                                                <li className="flex items-center justify-between"><span>Studded Leather Armor</span></li>
-                                                <li className="flex items-center justify-between"><span>Boots of Elvenkind</span><Badge>Attuned</Badge></li>
-                                            </ul>
-                                            <Separator />
                                             <h3 className="font-semibold">Backpack</h3>
-                                            <p className="text-sm text-muted-foreground">50 ft. of rope, rations (3 days), waterskin, quiver with 20 arrows...</p>
+                                            <p className="text-sm text-muted-foreground">Inventory management coming soon...</p>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -157,21 +209,23 @@ export default function CharacterSheetPage() {
                                     <CardContent className="p-6 text-center">
                                        <Book className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                                        <h3 className="font-semibold">Spellbook is empty.</h3>
-                                       <p className="text-sm text-muted-foreground">As a Ranger, you might gain spells at a higher level.</p>
+                                       <p className="text-sm text-muted-foreground">Spell management coming soon...</p>
                                     </CardContent>
                                 </Card>
                             </TabsContent>
                             <TabsContent value="features" className="mt-4">
                                 <Card>
                                     <CardContent className="p-6 space-y-4">
-                                         <div>
-                                            <h4 className="font-semibold">Favored Enemy</h4>
-                                            <p className="text-sm text-muted-foreground">You have significant experience studying, tracking, hunting, and even talking to a certain type of enemy (e.g., Orcs).</p>
-                                        </div>
-                                        <div>
-                                            <h4 className="font-semibold">Natural Explorer</h4>
-                                            <p className="text-sm text-muted-foreground">You are particularly familiar with one type of natural environment and are adept at traveling and surviving in such regions.</p>
-                                        </div>
+                                        {characterFeatures.length > 0 ? (
+                                            characterFeatures.map(feature => (
+                                                <div key={feature.name}>
+                                                    <h4 className="font-semibold">{feature.name}</h4>
+                                                    <p className="text-sm text-muted-foreground">{feature.description}</p>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">No special features found for this class at the current level.</p>
+                                        )}
                                     </CardContent>
                                 </Card>
                             </TabsContent>
