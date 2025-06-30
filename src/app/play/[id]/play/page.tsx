@@ -204,7 +204,7 @@ export default function MapViewPage() {
             return;
         }
 
-        if (draggedToken && mapInteractionRef.current) {
+        if (draggedToken && mapInteractionRef.current && scene) {
             e.preventDefault();
             const containerRect = mapInteractionRef.current.getBoundingClientRect();
             
@@ -220,6 +220,18 @@ export default function MapViewPage() {
             let newXPercent = (newX / mapInteractionRef.current.offsetWidth) * 100;
             let newYPercent = (newY / mapInteractionRef.current.offsetHeight) * 100;
 
+            // --- SNAPPING LOGIC ---
+            const cellWidthPercent = 100 / (scene.width || 30);
+            const cellHeightPercent = 100 / (scene.height || 20);
+
+            const halfCellWidth = cellWidthPercent / 2;
+            const halfCellHeight = cellHeightPercent / 2;
+
+            // Find the nearest half-cell multiple for snapping
+            newXPercent = Math.round(newXPercent / halfCellWidth) * halfCellWidth;
+            newYPercent = Math.round(newYPercent / halfCellHeight) * halfCellHeight;
+            // --- END SNAPPING LOGIC ---
+            
             newXPercent = Math.max(0, Math.min(100, newXPercent));
             newYPercent = Math.max(0, Math.min(100, newYPercent));
             
