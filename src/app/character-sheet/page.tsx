@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Book, Heart, Shield, Swords, ArrowUp, UserPlus, Sparkles, Target, Users } from "lucide-react"
+import { Book, Heart, Shield, Swords, ArrowUp, UserPlus, Sparkles, Target, Users, X, ChevronDown } from "lucide-react"
 import type { PlayerCharacter, Class, Action, Spell, Skill } from "@/lib/types";
 import { 
   AlertDialog, 
@@ -25,9 +25,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { fullCasterSpellSlots } from "@/lib/dnd-data";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuRadioGroup, 
+  DropdownMenuRadioItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 
 const StatCard = ({ name, value, modifier }: { name: string, value: string, modifier: string }) => (
     <div className="flex flex-col items-center justify-center p-4 bg-card-foreground/5 rounded-lg">
@@ -59,6 +65,9 @@ export default function CharacterSheetPage() {
     const [levelUpSummaryOpen, setLevelUpSummaryOpen] = useState(false);
     const [newlyUnlockedFeatures, setNewlyUnlockedFeatures] = useState<string[]>([]);
     const [hpIncreaseResult, setHpIncreaseResult] = useState(0);
+
+    // State for delete character modal
+    const [characterToDelete, setCharacterToDelete] = useState<PlayerCharacter | null>(null);
 
     useEffect(() => {
         try {
@@ -205,6 +214,43 @@ export default function CharacterSheetPage() {
             localStorage.setItem(STORAGE_KEY_LAST_ACTIVE_CHARACTER, characterId);
         }
     };
+    
+    const handleDeleteClick = (e: React.MouseEvent, characterId: string) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const charToDelete = allPlayerCharacters.find(c => c.id === characterId);
+        if (charToDelete) {
+            setCharacterToDelete(charToDelete);
+        }
+    };
+    
+    const confirmDelete = () => {
+        if (!characterToDelete) return;
+
+        try {
+            const updatedCharacters = allPlayerCharacters.filter(pc => pc.id !== characterToDelete.id);
+            setAllPlayerCharacters(updatedCharacters);
+            localStorage.setItem(STORAGE_KEY_PLAYER_CHARACTERS, JSON.stringify(updatedCharacters));
+
+            toast({ title: "Character Deleted", description: `"${characterToDelete.name}" has been successfully removed.` });
+            
+            if (character?.id === characterToDelete.id) {
+                if (updatedCharacters.length > 0) {
+                    const newActiveCharacter = updatedCharacters[0];
+                    setCharacter(newActiveCharacter);
+                    localStorage.setItem(STORAGE_KEY_LAST_ACTIVE_CHARACTER, newActiveCharacter.id);
+                } else {
+                    setCharacter(null);
+                    localStorage.removeItem(STORAGE_KEY_LAST_ACTIVE_CHARACTER);
+                }
+            }
+            
+            setCharacterToDelete(null);
+        } catch (error) {
+            console.error("Failed to delete character:", error);
+            toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the character." });
+        }
+    };
 
     if (allPlayerCharacters.length === 0) {
         return (
@@ -280,22 +326,36 @@ export default function CharacterSheetPage() {
                     <Card>
                         <CardContent className="p-4 flex items-center gap-4">
                             <Users className="h-5 w-5 text-muted-foreground" />
-                            <Label htmlFor="character-switcher" className="font-semibold">Switch Character:</Label>
-                            <Select
-                                value={character.id}
-                                onValueChange={handleCharacterChange}
-                            >
-                                <SelectTrigger id="character-switcher" className="w-[250px]">
-                                    <SelectValue placeholder="Select a character..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {allPlayerCharacters.map(pc => (
-                                        <SelectItem key={pc.id} value={pc.id}>
-                                            {pc.name} - Lvl {pc.level} {pc.className}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Label className="font-semibold">Switch Character:</Label>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="w-[350px] justify-between">
+                                        <span>{character.name} - Lvl {character.level} {character.className}</span>
+                                        <ChevronDown className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-[350px]" align="start">
+                                    <DropdownMenuRadioGroup value={character.id} onValueChange={handleCharacterChange}>
+                                        {allPlayerCharacters.map(pc => (
+                                            <DropdownMenuRadioItem key={pc.id} value={pc.id}>
+                                                <div className="flex justify-between items-center w-full">
+                                                    <span>{pc.name} - Lvl {pc.level} {pc.className}</span>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6 rounded-full hover:bg-destructive/20 ml-2"
+                                                        onClick={(e) => handleDeleteClick(e, pc.id)}
+                                                        onPointerDown={(e) => e.stopPropagation()}
+                                                    >
+                                                        <X className="h-4 w-4 text-destructive" />
+                                                        <span className="sr-only">Delete {pc.name}</span>
+                                                    </Button>
+                                                </div>
+                                            </DropdownMenuRadioItem>
+                                        ))}
+                                    </DropdownMenuRadioGroup>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </CardContent>
                     </Card>
                 )}
@@ -512,6 +572,22 @@ export default function CharacterSheetPage() {
                     </div>
                     <AlertDialogFooter>
                         <AlertDialogAction onClick={() => setLevelUpSummaryOpen(false)}>Awesome!</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
+            {/* Delete Character Confirmation Modal */}
+            <AlertDialog open={!!characterToDelete} onOpenChange={(open) => !open && setCharacterToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure you want to delete this character?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete "{characterToDelete?.name}". This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setCharacterToDelete(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete Character</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
