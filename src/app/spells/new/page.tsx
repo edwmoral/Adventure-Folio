@@ -18,18 +18,24 @@ import { MultiSelectCombobox } from "@/components/multi-select-combobox";
 const STORAGE_KEY_SPELLS = 'dnd_spells';
 const STORAGE_KEY_CLASSES = 'dnd_classes';
 const SPELL_SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation'].sort();
+const DURATION_UNITS = ['Instantaneous', 'Round', 'Minute', 'Hour', 'Day', 'Special', 'Until Dispelled'];
 
 export default function NewSpellPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [spell, setSpell] = useState<Partial<Spell> & { material_component?: string }>({ name: '', level: 0, school: '', time: '1 action', range: 'N/A', duration: 'Instantaneous', ritual: false, text: '', classes: '' });
+  const [spell, setSpell] = useState<Partial<Spell> & { material_component?: string }>({ name: '', level: 0, school: '', time: '1 action', range: 'N/A', ritual: false, text: '', classes: '' });
   const [hasVerbal, setHasVerbal] = useState(false);
   const [hasSomatic, setHasSomatic] = useState(false);
   const [hasMaterial, setHasMaterial] = useState(false);
 
   const [allClasses, setAllClasses] = useState<string[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+
+  // New state for structured duration
+  const [isConcentration, setIsConcentration] = useState(false);
+  const [durationUnit, setDurationUnit] = useState('Instantaneous');
+  const [durationNumber, setDurationNumber] = useState(1);
 
   useEffect(() => {
     try {
@@ -86,6 +92,21 @@ export default function NewSpellPage() {
             }
             components_list.push(material_string);
         }
+        
+        // Construct duration string
+        let durationString = '';
+        if (isConcentration) {
+            durationString += 'Concentration, up to ';
+        }
+
+        if (['Round', 'Minute', 'Hour', 'Day'].includes(durationUnit)) {
+            durationString += `${durationNumber} ${durationUnit.toLowerCase()}`;
+            if (durationNumber !== 1) {
+                durationString += 's';
+            }
+        } else {
+            durationString += durationUnit;
+        }
 
         const newSpell: Spell = {
             name: spell.name!,
@@ -93,7 +114,7 @@ export default function NewSpellPage() {
             school: spell.school,
             time: spell.time || '1 action',
             range: spell.range || 'N/A',
-            duration: spell.duration || 'Instantaneous',
+            duration: durationString.trim(),
             components: components_list.join(', '),
             text: spell.text!,
             classes: selectedClasses.join(', '),
@@ -163,12 +184,43 @@ export default function NewSpellPage() {
                             <Label htmlFor="range">Range</Label>
                             <Input id="range" value={spell.range} onChange={handleInputChange} />
                         </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="duration">Duration</Label>
-                            <Input id="duration" value={spell.duration} onChange={handleInputChange} />
-                        </div>
                     </div>
 
+                    <div className="space-y-2">
+                        <Label>Duration</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-md">
+                            <div className="flex items-center gap-2 md:col-span-2">
+                                <Checkbox
+                                    id="concentration"
+                                    checked={isConcentration}
+                                    onCheckedChange={(checked) => setIsConcentration(!!checked)}
+                                />
+                                <Label htmlFor="concentration" className="font-normal">Concentration</Label>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="duration-unit">Unit</Label>
+                                <Select value={durationUnit} onValueChange={setDurationUnit}>
+                                    <SelectTrigger id="duration-unit"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {DURATION_UNITS.map(unit => (
+                                            <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="duration-number">Value</Label>
+                                <Input
+                                    id="duration-number"
+                                    type="number"
+                                    value={durationNumber}
+                                    onChange={(e) => setDurationNumber(parseInt(e.target.value) || 1)}
+                                    disabled={!['Round', 'Minute', 'Hour', 'Day'].includes(durationUnit)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div className="space-y-2">
                         <Label>Components</Label>
                         <div className="flex flex-wrap gap-4 items-center p-2 border rounded-md">
