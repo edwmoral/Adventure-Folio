@@ -46,6 +46,7 @@ export default function MapViewPage() {
     const fullscreenContainerRef = useRef<HTMLDivElement>(null);
     const [draggedToken, setDraggedToken] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
     const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
+    const [dragDistance, setDragDistance] = useState(0);
     
     const [selectedToken, setSelectedToken] = useState<Token | null>(null);
     const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
@@ -279,6 +280,7 @@ export default function MapViewPage() {
         const offsetX = e.clientX - tokenCenterX;
         const offsetY = e.clientY - tokenCenterY;
         
+        setDragDistance(0);
         setDragStartPos(scene?.tokens.find(t => t.id === tokenId)?.position || null);
         setDraggedToken({ id: tokenId, offsetX, offsetY });
     };
@@ -301,7 +303,7 @@ export default function MapViewPage() {
             return;
         }
 
-        if (draggedToken && mapInteractionRef.current && scene) {
+        if (draggedToken && mapInteractionRef.current && scene && dragStartPos) {
             e.preventDefault();
             
             if (isInCombat && draggedToken.id !== turnOrder[activeTokenIndex]?.id) {
@@ -332,6 +334,13 @@ export default function MapViewPage() {
             newXPercent = Math.max(0, Math.min(100, newXPercent));
             newYPercent = Math.max(0, Math.min(100, newYPercent));
             
+            const startGridX = Math.floor(dragStartPos.x / cellWidthPercent);
+            const startGridY = Math.floor(dragStartPos.y / cellHeightPercent);
+            const currentGridX = Math.floor(newXPercent / cellWidthPercent);
+            const currentGridY = Math.floor(newYPercent / cellHeightPercent);
+            const distanceMoved = Math.max(Math.abs(currentGridX - startGridX), Math.abs(currentGridY - startGridY)) * 5;
+            setDragDistance(distanceMoved);
+
             setScene(prevScene => {
                 if (!prevScene) return null;
                 return {
@@ -382,6 +391,7 @@ export default function MapViewPage() {
             
             setDraggedToken(null);
             setDragStartPos(null);
+            setDragDistance(0);
         }
     };
     
@@ -492,32 +502,68 @@ export default function MapViewPage() {
                             <Image src={scene.background_map_url} alt="Fantasy battle map" fill className="object-contain" data-ai-hint="fantasy map" draggable="false" />
                             {showGrid && <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`, backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.5) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.5) 1px, transparent 1px)' }} />}
                             
-                            {/* Movement Range Indicator */}
-                            {draggedToken && isInCombat && dragStartPos && activeCombatant && activeCombatant.id === draggedToken.id && (
-                                <div
-                                    className="absolute bg-blue-500/20 border border-blue-400 rounded-sm pointer-events-none"
-                                    style={{
-                                        width: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.width || 30))}%`,
-                                        height: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.height || 20))}%`,
-                                        left: `${dragStartPos.x}%`,
-                                        top: `${dragStartPos.y}%`,
-                                        transform: 'translate(-50%, -50%)',
-                                    }}
-                                />
-                            )}
+                            {/* DRAG INDICATORS */}
+                            {draggedToken && dragStartPos && scene && (
+                                <div className="absolute inset-0 w-full h-full pointer-events-none">
+                                    {/* Movement Range Indicator */}
+                                    {isInCombat && activeCombatant && activeCombatant.id === draggedToken.id && (
+                                        <div
+                                            className="absolute bg-blue-500/20 border border-blue-400 rounded-full"
+                                            style={{
+                                                width: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.width || 30))}%`,
+                                                height: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.height || 20))}%`,
+                                                left: `${dragStartPos.x}%`,
+                                                top: `${dragStartPos.y}%`,
+                                                transform: 'translate(-50%, -50%)',
+                                            }}
+                                        />
+                                    )}
 
-                            {/* Original Position Indicator */}
-                            {draggedToken && dragStartPos && (
-                                <div
-                                    className="absolute bg-black/30 border-2 border-dashed border-white pointer-events-none"
-                                    style={{
-                                        left: `${dragStartPos.x}%`,
-                                        top: `${dragStartPos.y}%`,
-                                        width: `${100 / (scene.width || 30)}%`,
-                                        height: `${100 / (scene.height || 20)}%`,
-                                        transform: 'translate(-50%, -50%)',
-                                    }}
-                                />
+                                    {/* Original Position Indicator */}
+                                    <div
+                                        className="absolute bg-black/30 border-2 border-dashed border-white"
+                                        style={{
+                                            left: `${dragStartPos.x}%`,
+                                            top: `${dragStartPos.y}%`,
+                                            width: `${100 / (scene.width || 30)}%`,
+                                            height: `${100 / (scene.height || 20)}%`,
+                                            transform: 'translate(-50%, -50%)',
+                                        }}
+                                    />
+
+                                    {/* Line and Distance SVG */}
+                                    <svg className="absolute inset-0 w-full h-full" style={{ overflow: 'visible' }}>
+                                        <line
+                                            x1={`${dragStartPos.x}%`}
+                                            y1={`${dragStartPos.y}%`}
+                                            x2={`${scene.tokens.find(t => t.id === draggedToken.id)?.position.x}%`}
+                                            y2={`${scene.tokens.find(t => t.id === draggedToken.id)?.position.y}%`}
+                                            stroke="white"
+                                            strokeWidth={2 / zoom}
+                                            strokeDasharray="4 4"
+                                            strokeLinecap="round"
+                                        />
+                                        {dragDistance > 0 && (
+                                            <text
+                                                x={`${(dragStartPos.x + (scene.tokens.find(t => t.id === draggedToken.id)?.position.x || dragStartPos.x)) / 2}%`}
+                                                y={`${(dragStartPos.y + (scene.tokens.find(t => t.id === draggedToken.id)?.position.y || dragStartPos.y)) / 2}%`}
+                                                fill="white"
+                                                stroke="black"
+                                                strokeWidth={0.5 / zoom}
+                                                style={{
+                                                    fontSize: `${14 / zoom}px`,
+                                                    paintOrder: 'stroke',
+                                                    fontWeight: 'bold'
+                                                }}
+                                                textAnchor="middle"
+                                                dominantBaseline="bottom"
+                                                dy={-4 / zoom}
+                                            >
+                                                {dragDistance}ft
+                                            </text>
+                                        )}
+                                    </svg>
+                                </div>
                             )}
                             
                             {scene.tokens.map(token => {
