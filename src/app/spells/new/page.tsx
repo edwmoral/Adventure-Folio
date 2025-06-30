@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from "react";
@@ -18,13 +19,15 @@ import { MultiSelectCombobox } from "@/components/multi-select-combobox";
 const STORAGE_KEY_SPELLS = 'dnd_spells';
 const STORAGE_KEY_CLASSES = 'dnd_classes';
 const SPELL_SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation'].sort();
+const CASTING_TIME_UNITS = ['Action', 'Bonus Action', 'Reaction', 'Minute', 'Hour'];
+const RANGE_UNITS = ['Self', 'Touch', 'Feet', 'Mile', 'Special'];
 const DURATION_UNITS = ['Instantaneous', 'Round', 'Minute', 'Hour', 'Day', 'Special', 'Until Dispelled'];
 
 export default function NewSpellPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [spell, setSpell] = useState<Partial<Spell> & { material_component?: string }>({ name: '', level: 0, school: '', time: '1 action', range: 'N/A', ritual: false, text: '', classes: '' });
+  const [spell, setSpell] = useState<Partial<Spell> & { material_component?: string }>({ name: '', level: 0, school: '', ritual: false, text: '', classes: '' });
   const [hasVerbal, setHasVerbal] = useState(false);
   const [hasSomatic, setHasSomatic] = useState(false);
   const [hasMaterial, setHasMaterial] = useState(false);
@@ -32,7 +35,13 @@ export default function NewSpellPage() {
   const [allClasses, setAllClasses] = useState<string[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
 
-  // New state for structured duration
+  // State for structured inputs
+  const [castingTimeNumber, setCastingTimeNumber] = useState(1);
+  const [castingTimeUnit, setCastingTimeUnit] = useState('Action');
+
+  const [rangeNumber, setRangeNumber] = useState(30);
+  const [rangeUnit, setRangeUnit] = useState('Feet');
+
   const [isConcentration, setIsConcentration] = useState(false);
   const [durationUnit, setDurationUnit] = useState('Instantaneous');
   const [durationNumber, setDurationNumber] = useState(1);
@@ -93,6 +102,21 @@ export default function NewSpellPage() {
             components_list.push(material_string);
         }
         
+        // Construct casting time string
+        let castingTimeString = `${castingTimeNumber} ${castingTimeUnit.toLowerCase()}`;
+        if (castingTimeNumber !== 1) {
+            castingTimeString += 's';
+        }
+
+        // Construct range string
+        let rangeString = rangeUnit;
+        if (['Feet', 'Mile'].includes(rangeUnit)) {
+            rangeString = `${rangeNumber} ${rangeUnit.toLowerCase()}`;
+            if (rangeNumber !== 1 && rangeUnit === 'Mile') {
+                rangeString += 's';
+            }
+        }
+        
         // Construct duration string
         let durationString = '';
         if (isConcentration) {
@@ -112,8 +136,8 @@ export default function NewSpellPage() {
             name: spell.name!,
             level: spell.level || 0,
             school: spell.school,
-            time: spell.time || '1 action',
-            range: spell.range || 'N/A',
+            time: castingTimeString.trim(),
+            range: rangeString.trim(),
             duration: durationString.trim(),
             components: components_list.join(', '),
             text: spell.text!,
@@ -167,7 +191,7 @@ export default function NewSpellPage() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-2 md:col-span-2">
                             <Label htmlFor="school">School of Magic</Label>
                             <Select value={spell.school} onValueChange={(val) => handleSelectChange('school', val)}>
                                 <SelectTrigger><SelectValue placeholder="Select a school..." /></SelectTrigger>
@@ -176,13 +200,58 @@ export default function NewSpellPage() {
                                 </SelectContent>
                             </Select>
                         </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="time">Casting Time</Label>
-                            <Input id="time" value={spell.time} onChange={handleInputChange} />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Casting Time</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-md">
+                            <div className="space-y-2">
+                                <Label htmlFor="casting-time-number">Value</Label>
+                                <Input
+                                    id="casting-time-number"
+                                    type="number"
+                                    value={castingTimeNumber}
+                                    onChange={(e) => setCastingTimeNumber(parseInt(e.target.value) || 1)}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="casting-time-unit">Unit</Label>
+                                <Select value={castingTimeUnit} onValueChange={setCastingTimeUnit}>
+                                    <SelectTrigger id="casting-time-unit"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {CASTING_TIME_UNITS.map(unit => (
+                                            <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="range">Range</Label>
-                            <Input id="range" value={spell.range} onChange={handleInputChange} />
+                    </div>
+
+                     <div className="space-y-2">
+                        <Label>Range</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-md">
+                             <div className="space-y-2">
+                                <Label htmlFor="range-unit">Unit</Label>
+                                <Select value={rangeUnit} onValueChange={setRangeUnit}>
+                                    <SelectTrigger id="range-unit"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {RANGE_UNITS.map(unit => (
+                                            <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="range-number">Value</Label>
+                                <Input
+                                    id="range-number"
+                                    type="number"
+                                    value={rangeNumber}
+                                    onChange={(e) => setRangeNumber(parseInt(e.target.value) || 1)}
+                                    disabled={!['Feet', 'Mile'].includes(rangeUnit)}
+                                />
+                            </div>
                         </div>
                     </div>
 
