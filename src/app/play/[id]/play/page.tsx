@@ -33,7 +33,7 @@ export default function MapViewPage() {
     const [allActions, setAllActions] = useState<Action[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapInteractionRef = useRef<HTMLDivElement>(null);
     const fullscreenContainerRef = useRef<HTMLDivElement>(null);
     const [draggedToken, setDraggedToken] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
     
@@ -41,7 +41,12 @@ export default function MapViewPage() {
     const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showGrid, setShowGrid] = useState(false);
+    
     const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
 
     useEffect(() => {
         setLoading(true);
@@ -162,59 +167,112 @@ export default function MapViewPage() {
         setIsActionPanelOpen(true);
     };
 
-    const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, tokenId: string) => {
+    const handleTokenMouseDown = (e: React.MouseEvent<HTMLDivElement>, tokenId: string) => {
+        // Only drag with left click
+        if (e.button !== 0) return;
         e.preventDefault();
         e.stopPropagation();
-        if (!mapContainerRef.current) return;
-
+        
         const tokenElement = e.currentTarget;
         const rect = tokenElement.getBoundingClientRect();
-        const containerRect = mapContainerRef.current.getBoundingClientRect();
-
+        
+        // Offset from the center of the token in screen pixels
         const tokenCenterX = rect.left + rect.width / 2;
         const tokenCenterY = rect.top + rect.height / 2;
-
-        const offsetX = (e.clientX - tokenCenterX) / zoom;
-        const offsetY = (e.clientY - tokenCenterY) / zoom;
+        const offsetX = e.clientX - tokenCenterX;
+        const offsetY = e.clientY - tokenCenterY;
         
         setDraggedToken({ id: tokenId, offsetX, offsetY });
     };
 
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!draggedToken || !mapContainerRef.current) return;
+    const handleInteractionMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+        // Pan with right click
+        if (e.button === 2) {
+            e.preventDefault();
+            setIsPanning(true);
+            setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+        }
+    };
+    
+    const handleInteractionMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (isPanning) {
+            e.preventDefault();
+            setPan({
+                x: e.clientX - panStart.x,
+                y: e.clientY - panStart.y,
+            });
+            return;
+        }
+
+        if (draggedToken && mapInteractionRef.current) {
+            e.preventDefault();
+            const containerRect = mapInteractionRef.current.getBoundingClientRect();
+            
+            const mouseX = e.clientX - containerRect.left;
+            const mouseY = e.clientY - containerRect.top;
+
+            const mapX = (mouseX - pan.x) / zoom;
+            const mapY = (mouseY - pan.y) / zoom;
+            
+            const newX = mapX - (draggedToken.offsetX / zoom);
+            const newY = mapY - (draggedToken.offsetY / zoom);
+
+            let newXPercent = (newX / mapInteractionRef.current.offsetWidth) * 100;
+            let newYPercent = (newY / mapInteractionRef.current.offsetHeight) * 100;
+
+            newXPercent = Math.max(0, Math.min(100, newXPercent));
+            newYPercent = Math.max(0, Math.min(100, newYPercent));
+            
+            setScene(prevScene => {
+                if (!prevScene) return null;
+                return {
+                    ...prevScene,
+                    tokens: prevScene.tokens.map(token => 
+                        token.id === draggedToken.id 
+                            ? { ...token, position: { x: newXPercent, y: newYPercent } } 
+                            : token
+                    )
+                };
+            });
+        }
+    };
+    
+    const handleInteractionMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (draggedToken && e.button === 0) {
+            if (scene) {
+                saveCampaignChanges(scene);
+            }
+            setDraggedToken(null);
+        }
         
+        if (isPanning && e.button === 2) {
+            setIsPanning(false);
+        }
+    };
+    
+    const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
         e.preventDefault();
-        e.stopPropagation();
-        const containerRect = mapContainerRef.current.getBoundingClientRect();
-        
-        let newX = (e.clientX - containerRect.left) / zoom - draggedToken.offsetX;
-        let newY = (e.clientY - containerRect.top) / zoom - draggedToken.offsetY;
+        if (!mapInteractionRef.current) return;
 
-        let newXPercent = (newX / containerRect.width) * 100 * zoom;
-        let newYPercent = (newY / containerRect.height) * 100 * zoom;
+        const rect = mapInteractionRef.current.getBoundingClientRect();
+        const scrollDelta = e.deltaY > 0 ? -0.1 : 0.1;
+        const newZoom = Math.max(0.2, Math.min(5, zoom + scrollDelta * zoom));
 
-        newXPercent = Math.max(0, Math.min(100, newXPercent));
-        newYPercent = Math.max(0, Math.min(100, newYPercent));
-        
-        setScene(prevScene => {
-            if (!prevScene) return null;
-            return {
-                ...prevScene,
-                tokens: prevScene.tokens.map(token => 
-                    token.id === draggedToken.id 
-                        ? { ...token, position: { x: newXPercent, y: newYPercent } } 
-                        : token
-                )
-            };
-        });
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const mapX = (mouseX - pan.x) / zoom;
+        const mapY = (mouseY - pan.y) / zoom;
+
+        const newPanX = mouseX - mapX * newZoom;
+        const newPanY = mouseY - mapY * newZoom;
+
+        setZoom(newZoom);
+        setPan({ x: newPanX, y: newPanY });
     };
 
-    const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
-        e.stopPropagation();
-        if (draggedToken && scene) {
-            saveCampaignChanges(scene);
-        }
-        setDraggedToken(null);
+    const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.preventDefault();
     };
     
     const handleZoomIn = () => setZoom(z => Math.min(z * 1.2, 5));
@@ -329,15 +387,22 @@ export default function MapViewPage() {
                 
                 {/* Map Area */}
                 <div 
+                    ref={mapInteractionRef}
                     className="flex-grow relative overflow-hidden bg-card-foreground/10 rounded-b-lg select-none"
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
+                    onMouseDown={handleInteractionMouseDown}
+                    onMouseMove={handleInteractionMouseMove}
+                    onMouseUp={handleInteractionMouseUp}
+                    onMouseLeave={handleInteractionMouseUp}
+                    onWheel={handleWheel}
+                    onContextMenu={handleContextMenu}
                 >
                     <div
-                        ref={mapContainerRef}
-                        className="w-full h-full"
-                        style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+                        className="absolute top-0 left-0 w-full h-full"
+                        style={{
+                            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                            transformOrigin: '0 0',
+                            cursor: isPanning ? 'grabbing' : 'default',
+                        }}
                     >
                         <div
                             className="relative w-full h-full"
@@ -393,7 +458,7 @@ export default function MapViewPage() {
                                                     cursor: draggedToken?.id === token.id ? 'grabbing' : 'grab',
                                                 }}
                                                 onClick={() => handleTokenClick(token)}
-                                                onMouseDown={(e) => handleMouseDown(e, token.id)}
+                                                onMouseDown={(e) => handleTokenMouseDown(e, token.id)}
                                             >
                                                 <div className="relative w-full h-full flex flex-col items-center justify-center p-[5%]">
                                                     {maxHealth && maxHealth > 0 && (
