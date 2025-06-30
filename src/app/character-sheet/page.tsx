@@ -42,6 +42,7 @@ const STORAGE_KEY_CLASSES = 'dnd_classes';
 const STORAGE_KEY_ACTIONS = 'dnd_actions';
 const STORAGE_KEY_SPELLS = 'dnd_spells';
 const STORAGE_KEY_SKILLS = 'dnd_skills';
+const STORAGE_KEY_LAST_ACTIVE_CHARACTER = 'dnd_last_active_character_id';
 
 export default function CharacterSheetPage() {
     const [allPlayerCharacters, setAllPlayerCharacters] = useState<PlayerCharacter[]>([]);
@@ -65,8 +66,11 @@ export default function CharacterSheetPage() {
             if (storedCharacters) {
                 const playerCharacters: PlayerCharacter[] = JSON.parse(storedCharacters);
                 setAllPlayerCharacters(playerCharacters);
+
                 if (playerCharacters.length > 0) {
-                    setCharacter(playerCharacters[0]);
+                    const lastActiveId = localStorage.getItem(STORAGE_KEY_LAST_ACTIVE_CHARACTER);
+                    const lastActiveCharacter = playerCharacters.find(c => c.id === lastActiveId);
+                    setCharacter(lastActiveCharacter || playerCharacters[0]);
                 }
             }
 
@@ -198,6 +202,7 @@ export default function CharacterSheetPage() {
         const selected = allPlayerCharacters.find(c => c.id === characterId);
         if (selected) {
             setCharacter(selected);
+            localStorage.setItem(STORAGE_KEY_LAST_ACTIVE_CHARACTER, characterId);
         }
     };
 

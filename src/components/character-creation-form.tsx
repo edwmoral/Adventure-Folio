@@ -33,6 +33,7 @@ import { fullCasterSpellSlots } from '@/lib/dnd-data';
 
 const STORAGE_KEY_CLASSES = 'dnd_classes';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
+const STORAGE_KEY_LAST_ACTIVE_CHARACTER = 'dnd_last_active_character_id';
 
 const characterFormSchema = z.object({
   characterName: z.string().min(2, {
@@ -117,8 +118,10 @@ export function CharacterCreationForm() {
         const selectedClass = classes.find(c => c.name === className && c.subclass === subclass);
         const isCaster = selectedClass && ['Intelligence', 'Wisdom', 'Charisma'].includes(selectedClass.primary_ability);
 
+        const newCharacterId = String(Date.now());
+
         const newCharacter: PlayerCharacter = {
-            id: String(Date.now()),
+            id: newCharacterId,
             name: values.characterName,
             race: values.characterRace,
             className: className,
@@ -151,6 +154,7 @@ export function CharacterCreationForm() {
 
         const updatedCharacters = [...playerCharacters, newCharacter];
         localStorage.setItem(STORAGE_KEY_PLAYER_CHARACTERS, JSON.stringify(updatedCharacters));
+        localStorage.setItem(STORAGE_KEY_LAST_ACTIVE_CHARACTER, newCharacterId);
 
         toast({
           title: 'Character Created!',
