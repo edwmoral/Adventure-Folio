@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ZoomIn, ZoomOut, Grid, Maximize, Minimize } from "lucide-react";
+import { ArrowLeft, ZoomIn, ZoomOut, Grid, Maximize, Minimize, Swords, ShieldCross } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ActionPanel } from "@/components/action-panel";
+import { TurnOrderTracker } from "@/components/TurnOrderTracker";
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
 const STORAGE_KEY_MAPS = 'dnd_scene_maps';
@@ -46,6 +47,12 @@ export default function MapViewPage() {
     const [pan, setPan] = useState({ x: 0, y: 0 });
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+    // Combat State
+    const [isInCombat, setIsInCombat] = useState(false);
+    const [turnOrder, setTurnOrder] = useState<(Token & { initiative: number })[]>([]);
+    const [activeTokenIndex, setActiveTokenIndex] = useState(0);
+    const [roundNumber, setRoundNumber] = useState(1);
 
 
     useEffect(() => {
@@ -161,6 +168,61 @@ export default function MapViewPage() {
             toast({ variant: "destructive", title: "Save Failed", description: "Could not save token positions." });
         }
     }
+
+    const handleStartCombat = () => {
+        if (!scene) return;
+
+        const combatants = scene.tokens.map(token => {
+            const isPlayer = token.type === 'character';
+            const characterData = isPlayer ? allPlayerCharacters.find(pc => pc.id === token.linked_character_id) : null;
+            const enemyData = !isPlayer ? allEnemies.find(e => e.id === token.linked_enemy_id) : null;
+            
+            const dex = (isPlayer ? characterData?.stats.dex : enemyData?.dex) || 10;
+            const dexMod = Math.floor((dex - 10) / 2);
+            const initiative = Math.floor(Math.random() * 20) + 1 + dexMod;
+
+            return { ...token, initiative };
+        });
+
+        combatants.sort((a, b) => b.initiative - a.initiative);
+
+        setTurnOrder(combatants);
+        setActiveTokenIndex(0);
+        setRoundNumber(1);
+        setIsInCombat(true);
+        setSelectedToken(combatants[0]);
+        setIsActionPanelOpen(true);
+
+        toast({
+            title: "Combat Started!",
+            description: "Initiative has been rolled. The battle begins!"
+        });
+    };
+
+    const handleEndTurn = () => {
+        const nextIndex = (activeTokenIndex + 1);
+        let newRoundNumber = roundNumber;
+        let finalIndex = nextIndex;
+
+        if (nextIndex >= turnOrder.length) {
+            finalIndex = 0;
+            newRoundNumber += 1;
+            setRoundNumber(newRoundNumber);
+            toast({ title: `Round ${newRoundNumber}`, description: "A new round has begun."});
+        }
+        
+        setActiveTokenIndex(finalIndex);
+        setSelectedToken(turnOrder[finalIndex]);
+        setIsActionPanelOpen(true);
+    };
+
+    const handleEndCombat = () => {
+        setIsInCombat(false);
+        setTurnOrder([]);
+        setActiveTokenIndex(0);
+        setRoundNumber(1);
+        toast({ title: "Combat Ended" });
+    };
     
     const handleTokenClick = (token: Token) => {
         setSelectedToken(token);
@@ -170,6 +232,12 @@ export default function MapViewPage() {
     const handleTokenMouseDown = (e: React.MouseEvent<HTMLDivElement>, tokenId: string) => {
         // Only drag with left click
         if (e.button !== 0) return;
+
+        if (isInCombat && tokenId !== turnOrder[activeTokenIndex]?.id) {
+            toast({ variant: 'destructive', title: "Not their turn!", description: "You can only move the active creature." });
+            return;
+        }
+        
         e.preventDefault();
         e.stopPropagation();
         
@@ -206,6 +274,11 @@ export default function MapViewPage() {
 
         if (draggedToken && mapInteractionRef.current && scene) {
             e.preventDefault();
+            
+            if (isInCombat && draggedToken.id !== turnOrder[activeTokenIndex]?.id) {
+                return;
+            }
+
             const containerRect = mapInteractionRef.current.getBoundingClientRect();
             
             const mouseX = e.clientX - containerRect.left;
@@ -396,6 +469,14 @@ export default function MapViewPage() {
                         </Tooltip>
                     </div>
                 </div>
+
+                {isInCombat && (
+                    <TurnOrderTracker 
+                        turnOrder={turnOrder}
+                        activeTokenIndex={activeTokenIndex}
+                        roundNumber={roundNumber}
+                    />
+                )}
                 
                 {/* Map Area */}
                 <div 
@@ -456,18 +537,24 @@ export default function MapViewPage() {
                                 const tokenWidth = 100 / (scene.width || 30);
                                 const tokenHeight = 100 / (scene.height || 20);
 
+                                const activeTokenIdInCombat = isInCombat ? turnOrder[activeTokenIndex]?.id : null;
+
                                 return (
                                     <Tooltip key={token.id}>
                                         <TooltipTrigger asChild>
                                             <div
-                                                className="absolute group"
+                                                className={cn(
+                                                    "absolute group transition-opacity",
+                                                    isInCombat && activeTokenIdInCombat !== token.id && "opacity-70",
+                                                    isInCombat && activeTokenIdInCombat === token.id && "ring-4 ring-yellow-400 ring-offset-2 ring-offset-background rounded-full z-10"
+                                                )}
                                                 style={{
                                                     left: `${token.position.x}%`,
                                                     top: `${token.position.y}%`,
                                                     width: `${tokenWidth}%`,
                                                     height: `${tokenHeight}%`,
                                                     transform: 'translate(-50%, -50%)',
-                                                    cursor: draggedToken?.id === token.id ? 'grabbing' : 'grab',
+                                                    cursor: (draggedToken?.id === token.id) || (isInCombat && activeTokenIdInCombat === token.id) ? 'grabbing' : 'grab',
                                                 }}
                                                 onClick={() => handleTokenClick(token)}
                                                 onMouseDown={(e) => handleTokenMouseDown(e, token.id)}
@@ -508,6 +595,24 @@ export default function MapViewPage() {
                             })}
                         </div>
                     </div>
+                </div>
+                 <div className="absolute bottom-4 right-4 z-20 flex gap-2">
+                    {!isInCombat ? (
+                        <Button size="lg" onClick={handleStartCombat}>
+                            <Swords className="mr-2" />
+                            Start Combat
+                        </Button>
+                    ) : (
+                        <>
+                            <Button size="lg" variant="destructive" onClick={handleEndCombat}>
+                                <ShieldCross className="mr-2" />
+                                End Combat
+                            </Button>
+                            <Button size="lg" onClick={handleEndTurn}>
+                                End Turn
+                            </Button>
+                        </>
+                    )}
                 </div>
                  <ActionPanel
                     open={isActionPanelOpen}
