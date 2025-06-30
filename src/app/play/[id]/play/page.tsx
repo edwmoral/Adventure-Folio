@@ -194,10 +194,10 @@ export default function MapViewPage() {
 
                         const enemy = !isPlayer ? allEnemies.find(e => e.id === token.linked_enemy_id) : null;
 
-                        const health = isPlayer ? playerChar?.hp : token.hp;
-                        const maxHealth = isPlayer ? playerChar?.maxHp : token.maxHp;
-                        const magic = isPlayer ? playerChar?.mp : token.mp;
-                        const maxMagic = isPlayer ? playerChar?.maxMp : token.maxMp;
+                        const health = isPlayer ? playerChar?.hp : (token.hp ?? enemy?.hit_points);
+                        const maxHealth = isPlayer ? playerChar?.maxHp : (token.maxHp ?? enemy?.hit_points);
+                        const magic = isPlayer ? playerChar?.mp : (token.mp ?? enemy?.mp);
+                        const maxMagic = isPlayer ? playerChar?.maxMp : (token.maxMp ?? enemy?.mp);
                         const ac = isPlayer ? playerChar?.ac : enemy?.armor_class;
 
                         const healthPercent = ((health || 0) / (maxHealth || 1)) * 100;

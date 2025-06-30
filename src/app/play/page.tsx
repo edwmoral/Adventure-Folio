@@ -27,8 +27,8 @@ const initialMockCampaigns: Campaign[] = [
                 { id: 'token-char1', name: 'Eldrin', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char1', position: { x: 20, y: 30 } },
                 { id: 'token-char2', name: 'Lyra', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char2', position: { x: 25, y: 35 } },
                 { id: 'token-char3', name: 'Borg', imageUrl: 'https://placehold.co/48x48.png', type: 'character', linked_character_id: 'char3', position: { x: 15, y: 25 } },
-                { id: 'token-monster1', name: 'Goblin 1', imageUrl: 'https://placehold.co/48x48.png', type: 'monster', position: { x: 60, y: 40 } },
-                { id: 'token-monster2', name: 'Goblin 2', imageUrl: 'https://placehold.co/48x48.png', type: 'monster', position: { x: 65, y: 45 } },
+                { id: 'token-monster1', name: 'Goblin 1', imageUrl: 'https://placehold.co/48x48.png', type: 'monster', position: { x: 60, y: 40 }, linked_enemy_id: 'goblin-1', hp: 7, maxHp: 7, mp: 0, maxMp: 0 },
+                { id: 'token-monster2', name: 'Goblin 2', imageUrl: 'https://placehold.co/48x48.png', type: 'monster', position: { x: 65, y: 45 }, linked_enemy_id: 'goblin-1', hp: 7, maxHp: 7, mp: 0, maxMp: 0 },
             ],
             is_active: true,
         }
