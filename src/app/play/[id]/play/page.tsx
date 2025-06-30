@@ -9,15 +9,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
-import type { Campaign, Scene, Token, PlayerCharacter, Enemy } from '@/lib/types';
+import type { Campaign, Scene, Token, PlayerCharacter, Enemy, Action } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-
+import { ActionPanel } from "@/components/action-panel";
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 const STORAGE_KEY_ENEMIES = 'dnd_enemies';
+const STORAGE_KEY_ACTIONS = 'dnd_actions';
 
 export default function MapViewPage() {
     const params = useParams();
@@ -28,10 +29,14 @@ export default function MapViewPage() {
     const [scene, setScene] = useState<Scene | null>(null);
     const [allPlayerCharacters, setAllPlayerCharacters] = useState<PlayerCharacter[]>([]);
     const [allEnemies, setAllEnemies] = useState<Enemy[]>([]);
+    const [allActions, setAllActions] = useState<Action[]>([]);
     const [loading, setLoading] = useState(true);
 
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const [draggedToken, setDraggedToken] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+    
+    const [selectedToken, setSelectedToken] = useState<Token | null>(null);
+    const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
 
     useEffect(() => {
         try {
@@ -52,6 +57,11 @@ export default function MapViewPage() {
             const storedEnemies = localStorage.getItem(STORAGE_KEY_ENEMIES);
             if (storedEnemies) {
               setAllEnemies(JSON.parse(storedEnemies));
+            }
+            
+            const storedActions = localStorage.getItem(STORAGE_KEY_ACTIONS);
+            if (storedActions) {
+              setAllActions(JSON.parse(storedActions));
             }
 
         } catch (error) {
@@ -79,13 +89,17 @@ export default function MapViewPage() {
             toast({ variant: "destructive", title: "Save Failed", description: "Could not save token positions." });
         }
     }
+    
+    const handleTokenClick = (token: Token) => {
+        setSelectedToken(token);
+        setIsActionPanelOpen(true);
+    };
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, tokenId: string) => {
         e.preventDefault();
         const tokenElement = e.currentTarget;
         const rect = tokenElement.getBoundingClientRect();
         
-        // Calculate offset from the top-left of the token
         const offsetX = e.clientX - rect.left;
         const offsetY = e.clientY - rect.top;
         
@@ -97,15 +111,12 @@ export default function MapViewPage() {
         
         const containerRect = mapContainerRef.current.getBoundingClientRect();
         
-        // Calculate new position relative to the container
         let newX = e.clientX - containerRect.left - draggedToken.offsetX;
         let newY = e.clientY - containerRect.top - draggedToken.offsetY;
 
-        // Convert pixel coordinates to percentage
         let newXPercent = (newX / containerRect.width) * 100;
         let newYPercent = (newY / containerRect.height) * 100;
 
-        // Constrain to map boundaries
         newXPercent = Math.max(0, Math.min(100, newXPercent));
         newYPercent = Math.max(0, Math.min(100, newYPercent));
         
@@ -175,7 +186,7 @@ export default function MapViewPage() {
                     ref={mapContainerRef}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp} // Stop dragging if mouse leaves the area
+                    onMouseLeave={handleMouseUp}
                 >
                     <Image
                         src={scene.background_map_url}
@@ -219,10 +230,10 @@ export default function MapViewPage() {
                                             cursor: draggedToken?.id === token.id ? 'grabbing' : 'grab',
                                             zIndex: draggedToken?.id === token.id ? 10 : 1,
                                         }}
+                                        onClick={() => handleTokenClick(token)}
                                         onMouseDown={(e) => handleMouseDown(e, token.id)}
                                     >
                                         <div className="relative w-16 flex flex-col items-center">
-                                            {/* Health and Magic Bars */}
                                             {(showHealthBar || showMagicBar) && (
                                                 <div className="w-12 mb-1 space-y-0.5">
                                                     {showHealthBar && (
@@ -265,6 +276,22 @@ export default function MapViewPage() {
                     })}
                 </div>
             </div>
+             <ActionPanel
+                open={isActionPanelOpen}
+                onOpenChange={setIsActionPanelOpen}
+                token={selectedToken}
+                character={
+                    selectedToken?.type === 'character'
+                        ? allPlayerCharacters.find(p => p.id === selectedToken.linked_character_id) || null
+                        : null
+                }
+                enemy={
+                    selectedToken?.type === 'monster'
+                        ? allEnemies.find(e => e.id === selectedToken.linked_enemy_id) || null
+                        : null
+                }
+                actions={allActions}
+            />
         </TooltipProvider>
     );
 }
