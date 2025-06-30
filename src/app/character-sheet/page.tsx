@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { fullCasterSpellSlots } from "@/lib/dnd-data";
 
 const StatCard = ({ name, value, modifier }: { name: string, value: string, modifier: string }) => (
     <div className="flex flex-col items-center justify-center p-4 bg-card-foreground/5 rounded-lg">
@@ -144,11 +145,35 @@ export default function CharacterSheetPage() {
         const newFeatures = characterClass.levels.find(l => l.level === newLevel)?.features || [];
         setNewlyUnlockedFeatures(newFeatures);
 
+        // --- New spell slot logic ---
+        let newSpellSlots = character.spell_slots;
+        // For now, assume all casters are full-casters. This can be expanded later.
+        const isCaster = ['Intelligence', 'Wisdom', 'Charisma'].includes(characterClass.primary_ability);
+        
+        if (isCaster) {
+            const levelData = fullCasterSpellSlots.find(l => l.level === newLevel);
+            if (levelData) {
+                const newMaxSlots = levelData.slots;
+                const updatedSlots: PlayerCharacter['spell_slots'] = {};
+
+                for (const levelKey in newMaxSlots) {
+                    if (Object.prototype.hasOwnProperty.call(newMaxSlots, levelKey)) {
+                        const max = newMaxSlots[levelKey as keyof typeof newMaxSlots];
+                        // On level up, all spell slots are restored to their new maximum.
+                        updatedSlots[levelKey] = { current: max, max: max };
+                    }
+                }
+                newSpellSlots = updatedSlots;
+            }
+        }
+        // --- End new spell slot logic ---
+
         const updatedCharacter: PlayerCharacter = {
             ...character,
             level: newLevel,
             maxHp: newMaxHp,
             hp: newMaxHp, // Heal to full on level up
+            spell_slots: newSpellSlots,
         };
 
         try {
@@ -370,7 +395,7 @@ export default function CharacterSheetPage() {
                     <div className="md:col-span-2">
                         <Tabs defaultValue="actions" className="w-full">
                             <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="actions">Combat & Abilities</TabsTrigger>
+                                <TabsTrigger value="actions">Combat &amp; Abilities</TabsTrigger>
                                 <TabsTrigger value="inventory">Inventory</TabsTrigger>
                             </TabsList>
                             <TabsContent value="actions" className="mt-4">
@@ -424,7 +449,7 @@ export default function CharacterSheetPage() {
                                             
                                             <AccordionItem value="features">
                                                 <AccordionTrigger className="text-2xl font-semibold hover:no-underline">
-                                                     <div className="flex items-center gap-2"><Sparkles className="h-6 w-6" /> Features & Traits</div>
+                                                     <div className="flex items-center gap-2"><Sparkles className="h-6 w-6" /> Features &amp; Traits</div>
                                                 </AccordionTrigger>
                                                 <AccordionContent>
                                                     <div className="space-y-4 pt-4 border-t mt-2">

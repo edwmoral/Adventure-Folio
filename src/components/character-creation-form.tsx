@@ -29,6 +29,7 @@ import { generateBackgroundAction } from '@/app/character/create/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles } from 'lucide-react';
 import type { Class, PlayerCharacter } from '@/lib/types';
+import { fullCasterSpellSlots } from '@/lib/dnd-data';
 
 const STORAGE_KEY_CLASSES = 'dnd_classes';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
@@ -129,12 +130,23 @@ export function CharacterCreationForm() {
             hp: 10,
             maxHp: 10,
             ac: 10,
-            mp: isCaster ? 10 : 0,
-            maxMp: isCaster ? 10 : 0,
+            mp: 0,
+            maxMp: 0,
         };
         
         if (isCaster) {
-            newCharacter.spell_slots = { '1': { current: 2, max: 2 } };
+            const level1SlotsData = fullCasterSpellSlots.find(l => l.level === 1)?.slots;
+            if (level1SlotsData) {
+                newCharacter.spell_slots = {};
+                for (const levelKey in level1SlotsData) {
+                    if (Object.prototype.hasOwnProperty.call(level1SlotsData, levelKey)) {
+                        const max = level1SlotsData[levelKey as keyof typeof level1SlotsData];
+                        newCharacter.spell_slots[levelKey] = { current: max, max: max };
+                    }
+                }
+            }
+            newCharacter.mp = 10;
+            newCharacter.maxMp = 10;
         }
 
         const updatedCharacters = [...playerCharacters, newCharacter];
