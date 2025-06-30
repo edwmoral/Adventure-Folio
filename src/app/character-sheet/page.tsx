@@ -10,8 +10,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Book, Heart, Shield, Swords, ArrowUp, UserPlus } from "lucide-react"
+import { Book, Heart, Shield, Swords, ArrowUp, UserPlus, Sparkles } from "lucide-react"
 import type { PlayerCharacter, Class } from "@/lib/types";
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogTrigger 
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const StatCard = ({ name, value, modifier }: { name: string, value: string, modifier: string }) => (
     <div className="flex flex-col items-center justify-center p-4 bg-card-foreground/5 rounded-lg">
@@ -28,6 +40,13 @@ export default function CharacterSheetPage() {
     const [character, setCharacter] = useState<PlayerCharacter | null>(null);
     const [allClasses, setAllClasses] = useState<Class[]>([]);
     const [characterFeatures, setCharacterFeatures] = useState<{name: string, description: string}[]>([]);
+    const { toast } = useToast();
+
+    // State for level up modals
+    const [levelUpDialogOpen, setLevelUpDialogOpen] = useState(false);
+    const [levelUpSummaryOpen, setLevelUpSummaryOpen] = useState(false);
+    const [newlyUnlockedFeatures, setNewlyUnlockedFeatures] = useState<string[]>([]);
+    const [hpIncreaseResult, setHpIncreaseResult] = useState(0);
 
     useEffect(() => {
         try {
@@ -71,29 +90,59 @@ export default function CharacterSheetPage() {
         return mod >= 0 ? `+${mod}` : `${mod}`;
     };
 
-    const handleLevelUp = () => {
+    const handleHpIncrease = (method: 'roll' | 'average') => {
         if (!character) return;
+
+        const characterClass = allClasses.find(c => c.name === character.className && c.subclass === character.subclass);
+        if (!characterClass) {
+            toast({ variant: "destructive", title: "Error", description: "Could not find class data to level up." });
+            return;
+        }
+
+        const hitDieValue = parseInt(characterClass.hit_die.replace('d', ''));
+        const conModifier = Math.floor((character.stats.con - 10) / 2);
+        let hpIncrease = 0;
+
+        if (method === 'average') {
+            hpIncrease = Math.floor(hitDieValue / 2) + 1 + conModifier;
+        } else { // 'roll'
+            const roll = Math.floor(Math.random() * hitDieValue) + 1;
+            hpIncrease = roll + conModifier;
+        }
+        hpIncrease = Math.max(1, hpIncrease); // HP increase is always at least 1
+        setHpIncreaseResult(hpIncrease);
+
+        const newLevel = character.level + 1;
+        const newMaxHp = character.maxHp + hpIncrease;
         
-        setCharacter(prev => {
-            if (!prev) return null;
+        const newFeatures = characterClass.levels.find(l => l.level === newLevel)?.features || [];
+        setNewlyUnlockedFeatures(newFeatures);
 
-            const newLevel = prev.level + 1;
-            const conModifier = Math.floor((prev.stats.con - 10) / 2);
-            // This is a simplification. Hit die depends on class.
-            const hitDieRoll = Math.floor(Math.random() * 10) + 1; 
-            const hpIncrease = Math.max(1, hitDieRoll + conModifier);
-            const newMaxHp = prev.maxHp + hpIncrease;
+        const updatedCharacter: PlayerCharacter = {
+            ...character,
+            level: newLevel,
+            maxHp: newMaxHp,
+            hp: newMaxHp, // Heal to full on level up
+        };
 
-            const updatedCharacter = {
-                ...prev,
-                level: newLevel,
-                maxHp: newMaxHp,
-                hp: newMaxHp,
-            };
+        try {
+            const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
+            const playerCharacters: PlayerCharacter[] = storedCharacters ? JSON.parse(storedCharacters) : [];
+            const characterIndex = playerCharacters.findIndex(c => c.id === character.id);
+            
+            if (characterIndex !== -1) {
+                playerCharacters[characterIndex] = updatedCharacter;
+                localStorage.setItem(STORAGE_KEY_PLAYER_CHARACTERS, JSON.stringify(playerCharacters));
+            }
+        } catch (error) {
+            console.error("Failed to save level-up changes", error);
+            toast({ variant: "destructive", title: "Save Failed", description: "Could not save level-up progress." });
+            return;
+        }
 
-            // Note: This does not persist the change. A "Save" button would be needed.
-            return updatedCharacter;
-        });
+        setCharacter(updatedCharacter);
+        setLevelUpDialogOpen(false);
+        setLevelUpSummaryOpen(true);
     };
 
     if (!character) {
@@ -132,13 +181,30 @@ export default function CharacterSheetPage() {
                                 <h1 className="text-4xl font-bold font-headline">{character.name}</h1>
                                 <p className="text-lg text-muted-foreground">Level {character.level} {character.race} {character.className} ({character.subclass})</p>
                             </div>
-                            <Button onClick={handleLevelUp} size="lg" className="mt-4 sm:mt-0">
-                                <ArrowUp className="mr-2 h-5 w-5" />
-                                Level Up
-                            </Button>
+                            <AlertDialog open={levelUpDialogOpen} onOpenChange={setLevelUpDialogOpen}>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="lg" className="mt-4 sm:mt-0">
+                                        <ArrowUp className="mr-2 h-5 w-5" />
+                                        Level Up
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Increase Hit Points</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Choose how to increase your maximum HP for reaching Level {character.level + 1}.
+                                            Your Constitution modifier is {getModifier(character.stats.con)}.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleHpIncrease('average')}>Take Average</AlertDialogAction>
+                                        <AlertDialogAction onClick={() => handleHpIncrease('roll')}>Roll for HP</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-2">
-                            {/* Tags could be derived from skills/features in a more advanced implementation */}
                             <Badge variant="outline">{character.race}</Badge>
                             <Badge variant="outline">{character.className}</Badge>
                             <Badge variant="outline">{character.subclass}</Badge>
@@ -233,6 +299,33 @@ export default function CharacterSheetPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Level Up Summary Modal */}
+            <AlertDialog open={levelUpSummaryOpen} onOpenChange={setLevelUpSummaryOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-center text-2xl">Level Up! 🎉</AlertDialogTitle>
+                        <AlertDialogDescription className="text-center">
+                            Congratulations, you are now Level {character.level}!
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="space-y-4">
+                        <p className="text-center font-semibold">Your maximum HP increased by <span className="text-accent">{hpIncreaseResult}</span>!</p>
+                        {newlyUnlockedFeatures.length > 0 && (
+                            <div>
+                                <h4 className="font-bold mb-2 flex items-center justify-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> New Features Unlocked:</h4>
+                                <ul className="list-disc list-inside bg-card-foreground/5 p-3 rounded-md">
+                                    {newlyUnlockedFeatures.map(feature => <li key={feature}>{feature}</li>)}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setLevelUpSummaryOpen(false)}>Awesome!</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </TooltipProvider>
     );
-}
+
+    
