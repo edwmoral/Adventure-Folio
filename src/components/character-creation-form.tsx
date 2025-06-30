@@ -113,6 +113,9 @@ export function CharacterCreationForm() {
         
         const [className, subclass] = values.characterClass.split(':');
 
+        const selectedClass = classes.find(c => c.name === className && c.subclass === subclass);
+        const isCaster = selectedClass && ['Intelligence', 'Wisdom', 'Charisma'].includes(selectedClass.primary_ability);
+
         const newCharacter: PlayerCharacter = {
             id: String(Date.now()),
             name: values.characterName,
@@ -126,10 +129,13 @@ export function CharacterCreationForm() {
             hp: 10,
             maxHp: 10,
             ac: 10,
-            mp: 10,
-            maxMp: 10,
-            spell_slots: { '1': { current: 2, max: 2 } },
+            mp: isCaster ? 10 : 0,
+            maxMp: isCaster ? 10 : 0,
         };
+        
+        if (isCaster) {
+            newCharacter.spell_slots = { '1': { current: 2, max: 2 } };
+        }
 
         const updatedCharacters = [...playerCharacters, newCharacter];
         localStorage.setItem(STORAGE_KEY_PLAYER_CHARACTERS, JSON.stringify(updatedCharacters));
