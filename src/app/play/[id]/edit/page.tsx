@@ -30,7 +30,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
 const STORAGE_KEY = 'dnd_campaigns';
@@ -277,11 +276,9 @@ export default function EditCampaignPage() {
                                 {!scene.is_active && (
                                     <Button variant="outline" size="sm" onClick={() => handleSetSceneActive(scene.id)}>Set Active</Button>
                                 )}
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="ml-1" onClick={() => setSceneToDelete(scene.id)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </AlertDialogTrigger>
+                                <Button variant="ghost" size="icon" className="ml-1" onClick={() => setSceneToDelete(scene.id)}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
                             </div>
                         </div>
                     ))}
