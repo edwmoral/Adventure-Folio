@@ -113,8 +113,8 @@ export function ActionPanel({
     const useItemAction = { name: 'Use an Item', description: 'Interact with an object or item.', type: 'action', action: () => onUseAction?.('action') };
     availableActions = [...baseCombatActions, useItemAction, ...customActions];
     
-    if (allSpells && character) {
-        characterSpells = allSpells.filter(spell => spell.classes?.includes(character.className));
+    if (allSpells && character && character.spells) {
+        characterSpells = allSpells.filter(spell => character.spells!.includes(spell.name));
     }
 
   } else { 
