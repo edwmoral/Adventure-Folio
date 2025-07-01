@@ -22,6 +22,7 @@ const SPELL_SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment',
 const CASTING_TIME_UNITS = ['Action', 'Bonus Action', 'Reaction', 'Minute', 'Hour'];
 const RANGE_UNITS = ['Self', 'Touch', 'Feet', 'Mile', 'Special'];
 const DURATION_UNITS = ['Instantaneous', 'Round', 'Minute', 'Hour', 'Day', 'Special', 'Until Dispelled'];
+const AOE_SHAPES = ['Sphere', 'Cube', 'Cone', 'Line', 'Cylinder'];
 
 export default function NewSpellPage() {
   const router = useRouter();
@@ -45,6 +46,10 @@ export default function NewSpellPage() {
   const [isConcentration, setIsConcentration] = useState(false);
   const [durationUnit, setDurationUnit] = useState('Instantaneous');
   const [durationNumber, setDurationNumber] = useState(1);
+
+  const [hasAoe, setHasAoe] = useState(false);
+  const [aoeShape, setAoeShape] = useState('Sphere');
+  const [aoeSize, setAoeSize] = useState(20);
 
   useEffect(() => {
     try {
@@ -144,6 +149,13 @@ export default function NewSpellPage() {
             classes: selectedClasses.join(', '),
             ritual: spell.ritual || false,
         };
+
+        if (hasAoe && aoeSize > 0) {
+            newSpell.aoe = {
+                shape: aoeShape.toLowerCase(),
+                size: aoeSize,
+            };
+        }
 
         const updatedSpells = [...spells, newSpell];
         localStorage.setItem(STORAGE_KEY_SPELLS, JSON.stringify(updatedSpells));
@@ -287,6 +299,44 @@ export default function NewSpellPage() {
                                     disabled={!['Round', 'Minute', 'Hour', 'Day'].includes(durationUnit)}
                                 />
                             </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Area of Effect</Label>
+                        <div className="p-4 border rounded-md space-y-4">
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    id="hasAoe"
+                                    checked={hasAoe}
+                                    onCheckedChange={(checked) => setHasAoe(!!checked)}
+                                />
+                                <Label htmlFor="hasAoe" className="font-normal">This spell has an area of effect</Label>
+                            </div>
+                            {hasAoe && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="aoe-shape">Shape</Label>
+                                        <Select value={aoeShape} onValueChange={setAoeShape}>
+                                            <SelectTrigger id="aoe-shape"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {AOE_SHAPES.map(shape => (
+                                                    <SelectItem key={shape} value={shape}>{shape}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="aoe-size">Size (feet)</Label>
+                                        <Input
+                                            id="aoe-size"
+                                            type="number"
+                                            value={aoeSize}
+                                            onChange={(e) => setAoeSize(parseInt(e.target.value) || 0)}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                     

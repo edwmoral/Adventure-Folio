@@ -193,6 +193,10 @@ export type Spell = {
     components?: string;
     duration: string;
     classes?: string;
+    aoe?: {
+        shape: string;
+        size: number;
+    };
 };
 
 export type MonsterAction = {

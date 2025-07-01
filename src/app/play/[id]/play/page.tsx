@@ -603,8 +603,14 @@ export default function MapViewPage() {
         return match ? parseInt(match[1]) : 0;
     };
 
-    const parseSpellAoe = (description: string): { radius: number } | undefined => {
-        const match = description.match(/(\d+)-foot-radius/i);
+    const parseSpellAoe = (spell: Spell): { radius: number } | undefined => {
+        // Prefer structured data if available
+        if (spell.aoe && (spell.aoe.shape === 'sphere' || spell.aoe.shape === 'cylinder')) {
+            return { radius: spell.aoe.size };
+        }
+    
+        // Fallback to regex for older spell data or simple descriptions
+        const match = spell.text.match(/(\d+)-foot-radius/i);
         return match ? { radius: parseInt(match[1]) } : undefined;
     };
 
@@ -618,7 +624,7 @@ export default function MapViewPage() {
         }
 
         const range = parseSpellRange(spell.range);
-        const aoe = parseSpellAoe(spell.text);
+        const aoe = parseSpellAoe(spell);
         
         setTargeting({ type: 'spell', actor: caster, spell, range, aoe });
         setIsActionPanelOpen(false);
