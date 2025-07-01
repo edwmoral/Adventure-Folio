@@ -340,6 +340,10 @@ export default function MapViewPage() {
             }
             resolveAttack(token);
         } else {
+            if (isInCombat && token.id !== turnOrder[activeTokenIndex]?.id) {
+                toast({ variant: 'destructive', title: "Not their turn!", description: `It is currently ${turnOrder[activeTokenIndex]?.name}'s turn.` });
+                return;
+            }
             setSelectedToken(token);
             setIsActionPanelOpen(true);
         }
@@ -624,7 +628,7 @@ export default function MapViewPage() {
                             )}
 
                             {/* PERSISTENT MOVEMENT RANGE INDICATOR */}
-                            {isInCombat && activeCombatant && selectedToken?.id === activeCombatant.id && (
+                            {isInCombat && activeCombatant && (
                                 <div
                                     className="absolute bg-blue-500/20 border border-blue-400 rounded-full pointer-events-none"
                                     style={{

@@ -88,36 +88,41 @@ export function ActionPanel({
   const ac = isPlayer ? character.ac : (enemy ? parseInt(enemy.ac) : 'N/A');
   const speed = isPlayer ? '30 ft.' : enemy?.speed; // Assuming base speed for players
 
-  const basePlayerActions = [
+  const baseCombatActions = [
       { name: 'Attack', description: 'Make a melee or ranged attack.', type: 'action', action: () => { onAttack?.(); onOpenChange(false); } },
       { name: 'Dash', description: 'Double your movement speed for the turn.', type: 'action', action: onDash },
       { name: 'Disengage', description: 'Move without provoking opportunity attacks.', type: 'action', action: () => onUseAction?.('action') },
       { name: 'Dodge', description: 'Focus on avoiding attacks.', type: 'action', action: onDodge },
-      { name: 'Use an Item', description: 'Interact with an object or item.', type: 'action', action: () => onUseAction?.('action') },
   ];
 
-  const enemyActions = enemy?.action?.map(action => ({
-    name: action.name,
-    description: action.text,
-    type: 'action',
-    action: () => { onAttack?.(); onOpenChange(false); },
-  })) || [];
+  let availableActions: { name: string; description: string; type: string; action: (() => void) | undefined; }[] = [];
 
-  const characterActions = [
-      ...basePlayerActions,
-      ...actions.map(a => ({ 
-          name: a.name, 
-          description: a.description, 
-          type: a.type.toLowerCase().includes('bonus') ? 'bonus' : 'action',
-          action: () => onUseAction?.(a.type.toLowerCase().includes('bonus') ? 'bonus' : 'action')
-      }))
-  ];
+  if (isPlayer) {
+    const customActions = actions.map(a => ({ 
+        name: a.name, 
+        description: a.description, 
+        type: a.type.toLowerCase().includes('bonus') ? 'bonus' : 'action',
+        action: () => onUseAction?.(a.type.toLowerCase().includes('bonus') ? 'bonus' : 'action')
+    }));
+    const useItemAction = { name: 'Use an Item', description: 'Interact with an object or item.', type: 'action', action: () => onUseAction?.('action') };
+    availableActions = [...baseCombatActions, useItemAction, ...customActions];
+  } else { // Is an enemy
+    const monsterSpecificActions = enemy?.action?.map(action => ({
+      name: action.name,
+      description: action.text,
+      type: 'action', // Assume all monster actions are 'action' for now
+      action: () => { onAttack?.(); onOpenChange(false); },
+    })) || [];
+    availableActions = [...baseCombatActions, ...monsterSpecificActions];
+  }
+
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent 
         className="w-[350px] sm:w-[400px]"
         container={container}
+        showOverlay={!isInCombat || !open}
       >
           <TooltipProvider>
             <SheetHeader className="text-left">
@@ -165,7 +170,7 @@ export function ActionPanel({
                 <div className="space-y-2">
                     <h4 className="font-semibold">Actions</h4>
                     <div className="max-h-[calc(100vh-400px)] overflow-y-auto space-y-2 pr-2">
-                      {(isPlayer ? characterActions : enemyActions).map((action, index) => {
+                      {availableActions.map((action, index) => {
                           const isDisabled = isInCombat && combatState && (
                               (action.type === 'action' && !combatState.hasAction) ||
                               (action.type === 'bonus' && !combatState.hasBonusAction)
