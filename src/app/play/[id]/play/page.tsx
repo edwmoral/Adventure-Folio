@@ -80,6 +80,92 @@ export default function MapViewPage() {
 
     const [mouseMapPos, setMouseMapPos] = useState<{ x: number, y: number } | null>(null);
 
+    const activeCombatant = useMemo(() => {
+        return isInCombat ? turnOrder[activeTokenIndex] : null;
+    }, [isInCombat, turnOrder, activeTokenIndex]);
+    
+    const actorToken = useMemo(() => {
+        if (!targeting || !scene) return null;
+        return scene.tokens.find(t => t.id === targeting.actor.id) || null;
+    }, [targeting, scene]);
+    
+    const aoeIndicator = useMemo(() => {
+        if (!targeting || targeting.type !== 'spell' || !targeting.aoe || !mouseMapPos || !actorToken || !scene) {
+            return null;
+        }
+
+        const feetToPercentX = (feet: number) => (feet / 5) * (100 / (scene.width || 30));
+        const feetToPercentY = (feet: number) => (feet / 5) * (100 / (scene.height || 20));
+        const { shape, size } = targeting.aoe;
+
+        const baseStyle: React.CSSProperties = {
+            position: 'absolute',
+            pointerEvents: 'none',
+            backgroundColor: 'hsla(0, 84.2%, 60.2%, 0.2)',
+            border: '1px solid hsl(0, 84.2%, 60.2%)',
+        };
+
+        switch (shape) {
+            case 'sphere':
+            case 'cylinder':
+                return (
+                    <div style={{
+                        ...baseStyle,
+                        left: `${mouseMapPos.x}%`,
+                        top: `${mouseMapPos.y}%`,
+                        transform: 'translate(-50%, -50%)',
+                        width: `${feetToPercentX(size) * 2}%`,
+                        height: `${feetToPercentY(size) * 2}%`,
+                        borderRadius: '9999px',
+                    }} />
+                );
+            case 'cube':
+                return (
+                    <div style={{
+                        ...baseStyle,
+                        left: `${mouseMapPos.x}%`,
+                        top: `${mouseMapPos.y}%`,
+                        transform: 'translate(-50%, -50%)',
+                        width: `${feetToPercentX(size)}%`,
+                        height: `${feetToPercentY(size)}%`,
+                    }} />
+                );
+            case 'cone': {
+                // For a proper arc, we need the radius in both dimensions to be correct for the grid
+                const coneLengthX = feetToPercentX(size);
+                const coneLengthY = feetToPercentY(size);
+                
+                const dx = mouseMapPos.x - actorToken.position.x;
+                const dy = mouseMapPos.y - actorToken.position.y;
+                const angle = Math.atan2(dy, dx);
+                
+                // 5e cone is 90 degrees total, so +/- 45 degrees from the center line.
+                const angle1 = angle - Math.PI / 4;
+                const angle2 = angle + Math.PI / 4;
+
+                const p1x = actorToken.position.x + coneLengthX * Math.cos(angle1);
+                const p1y = actorToken.position.y + coneLengthY * Math.sin(angle1);
+                const p2x = actorToken.position.x + coneLengthX * Math.cos(angle2);
+                const p2y = actorToken.position.y + coneLengthY * Math.sin(angle2);
+
+                // Use elliptical arc for non-square grids
+                const pathData = `M ${actorToken.position.x},${actorToken.position.y} L ${p1x},${p1y} A ${coneLengthX},${coneLengthY} 0 0 1 ${p2x},${p2y} Z`;
+                
+                return (
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
+                        <path
+                            d={pathData}
+                            fill="hsla(0, 84.2%, 60.2%, 0.2)"
+                            stroke="hsl(0, 84.2%, 60.2%)"
+                            strokeWidth={1 / zoom}
+                        />
+                    </svg>
+                );
+            }
+            default:
+                return null;
+        }
+    }, [targeting, mouseMapPos, actorToken, scene, zoom]);
 
     useEffect(() => {
         setLoading(true);
@@ -702,88 +788,7 @@ export default function MapViewPage() {
             </div>
         );
     }
-
-    const activeCombatant = isInCombat ? turnOrder[activeTokenIndex] : null;
-    const actorToken = targeting ? scene.tokens.find(t => t.id === targeting.actor.id) : null;
     
-    const aoeIndicator = useMemo(() => {
-        if (!targeting || targeting.type !== 'spell' || !targeting.aoe || !mouseMapPos || !actorToken || !scene) {
-            return null;
-        }
-
-        const feetToPercentX = (feet: number) => (feet / 5) * (100 / (scene.width || 30));
-        const feetToPercentY = (feet: number) => (feet / 5) * (100 / (scene.height || 20));
-        const { shape, size } = targeting.aoe;
-
-        const baseStyle: React.CSSProperties = {
-            position: 'absolute',
-            pointerEvents: 'none',
-            backgroundColor: 'hsla(0, 84.2%, 60.2%, 0.2)',
-            border: '1px solid hsl(0, 84.2%, 60.2%)',
-        };
-
-        switch (shape) {
-            case 'sphere':
-            case 'cylinder':
-                return (
-                    <div style={{
-                        ...baseStyle,
-                        left: `${mouseMapPos.x}%`,
-                        top: `${mouseMapPos.y}%`,
-                        transform: 'translate(-50%, -50%)',
-                        width: `${feetToPercentX(size) * 2}%`,
-                        height: `${feetToPercentY(size) * 2}%`,
-                        borderRadius: '9999px',
-                    }} />
-                );
-            case 'cube':
-                return (
-                    <div style={{
-                        ...baseStyle,
-                        left: `${mouseMapPos.x}%`,
-                        top: `${mouseMapPos.y}%`,
-                        transform: 'translate(-50%, -50%)',
-                        width: `${feetToPercentX(size)}%`,
-                        height: `${feetToPercentY(size)}%`,
-                    }} />
-                );
-            case 'cone': {
-                // For a proper arc, we need the radius in both dimensions to be correct for the grid
-                const coneLengthX = feetToPercentX(size);
-                const coneLengthY = feetToPercentY(size);
-                
-                const dx = mouseMapPos.x - actorToken.position.x;
-                const dy = mouseMapPos.y - actorToken.position.y;
-                const angle = Math.atan2(dy, dx);
-                
-                // 5e cone is 90 degrees total, so +/- 45 degrees from the center line.
-                const angle1 = angle - Math.PI / 4;
-                const angle2 = angle + Math.PI / 4;
-
-                const p1x = actorToken.position.x + coneLengthX * Math.cos(angle1);
-                const p1y = actorToken.position.y + coneLengthY * Math.sin(angle1);
-                const p2x = actorToken.position.x + coneLengthX * Math.cos(angle2);
-                const p2y = actorToken.position.y + coneLengthY * Math.sin(angle2);
-
-                // Use elliptical arc for non-square grids
-                const pathData = `M ${actorToken.position.x},${actorToken.position.y} L ${p1x},${p1y} A ${coneLengthX},${coneLengthY} 0 0 1 ${p2x},${p2y} Z`;
-                
-                return (
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
-                        <path
-                            d={pathData}
-                            fill="hsla(0, 84.2%, 60.2%, 0.2)"
-                            stroke="hsl(0, 84.2%, 60.2%)"
-                            strokeWidth={1 / zoom}
-                        />
-                    </svg>
-                );
-            }
-            default:
-                return null;
-        }
-    }, [targeting, mouseMapPos, actorToken, scene, zoom]);
-
     return (
         <TooltipProvider>
             <div ref={fullscreenContainerRef} className="h-[calc(100vh-10rem)] w-full flex flex-col bg-background">
@@ -897,7 +902,7 @@ export default function MapViewPage() {
                                 const enemy = !isPlayer ? allEnemies.find(e => e.id === token.linked_enemy_id) : null;
                                 const health = token.hp ?? (isPlayer ? playerChar?.hp : (enemy ? parseInt(enemy.hp.split(' ')[0]) : undefined));
                                 const maxHealth = token.maxHp ?? (isPlayer ? playerChar?.maxHp : (enemy ? parseInt(enemy.hp.split(' ')[0]) : undefined));
-                                const ac = isPlayer ? playerChar?.ac : (enemy ? parseInt(enemy.ac) : undefined);
+                                const ac = isPlayer ? playerChar?.ac : (enemy ? parseInt(String(enemy.ac)) : undefined);
                                 const healthPercent = (health !== undefined && maxHealth) ? (health / maxHealth) * 100 : 100;
                                 const tokenWidth = 100 / (scene.width || 30);
                                 const tokenHeight = 100 / (scene.height || 20);
