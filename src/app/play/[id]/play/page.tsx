@@ -850,6 +850,7 @@ export default function MapViewPage() {
                                 const tokenHeight = 100 / (scene.height || 20);
                                 const activeTokenIdInCombat = isInCombat ? turnOrder[activeTokenIndex]?.id : null;
                                 const isDodging = isInCombat && turnOrder.find(c => c.id === token.id)?.statusEffects?.includes('dodging');
+                                const borderColor = isPlayer ? (playerChar?.tokenBorderColor || 'hsl(var(--primary))') : 'hsl(var(--destructive))';
                                 
                                 return (
                                     <Tooltip key={token.id}>
@@ -858,7 +859,10 @@ export default function MapViewPage() {
                                                 <div className="relative w-full h-full flex flex-col items-center justify-center p-[5%]">
                                                     {isDodging && <Shield className="absolute -top-1 -right-1 h-4 w-4 text-blue-400 bg-background rounded-full p-0.5 z-10" />}
                                                     {maxHealth && <Progress value={healthPercent} className={cn("absolute -top-1 w-full h-1", isPlayer ? "bg-green-900/50 [&>div]:bg-green-500" : "bg-red-900/50 [&>div]:bg-red-500")} />}
-                                                    <Avatar className="h-full w-full border-2 border-primary shadow-lg transition-transform group-hover:scale-105"><AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" /><AvatarFallback>{token.name.substring(0,1)}</AvatarFallback></Avatar>
+                                                    <Avatar className="h-full w-full border-4 shadow-lg transition-transform group-hover:scale-105" style={{ borderColor }}>
+                                                        <AvatarImage src={token.imageUrl} className="object-cover" data-ai-hint="fantasy character icon" />
+                                                        <AvatarFallback>{token.name.substring(0,1)}</AvatarFallback>
+                                                    </Avatar>
                                                 </div>
                                             </div>
                                         </TooltipTrigger>

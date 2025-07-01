@@ -2,6 +2,7 @@
 
 
 
+
 // --- Base & Container Types ---
 
 export type Token = {
@@ -60,6 +61,7 @@ export type PlayerCharacter = {
   gender?: string;
   armorPreference?: string[];
   colorPreference?: string;
+  tokenBorderColor?: string;
   stats: {
     str: number;
     dex: number;

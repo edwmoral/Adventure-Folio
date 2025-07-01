@@ -52,6 +52,7 @@ const characterFormSchema = z.object({
   gender: z.string().min(1, { message: 'Gender is required.' }),
   armorPreference: z.array(z.string()).min(1, { message: 'Please select at least one armor preference.' }),
   colorPreference: z.string().regex(/^#[0-9a-fA-F]{6}$/, { message: 'Please select a valid color.' }),
+  tokenBorderColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, { message: 'Please select a valid color.' }).optional(),
   avatar: z.string().optional(),
   backgroundStory: z.string().optional(),
   desiredTone: z.string().optional(),
@@ -113,6 +114,7 @@ export function CharacterCreationForm() {
       gender: '',
       armorPreference: [],
       colorPreference: '#4A6572',
+      tokenBorderColor: '#698F9C',
       stats: {
         str: 10,
         dex: 10,
@@ -259,6 +261,7 @@ export function CharacterCreationForm() {
             gender: values.gender,
             armorPreference: values.armorPreference,
             colorPreference: values.colorPreference,
+            tokenBorderColor: values.tokenBorderColor,
             stats: values.stats,
             hp: finalHp,
             maxHp: finalHp,
@@ -431,22 +434,40 @@ export function CharacterCreationForm() {
                     </FormItem>
                 )}
                 />
-            <FormField
-                control={form.control}
-                name="colorPreference"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Color Preference</FormLabel>
-                    <FormControl>
-                        <div className="flex items-center gap-2">
-                        <Input type="color" className="w-12 h-10 p-1" {...field} />
-                        <Input type="text" placeholder="#4A6572" {...field} />
-                        </div>
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-            />
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                    control={form.control}
+                    name="colorPreference"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Favorite Color (AI Flavor)</FormLabel>
+                        <FormControl>
+                            <div className="flex items-center gap-2">
+                            <Input type="color" className="w-12 h-10 p-1" {...field} />
+                            <Input type="text" placeholder="#4A6572" {...field} />
+                            </div>
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                 <FormField
+                    control={form.control}
+                    name="tokenBorderColor"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Token Border Color</FormLabel>
+                        <FormControl>
+                            <div className="flex items-center gap-2">
+                            <Input type="color" className="w-12 h-10 p-1" {...field} />
+                            <Input type="text" placeholder="#698F9C" {...field} />
+                            </div>
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            </div>
           </div>
         </div>
 
