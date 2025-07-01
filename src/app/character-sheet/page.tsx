@@ -184,9 +184,18 @@ export default function CharacterSheetPage() {
         const isCaster = characterClass.spellcasting_type && characterClass.spellcasting_type !== 'none';
         
         if (isCaster) {
+            const halfCasters = ['Ranger', 'Paladin'];
+            
+            let casterLevel = 0;
+            if (halfCasters.includes(characterClass.name)) {
+                casterLevel = Math.floor(newLevel / 2);
+            } else {
+                // Assume all other casters are full casters
+                casterLevel = newLevel;
+            }
+
             const oldSlots = character.spell_slots || {};
-            // For now, assume all casters are full-casters. This can be expanded later.
-            const levelData = fullCasterSpellSlots.find(l => l.level === newLevel);
+            const levelData = fullCasterSpellSlots.find(l => l.level === casterLevel);
             
             if (levelData) {
                 const newMaxSlots = levelData.slots;
