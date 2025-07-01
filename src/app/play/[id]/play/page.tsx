@@ -643,7 +643,7 @@ export default function MapViewPage() {
                             )}
 
                             {/* PERSISTENT MOVEMENT RANGE INDICATOR */}
-                            {isInCombat && activeCombatant && scene && (() => {
+                            {isInCombat && activeCombatant && scene && !draggedToken && (() => {
                                 const visualTokenForActiveCombatant = scene.tokens.find(t => t.id === activeCombatant.id);
                                 if (!visualTokenForActiveCombatant) return null;
 
