@@ -13,6 +13,11 @@ import {z} from 'genkit';
 const GenerateCharacterPortraitInputSchema = z.object({
   characterRace: z.string().describe('The race of the character.'),
   characterClass: z.string().describe('The class of the character.'),
+  gender: z.string().describe('The gender of the character.'),
+  armorPreference: z
+    .array(z.string())
+    .describe('A list of preferred armor types.'),
+  colorPreference: z.string().describe("The character's preferred color."),
   characterDescription: z
     .string()
     .describe('A physical description of the character or their backstory.'),
@@ -42,7 +47,14 @@ const generateCharacterPortraitFlow = ai.defineFlow(
     inputSchema: GenerateCharacterPortraitInputSchema,
     outputSchema: GenerateCharacterPortraitOutputSchema,
   },
-  async ({characterRace, characterClass, characterDescription}) => {
+  async ({
+    characterRace,
+    characterClass,
+    gender,
+    armorPreference,
+    colorPreference,
+    characterDescription,
+  }) => {
     // Step 1: Generate an optimized, keyword-based prompt for the image model.
     const {text: optimizedPrompt} = await ai.generate({
       prompt: `You are an expert prompt engineer for a fantasy character portrait generation AI.
@@ -59,6 +71,9 @@ const generateCharacterPortraitFlow = ai.defineFlow(
       Use the following details to craft the prompt:
       - Race: ${characterRace}
       - Class: ${characterClass}
+      - Gender: ${gender}
+      - Armor Style: ${armorPreference.join(', ')}
+      - Color Palette: Emphasize the color ${colorPreference} in clothing, magic, or accents.
       - Description/Backstory: ${characterDescription}
 
       Return ONLY the comma-separated list of keywords and nothing else.`,
@@ -69,7 +84,9 @@ const generateCharacterPortraitFlow = ai.defineFlow(
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
       prompt:
         optimizedPrompt ||
-        `A painterly, realistic fantasy art portrait of a ${characterRace} ${characterClass}. ${characterDescription}`,
+        `A painterly, realistic fantasy art portrait of a ${gender} ${characterRace} ${characterClass} wearing ${armorPreference.join(
+          ', '
+        )}. ${characterDescription}`,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },

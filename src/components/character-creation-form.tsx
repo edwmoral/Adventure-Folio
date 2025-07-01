@@ -26,14 +26,17 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { generateBackgroundAction, generatePortraitAction } from '@/app/character/create/actions';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles, User } from 'lucide-react';
+import { Sparkles, User, Trash2 } from 'lucide-react';
 import type { Class, PlayerCharacter } from '@/lib/types';
 import { fullCasterSpellSlots } from '@/lib/dnd-data';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { MultiSelectCombobox } from './multi-select-combobox';
 
 const STORAGE_KEY_CLASSES = 'dnd_classes';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 const STORAGE_KEY_LAST_ACTIVE_CHARACTER = 'dnd_last_active_character_id';
+const STORAGE_KEY_GENDERS = 'dnd_genders';
+const ARMOR_PREFERENCES = ['Light Armor', 'Medium Armor', 'Heavy Armor', 'Robes', 'Leather', 'Unarmored'].sort();
 
 const characterFormSchema = z.object({
   characterName: z.string().min(2, {
@@ -45,6 +48,9 @@ const characterFormSchema = z.object({
   characterClass: z.string({
     required_error: 'Please select a class.',
   }),
+  gender: z.string().min(1, { message: 'Gender is required.' }),
+  armorPreference: z.array(z.string()).min(1, { message: 'Please select at least one armor preference.' }),
+  colorPreference: z.string().regex(/^#[0-9a-fA-F]{6}$/, { message: 'Please select a valid color.' }),
   avatar: z.string().optional(),
   backgroundStory: z.string().optional(),
   desiredTone: z.string().optional(),
@@ -56,16 +62,16 @@ const RACES = ['Dragonborn', 'Dwarf', 'Elf', 'Gnome', 'Halfling', 'Human'].sort(
 export function CharacterCreationForm() {
   const { toast } = useToast();
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isGeneratingBackground, startBackgroundTransition] = useTransition();
   const [isGeneratingPortrait, startPortraitTransition] = useTransition();
   const [classes, setClasses] = useState<Class[]>([]);
+  const [genderOptions, setGenderOptions] = useState<string[]>([]);
 
   useEffect(() => {
     try {
       const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
       if (storedClasses) {
         const parsedClasses: Class[] = JSON.parse(storedClasses);
-        // Sort by name, then subclass for consistent ordering
         parsedClasses.sort((a, b) => {
           if (a.name < b.name) return -1;
           if (a.name > b.name) return 1;
@@ -75,9 +81,15 @@ export function CharacterCreationForm() {
         });
         setClasses(parsedClasses);
       }
+      const storedGenders = localStorage.getItem(STORAGE_KEY_GENDERS);
+        if (storedGenders) {
+            setGenderOptions(JSON.parse(storedGenders));
+        } else {
+            setGenderOptions(['Male', 'Female', 'Non-binary']);
+        }
     } catch (error) {
-      console.error("Failed to load classes from localStorage", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not load class data.' });
+      console.error("Failed to load data from localStorage", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not load class or gender data.' });
     }
   }, [toast]);
 
@@ -89,23 +101,32 @@ export function CharacterCreationForm() {
       desiredTone: '',
       additionalDetails: '',
       avatar: '',
+      gender: '',
+      armorPreference: [],
+      colorPreference: '#4A6572',
     },
   });
 
   const avatarUrl = form.watch('avatar');
+  const watchedAiFields = form.watch(['characterName', 'characterRace', 'characterClass', 'gender', 'armorPreference', 'colorPreference']);
+  const isAiGenDisabled = isGeneratingBackground || isGeneratingPortrait || !watchedAiFields[0] || !watchedAiFields[1] || !watchedAiFields[2] || !watchedAiFields[3] || !watchedAiFields[4] || watchedAiFields[4].length === 0 || !watchedAiFields[5];
+
 
   const handleGenerateBackground = () => {
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.append('characterName', form.getValues('characterName'));
-      formData.append('characterRace', form.getValues('characterRace'));
-      // For the AI, we only need the base class name
-      const [className] = (form.getValues('characterClass') || ':').split(':');
-      formData.append('characterClass', className);
-      formData.append('desiredTone', form.getValues('desiredTone'));
-      formData.append('additionalDetails', form.getValues('additionalDetails'));
+    startBackgroundTransition(async () => {
+      const values = form.getValues();
+      const [className] = (values.characterClass || ':').split(':');
 
-      const result = await generateBackgroundAction(formData);
+      const result = await generateBackgroundAction({
+        characterName: values.characterName,
+        characterRace: values.characterRace,
+        characterClass: className,
+        gender: values.gender,
+        armorPreference: values.armorPreference,
+        colorPreference: values.colorPreference,
+        desiredTone: values.desiredTone,
+        additionalDetails: values.additionalDetails,
+      });
 
       if (result.success) {
         form.setValue('backgroundStory', result.background || '');
@@ -114,34 +135,38 @@ export function CharacterCreationForm() {
           description: "Your character's story has been written.",
         });
       } else {
-        const errorMsg = result.error?._form?.[0] ?? 'An unknown error occurred.';
         toast({
           variant: 'destructive',
           title: 'Generation Failed',
-          description: errorMsg,
+          description: result.error,
         });
       }
     });
   };
   
   const handleGeneratePortrait = () => {
-    startPortraitTransition(async () => {
-      const formData = new FormData();
-      const backstory = form.getValues('backgroundStory');
-      if (!backstory) {
+    const backstory = form.getValues('backgroundStory');
+    if (!backstory) {
         toast({
           variant: 'destructive',
           title: 'Generation Failed',
           description: 'Please generate or write a background story first to provide context for the portrait.',
         });
         return;
-      }
-      formData.append('characterRace', form.getValues('characterRace'));
-      const [className] = (form.getValues('characterClass') || ':').split(':');
-      formData.append('characterClass', className);
-      formData.append('characterDescription', backstory);
+    }
 
-      const result = await generatePortraitAction(formData);
+    startPortraitTransition(async () => {
+      const values = form.getValues();
+      const [className] = (values.characterClass || ':').split(':');
+      
+      const result = await generatePortraitAction({
+        characterRace: values.characterRace,
+        characterClass: className,
+        gender: values.gender,
+        armorPreference: values.armorPreference,
+        colorPreference: values.colorPreference,
+        characterDescription: values.backgroundStory || '',
+      });
 
       if (result.success && result.imageUrl) {
         form.setValue('avatar', result.imageUrl);
@@ -150,11 +175,10 @@ export function CharacterCreationForm() {
           description: "Your character's portrait is ready.",
         });
       } else {
-        const errorMsg = result.error?._form?.[0] ?? 'An unknown error occurred.';
         toast({
           variant: 'destructive',
           title: 'Generation Failed',
-          description: errorMsg,
+          description: result.error,
         });
       }
     });
@@ -166,10 +190,14 @@ export function CharacterCreationForm() {
         const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
         const playerCharacters: PlayerCharacter[] = storedCharacters ? JSON.parse(storedCharacters) : [];
         
-        const [className, subclass] = values.characterClass.split(':');
+        if (!genderOptions.includes(values.gender)) {
+            const newGenders = [...genderOptions, values.gender].sort();
+            setGenderOptions(newGenders);
+            localStorage.setItem(STORAGE_KEY_GENDERS, JSON.stringify(newGenders));
+        }
 
+        const [className, subclass] = values.characterClass.split(':');
         const selectedClass = classes.find(c => c.name === className && c.subclass === subclass);
-        
         const newCharacterId = String(Date.now());
 
         const newCharacter: PlayerCharacter = {
@@ -181,6 +209,9 @@ export function CharacterCreationForm() {
             level: 1,
             avatar: values.avatar || `https://placehold.co/100x100.png`,
             backgroundStory: values.backgroundStory || '',
+            gender: values.gender,
+            armorPreference: values.armorPreference,
+            colorPreference: values.colorPreference,
             stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
             hp: 10,
             maxHp: 10,
@@ -190,7 +221,6 @@ export function CharacterCreationForm() {
         };
         
         if (selectedClass?.spellcasting_type === 'known') {
-            // Assumption for Lvl 1 known casters (like Sorcerer)
             newCharacter.spellsKnown = 2;
         }
 
@@ -242,26 +272,28 @@ export function CharacterCreationForm() {
                 </AvatarFallback>
               </Avatar>
 
-              <FormField
-                control={form.control}
-                name="avatar"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="sr-only">Avatar URL</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Paste image URL..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="flex gap-2">
+                 <FormField
+                    control={form.control}
+                    name="avatar"
+                    render={({ field }) => (
+                    <FormItem className="flex-grow">
+                        <FormLabel className="sr-only">Avatar URL</FormLabel>
+                        <FormControl>
+                        <Input placeholder="Paste image URL..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                 />
+                 <Button type="button" variant="outline" size="icon" onClick={() => form.setValue('avatar', '')} disabled={!avatarUrl} aria-label="Remove image">
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
 
-              <Button type="button" onClick={handleGeneratePortrait} disabled={isGeneratingPortrait || isPending} variant="outline" className="w-full">
+              <Button type="button" onClick={handleGeneratePortrait} disabled={isAiGenDisabled} variant="outline" className="w-full">
                 {isGeneratingPortrait ? 'Generating Portrait...' : <><Sparkles className="mr-2 h-4 w-4" /> Generate Portrait</>}
               </Button>
-              <p className="text-xs text-muted-foreground">
-                Tip: Generate a background story first for a better portrait result.
-              </p>
             </div>
           <div className="md:col-span-2 space-y-6">
             <FormField
@@ -277,26 +309,44 @@ export function CharacterCreationForm() {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="characterRace"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Race</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a race" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {RACES.map(race => <SelectItem key={race} value={race}>{race}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                    control={form.control}
+                    name="characterRace"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Race</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a race" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {RACES.map(race => <SelectItem key={race} value={race}>{race}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                 <FormField
+                    control={form.control}
+                    name="gender"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Gender</FormLabel>
+                        <FormControl>
+                            <Input placeholder="e.g., Female, Agender" {...field} list="gender-options" />
+                        </FormControl>
+                        <datalist id="gender-options">
+                            {genderOptions.map(option => <option key={option} value={option} />)}
+                        </datalist>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+             </div>
             <FormField
               control={form.control}
               name="characterClass"
@@ -321,13 +371,45 @@ export function CharacterCreationForm() {
                 </FormItem>
               )}
             />
+            <FormField
+                control={form.control}
+                name="armorPreference"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Armor Preference</FormLabel>
+                    <MultiSelectCombobox
+                        options={ARMOR_PREFERENCES}
+                        selected={field.value}
+                        onSelectedChange={field.onChange}
+                        placeholder="Select preferred armor..."
+                    />
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            <FormField
+                control={form.control}
+                name="colorPreference"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Color Preference</FormLabel>
+                    <FormControl>
+                        <div className="flex items-center gap-2">
+                        <Input type="color" className="w-12 h-10 p-1" {...field} />
+                        <Input type="text" placeholder="#4A6572" {...field} />
+                        </div>
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
           </div>
         </div>
 
         <div className="space-y-4 rounded-lg border p-4">
              <h3 className="text-lg font-medium">AI-Powered Background</h3>
              <p className="text-sm text-muted-foreground">
-                Need inspiration? Provide some optional details and let our AI craft a unique backstory for your character.
+                Need inspiration? Provide some optional details and let our AI craft a unique backstory for your character. All fields above must be filled out to enable generation.
              </p>
             <div className="grid md:grid-cols-2 gap-6 pt-2">
                  <FormField
@@ -357,8 +439,8 @@ export function CharacterCreationForm() {
                   )}
                 />
             </div>
-            <Button type="button" onClick={handleGenerateBackground} disabled={isPending || isGeneratingPortrait} variant="outline" className="w-full md:w-auto">
-              {isPending ? 'Generating Background...' : <><Sparkles className="mr-2 h-4 w-4" /> Generate Background</>}
+            <Button type="button" onClick={handleGenerateBackground} disabled={isAiGenDisabled} variant="outline" className="w-full md:w-auto">
+              {isGeneratingBackground ? 'Generating Background...' : <><Sparkles className="mr-2 h-4 w-4" /> Generate Background</>}
             </Button>
         </div>
 

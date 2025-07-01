@@ -15,6 +15,11 @@ const GenerateCharacterBackgroundInputSchema = z.object({
   characterRace: z.string().describe('The race of the character.'),
   characterClass: z.string().describe('The class of the character.'),
   characterName: z.string().describe('The name of the character.'),
+  gender: z.string().describe('The gender of the character.'),
+  armorPreference: z
+    .array(z.string())
+    .describe('A list of preferred armor types.'),
+  colorPreference: z.string().describe("The character's preferred color."),
   desiredTone: z
     .string()
     .optional()
@@ -53,6 +58,9 @@ const generateCharacterBackgroundFlow = ai.defineFlow(
     characterName,
     characterRace,
     characterClass,
+    gender,
+    armorPreference,
+    colorPreference,
     desiredTone,
     additionalDetails,
   }) => {
@@ -63,6 +71,9 @@ const generateCharacterBackgroundFlow = ai.defineFlow(
       Character Name: ${characterName}
       Race: ${characterRace}
       Class: ${characterClass}
+      Gender: ${gender}
+      Armor Style: ${armorPreference.join(', ')}
+      Favorite Color: ${colorPreference}
       Desired Tone: ${desiredTone || 'Not specified'}
       Additional Details: ${additionalDetails || 'None'}
 
@@ -73,12 +84,16 @@ const generateCharacterBackgroundFlow = ai.defineFlow(
     const {output} = await ai.generate({
       prompt: `You are a creative storyteller specializing in D&D character backgrounds.
       Given the following character information and key story points, craft a compelling and detailed background story.
+      Incorporate their preferred armor style (${armorPreference.join(
+        ', '
+      )}) and favorite color (${colorPreference}) subtly into their history or personality.
       Write in a rich, narrative style, bringing the character to life.
       Do not include any introductory or concluding remarks. Focus solely on the character's background story.
 
       Character Name: ${characterName}
       Race: ${characterRace}
       Class: ${characterClass}
+      Gender: ${gender}
       Desired Tone: ${desiredTone || 'Not specified'}
 
       Key Story Points to use as inspiration:
