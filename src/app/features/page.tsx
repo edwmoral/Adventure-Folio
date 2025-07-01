@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -5,7 +6,9 @@ import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Feat } from '@/lib/types';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const initialFeats: Feat[] = [
   {
@@ -28,6 +31,8 @@ const STORAGE_KEY = 'dnd_feats';
 
 export default function FeaturesPage() {
   const [feats, setFeats] = useState<Feat[]>([]);
+  const [featToDelete, setFeatToDelete] = useState<Feat | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     try {
@@ -43,6 +48,20 @@ export default function FeaturesPage() {
       setFeats(initialFeats);
     }
   }, []);
+
+  const handleDeleteFeat = () => {
+    if (!featToDelete) return;
+    try {
+        const updatedFeats = feats.filter(f => f.name !== featToDelete.name);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedFeats));
+        setFeats(updatedFeats);
+        toast({ title: "Feat Deleted", description: `"${featToDelete.name}" has been deleted.` });
+        setFeatToDelete(null);
+    } catch (error) {
+        console.error("Failed to delete feat:", error);
+        toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the feat." });
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -62,6 +81,7 @@ export default function FeaturesPage() {
                     <TableHead className="w-[250px]">Name</TableHead>
                     <TableHead>Prerequisites</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead className="w-[120px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -70,11 +90,41 @@ export default function FeaturesPage() {
                         <TableCell className="font-medium">{feat.name}</TableCell>
                         <TableCell className="text-muted-foreground">{feat.prerequisite || 'None'}</TableCell>
                         <TableCell className="text-muted-foreground">{feat.text}</TableCell>
+                        <TableCell className="text-right">
+                           <div className="flex justify-end gap-2">
+                              <Button asChild variant="outline" size="icon">
+                                  <Link href={`/features/edit?name=${encodeURIComponent(feat.name)}`}>
+                                      <Pencil className="h-4 w-4" />
+                                      <span className="sr-only">Edit {feat.name}</span>
+                                  </Link>
+                              </Button>
+                              <Button variant="destructive" size="icon" onClick={() => setFeatToDelete(feat)}>
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Delete {feat.name}</span>
+                              </Button>
+                           </div>
+                        </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
             </Table>
         </div>
+        <AlertDialog open={!!featToDelete} onOpenChange={(open) => !open && setFeatToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the "{featToDelete?.name}" feat.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setFeatToDelete(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteFeat} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }

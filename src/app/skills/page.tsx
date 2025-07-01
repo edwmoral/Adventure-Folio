@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import type { Skill } from '@/lib/types';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const initialSkills: Skill[] = [
   {
@@ -40,6 +43,8 @@ const STORAGE_KEY = 'dnd_skills';
 
 export default function SkillsPage() {
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [skillToDelete, setSkillToDelete] = useState<Skill | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     try {
@@ -55,6 +60,20 @@ export default function SkillsPage() {
       setSkills(initialSkills);
     }
   }, []);
+
+  const handleDeleteSkill = () => {
+    if (!skillToDelete) return;
+    try {
+        const updatedSkills = skills.filter(s => s.name !== skillToDelete.name);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSkills));
+        setSkills(updatedSkills);
+        toast({ title: "Skill Deleted", description: `"${skillToDelete.name}" has been deleted.` });
+        setSkillToDelete(null);
+    } catch (error) {
+        console.error("Failed to delete skill:", error);
+        toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the skill." });
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -74,6 +93,7 @@ export default function SkillsPage() {
                         <TableHead className="w-[200px]">Name</TableHead>
                         <TableHead className="w-[150px]">Ability</TableHead>
                         <TableHead>Description</TableHead>
+                        <TableHead className="w-[120px] text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -82,11 +102,41 @@ export default function SkillsPage() {
                         <TableCell className="font-medium">{skill.name}</TableCell>
                         <TableCell><Badge variant="outline">{skill.ability}</Badge></TableCell>
                         <TableCell className="text-muted-foreground">{skill.description}</TableCell>
+                        <TableCell className="text-right">
+                           <div className="flex justify-end gap-2">
+                              <Button asChild variant="outline" size="icon">
+                                  <Link href={`/skills/edit?name=${encodeURIComponent(skill.name)}`}>
+                                      <Pencil className="h-4 w-4" />
+                                      <span className="sr-only">Edit {skill.name}</span>
+                                  </Link>
+                              </Button>
+                              <Button variant="destructive" size="icon" onClick={() => setSkillToDelete(skill)}>
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Delete {skill.name}</span>
+                              </Button>
+                           </div>
+                        </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
             </Table>
         </div>
+        <AlertDialog open={!!skillToDelete} onOpenChange={(open) => !open && setSkillToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the "{skillToDelete?.name}" skill.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setSkillToDelete(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteSkill} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }

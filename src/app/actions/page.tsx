@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import type { Action } from '@/lib/types';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const initialActions: Action[] = [
   {
@@ -30,6 +33,8 @@ const STORAGE_KEY = 'dnd_actions';
 
 export default function ActionsPage() {
   const [actions, setActions] = useState<Action[]>([]);
+  const [actionToDelete, setActionToDelete] = useState<Action | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     try {
@@ -45,6 +50,20 @@ export default function ActionsPage() {
       setActions(initialActions);
     }
   }, []);
+
+  const handleDeleteAction = () => {
+    if (!actionToDelete) return;
+    try {
+        const updatedActions = actions.filter(a => a.name !== actionToDelete.name);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedActions));
+        setActions(updatedActions);
+        toast({ title: "Action Deleted", description: `"${actionToDelete.name}" has been deleted.` });
+        setActionToDelete(null);
+    } catch (error) {
+        console.error("Failed to delete action:", error);
+        toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the action." });
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -64,6 +83,7 @@ export default function ActionsPage() {
                         <TableHead>Name</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Description</TableHead>
+                        <TableHead className="w-[120px] text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -72,11 +92,41 @@ export default function ActionsPage() {
                         <TableCell className="font-medium">{action.name}</TableCell>
                         <TableCell><Badge variant="secondary">{action.type}</Badge></TableCell>
                         <TableCell className="text-muted-foreground">{action.description}</TableCell>
+                        <TableCell className="text-right">
+                           <div className="flex justify-end gap-2">
+                              <Button asChild variant="outline" size="icon">
+                                  <Link href={`/actions/edit?name=${encodeURIComponent(action.name)}`}>
+                                      <Pencil className="h-4 w-4" />
+                                      <span className="sr-only">Edit {action.name}</span>
+                                  </Link>
+                              </Button>
+                              <Button variant="destructive" size="icon" onClick={() => setActionToDelete(action)}>
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Delete {action.name}</span>
+                              </Button>
+                           </div>
+                        </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
             </Table>
         </div>
+         <AlertDialog open={!!actionToDelete} onOpenChange={(open) => !open && setActionToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the "{actionToDelete?.name}" action.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setActionToDelete(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteAction} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }

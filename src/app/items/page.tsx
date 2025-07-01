@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import type { Item } from '@/lib/types';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const initialItems: Item[] = [
   {
@@ -42,6 +45,8 @@ const STORAGE_KEY = 'dnd_items';
 
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
+  const [itemToDelete, setItemToDelete] = useState<Item | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     try {
@@ -57,6 +62,20 @@ export default function ItemsPage() {
       setItems(initialItems);
     }
   }, []);
+
+  const handleDeleteItem = () => {
+    if (!itemToDelete) return;
+    try {
+        const updatedItems = items.filter(i => i.id !== itemToDelete.id);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedItems));
+        setItems(updatedItems);
+        toast({ title: "Item Deleted", description: `"${itemToDelete.name}" has been deleted.` });
+        setItemToDelete(null);
+    } catch (error) {
+        console.error("Failed to delete item:", error);
+        toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the item." });
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -77,6 +96,7 @@ export default function ItemsPage() {
                         <TableHead>Type</TableHead>
                         <TableHead>Details</TableHead>
                         <TableHead>Description</TableHead>
+                        <TableHead className="w-[120px] text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -95,11 +115,41 @@ export default function ItemsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">{item.text}</TableCell>
+                        <TableCell className="text-right">
+                           <div className="flex justify-end gap-2">
+                              <Button asChild variant="outline" size="icon">
+                                  <Link href={`/items/edit?id=${item.id}`}>
+                                      <Pencil className="h-4 w-4" />
+                                      <span className="sr-only">Edit {item.name}</span>
+                                  </Link>
+                              </Button>
+                              <Button variant="destructive" size="icon" onClick={() => setItemToDelete(item)}>
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Delete {item.name}</span>
+                              </Button>
+                           </div>
+                        </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
             </Table>
         </div>
+        <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the "{itemToDelete?.name}" item.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setItemToDelete(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteItem} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }

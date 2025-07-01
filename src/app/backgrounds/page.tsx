@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import type { Background } from '@/lib/types';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const initialBackgrounds: Background[] = [
   {
@@ -21,6 +24,8 @@ const STORAGE_KEY = 'dnd_backgrounds';
 
 export default function BackgroundsPage() {
   const [backgrounds, setBackgrounds] = useState<Background[]>([]);
+  const [backgroundToDelete, setBackgroundToDelete] = useState<Background | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     try {
@@ -36,6 +41,20 @@ export default function BackgroundsPage() {
       setBackgrounds(initialBackgrounds);
     }
   }, []);
+
+  const handleDeleteBackground = () => {
+    if (!backgroundToDelete) return;
+    try {
+        const updatedBackgrounds = backgrounds.filter(b => b.name !== backgroundToDelete.name);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedBackgrounds));
+        setBackgrounds(updatedBackgrounds);
+        toast({ title: "Background Deleted", description: `"${backgroundToDelete.name}" has been deleted.` });
+        setBackgroundToDelete(null);
+    } catch (error) {
+        console.error("Failed to delete background:", error);
+        toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the background." });
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -55,6 +74,7 @@ export default function BackgroundsPage() {
                         <TableHead className="w-[200px]">Name</TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead>Proficiencies</TableHead>
+                        <TableHead className="w-[120px] text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -69,11 +89,41 @@ export default function BackgroundsPage() {
                             ))}
                           </div>
                         </TableCell>
+                        <TableCell className="text-right">
+                           <div className="flex justify-end gap-2">
+                              <Button asChild variant="outline" size="icon">
+                                  <Link href={`/backgrounds/edit?name=${encodeURIComponent(background.name)}`}>
+                                      <Pencil className="h-4 w-4" />
+                                      <span className="sr-only">Edit {background.name}</span>
+                                  </Link>
+                              </Button>
+                              <Button variant="destructive" size="icon" onClick={() => setBackgroundToDelete(background)}>
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Delete {background.name}</span>
+                              </Button>
+                           </div>
+                        </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
             </Table>
         </div>
+        <AlertDialog open={!!backgroundToDelete} onOpenChange={(open) => !open && setBackgroundToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the "{backgroundToDelete?.name}" background.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setBackgroundToDelete(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteBackground} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }
