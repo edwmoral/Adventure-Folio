@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -26,7 +27,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { generateBackgroundAction, generatePortraitAction } from '@/app/character/create/actions';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles, User, Trash2 } from 'lucide-react';
+import { Sparkles, User, Trash2, Dices } from 'lucide-react';
 import type { Class, PlayerCharacter } from '@/lib/types';
 import { fullCasterSpellSlots } from '@/lib/dnd-data';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -55,6 +56,14 @@ const characterFormSchema = z.object({
   backgroundStory: z.string().optional(),
   desiredTone: z.string().optional(),
   additionalDetails: z.string().optional(),
+  stats: z.object({
+      str: z.coerce.number().min(1).max(20),
+      dex: z.coerce.number().min(1).max(20),
+      con: z.coerce.number().min(1).max(20),
+      int: z.coerce.number().min(1).max(20),
+      wis: z.coerce.number().min(1).max(20),
+      cha: z.coerce.number().min(1).max(20),
+  }),
 });
 
 const RACES = ['Dragonborn', 'Dwarf', 'Elf', 'Gnome', 'Halfling', 'Human'].sort();
@@ -104,6 +113,14 @@ export function CharacterCreationForm() {
       gender: '',
       armorPreference: [],
       colorPreference: '#4A6572',
+      stats: {
+        str: 10,
+        dex: 10,
+        con: 10,
+        int: 10,
+        wis: 10,
+        cha: 10,
+      },
     },
   });
 
@@ -184,6 +201,23 @@ export function CharacterCreationForm() {
     });
   };
 
+  const rollStat = () => {
+    const rolls = Array.from({ length: 4 }, () => Math.floor(Math.random() * 6) + 1);
+    rolls.sort((a, b) => a - b);
+    rolls.shift(); // drop the lowest
+    return rolls.reduce((sum, roll) => sum + roll, 0);
+  };
+
+  const handleRollStats = () => {
+    form.setValue('stats.str', rollStat());
+    form.setValue('stats.dex', rollStat());
+    form.setValue('stats.con', rollStat());
+    form.setValue('stats.int', rollStat());
+    form.setValue('stats.wis', rollStat());
+    form.setValue('stats.cha', rollStat());
+    toast({ title: "Stats Rolled!", description: "Your ability scores have been generated." });
+  };
+
 
   function onSubmit(values: z.infer<typeof characterFormSchema>) {
     try {
@@ -198,6 +232,18 @@ export function CharacterCreationForm() {
 
         const [className, subclass] = values.characterClass.split(':');
         const selectedClass = classes.find(c => c.name === className && c.subclass === subclass);
+
+        if (!selectedClass) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Selected class data not found.' });
+            return;
+        }
+
+        const conModifier = Math.floor((values.stats.con - 10) / 2);
+        const dexModifier = Math.floor((values.stats.dex - 10) / 2);
+
+        const maxHp = selectedClass.hd + conModifier;
+        const ac = 10 + dexModifier;
+
         const newCharacterId = String(Date.now());
 
         const newCharacter: PlayerCharacter = {
@@ -212,10 +258,10 @@ export function CharacterCreationForm() {
             gender: values.gender,
             armorPreference: values.armorPreference,
             colorPreference: values.colorPreference,
-            stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-            hp: 10,
-            maxHp: 10,
-            ac: 10,
+            stats: values.stats,
+            hp: maxHp,
+            maxHp: maxHp,
+            ac: ac,
             mp: 0,
             maxMp: 0,
         };
@@ -404,6 +450,29 @@ export function CharacterCreationForm() {
                 )}
             />
           </div>
+        </div>
+
+        <div className="space-y-4 rounded-lg border p-4">
+            <div className="flex justify-between items-center">
+                <div className="space-y-1">
+                    <h3 className="text-lg font-medium">Ability Scores</h3>
+                    <p className="text-sm text-muted-foreground">
+                        Roll your stats or enter them manually (3-20).
+                    </p>
+                </div>
+                <Button type="button" variant="outline" onClick={handleRollStats}>
+                    <Dices className="mr-2 h-4 w-4" />
+                    Roll Stats
+                </Button>
+            </div>
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-x-4 gap-y-2 pt-2">
+                <FormField control={form.control} name="stats.str" render={({ field }) => (<FormItem><FormLabel className="text-center block">STR</FormLabel><FormControl><Input type="number" {...field} className="text-center" /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="stats.dex" render={({ field }) => (<FormItem><FormLabel className="text-center block">DEX</FormLabel><FormControl><Input type="number" {...field} className="text-center" /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="stats.con" render={({ field }) => (<FormItem><FormLabel className="text-center block">CON</FormLabel><FormControl><Input type="number" {...field} className="text-center" /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="stats.int" render={({ field }) => (<FormItem><FormLabel className="text-center block">INT</FormLabel><FormControl><Input type="number" {...field} className="text-center" /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="stats.wis" render={({ field }) => (<FormItem><FormLabel className="text-center block">WIS</FormLabel><FormControl><Input type="number" {...field} className="text-center" /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="stats.cha" render={({ field }) => (<FormItem><FormLabel className="text-center block">CHA</FormLabel><FormControl><Input type="number" {...field} className="text-center" /></FormControl><FormMessage /></FormItem>)} />
+            </div>
         </div>
 
         <div className="space-y-4 rounded-lg border p-4">
