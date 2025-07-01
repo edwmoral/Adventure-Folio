@@ -242,7 +242,7 @@ export default function MapViewPage() {
                     movementRemaining: c.speed,
                     hasAction: true,
                     hasBonusAction: true,
-                    statusEffects: [],
+                    statusEffects: c.statusEffects?.filter(e => e !== 'dodging'), // Remove dodging at start of turn
                 };
             }
             return c;
@@ -352,7 +352,7 @@ export default function MapViewPage() {
     };
 
     const handleTokenMouseDown = (e: React.MouseEvent<HTMLDivElement>, tokenId: string) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0 || targetingMode) return;
 
         if (isInCombat && tokenId !== turnOrder[activeTokenIndex]?.id) {
             toast({ variant: 'destructive', title: "Not their turn!", description: "You can only move the active creature." });
@@ -596,7 +596,6 @@ export default function MapViewPage() {
     }
 
     const activeCombatant = isInCombat ? turnOrder[activeTokenIndex] : null;
-    const activeTokenVisualData = scene?.tokens.find(t => t.id === activeCombatant?.id);
     const attackerTokenForPosition = scene?.tokens.find(t => t.id === attacker?.id);
 
 
@@ -644,18 +643,23 @@ export default function MapViewPage() {
                             )}
 
                             {/* PERSISTENT MOVEMENT RANGE INDICATOR */}
-                            {isInCombat && activeCombatant && activeTokenVisualData && (
-                                <div
-                                    className="absolute bg-blue-500/20 border border-blue-400 rounded-full pointer-events-none"
-                                    style={{
-                                        width: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.width || 30))}%`,
-                                        height: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.height || 20))}%`,
-                                        left: `${activeTokenVisualData.position.x}%`,
-                                        top: `${activeTokenVisualData.position.y}%`,
-                                        transform: 'translate(-50%, -50%)',
-                                    }}
-                                />
-                            )}
+                            {isInCombat && activeCombatant && scene && (() => {
+                                const visualTokenForActiveCombatant = scene.tokens.find(t => t.id === activeCombatant.id);
+                                if (!visualTokenForActiveCombatant) return null;
+
+                                return (
+                                    <div
+                                        className="absolute bg-blue-500/20 border border-blue-400 rounded-full pointer-events-none"
+                                        style={{
+                                            width: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.width || 30))}%`,
+                                            height: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.height || 20))}%`,
+                                            left: `${visualTokenForActiveCombatant.position.x}%`,
+                                            top: `${visualTokenForActiveCombatant.position.y}%`,
+                                            transform: 'translate(-50%, -50%)',
+                                        }}
+                                    />
+                                );
+                            })()}
                             
                             {/* DRAG INDICATORS */}
                             {draggedToken && dragStartPos && scene && (
