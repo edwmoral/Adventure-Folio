@@ -173,21 +173,19 @@ export default function CharacterSheetPage() {
             const oldSlots = character.spell_slots || {};
             // For now, assume all casters are full-casters. This can be expanded later.
             const levelData = fullCasterSpellSlots.find(l => l.level === newLevel);
+            
             if (levelData) {
                 const newMaxSlots = levelData.slots;
-                // Start with a copy of old slots to preserve any non-standard slots
-                const updatedSlots: PlayerCharacter['spell_slots'] = { ...oldSlots };
+                const updatedSlots: PlayerCharacter['spell_slots'] = {};
 
                 for (const levelKey in newMaxSlots) {
                     if (Object.prototype.hasOwnProperty.call(newMaxSlots, levelKey)) {
                         const max = newMaxSlots[levelKey as keyof typeof newMaxSlots];
-                        const oldMax = oldSlots[levelKey]?.max || 0;
-                        
-                        // Update to the new max value, and refresh current slots.
                         updatedSlots[levelKey] = { current: max, max: max };
-
-                        if (max > oldMax) {
-                            spellSlotsSummary.push(`Level ${levelKey} slots: ${oldMax} -> ${max}`);
+                        
+                        const oldMax = oldSlots[levelKey]?.max || 0;
+                        if (max > oldMax || (max > 0 && oldMax === 0)) {
+                             spellSlotsSummary.push(`Level ${levelKey} slots: ${oldMax} -> ${max}`);
                         }
                     }
                 }
