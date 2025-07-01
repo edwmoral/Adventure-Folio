@@ -378,6 +378,9 @@ export default function MapViewPage() {
     const handleInteractionMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
         if (e.button === 2) {
             e.preventDefault();
+            if (targetingMode) {
+                return;
+            }
             setIsPanning(true);
             setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
         }
@@ -506,7 +509,14 @@ export default function MapViewPage() {
         setPan({ x: newPanX, y: newPanY });
     };
 
-    const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => { e.preventDefault(); };
+    const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        if (targetingMode) {
+            setTargetingMode(false);
+            setAttacker(null);
+            toast({ title: "Attack Cancelled" });
+        }
+    };
     const handleZoomIn = () => setZoom(z => Math.min(z * 1.2, 5));
     const handleZoomOut = () => setZoom(z => Math.max(z / 1.2, 0.2));
     const toggleGrid = () => setShowGrid(prev => !prev);
@@ -558,14 +568,15 @@ export default function MapViewPage() {
 
     const handleAttack = () => {
         const activeCombatant = turnOrder[activeTokenIndex];
-        if (!activeCombatant?.hasAction) {
+        if (!activeCombatant) return;
+        if (!activeCombatant.hasAction) {
             toast({ variant: 'destructive', title: 'No Action', description: 'You have already used your action this turn.'});
             return;
         }
         setTargetingMode(true);
         setAttacker(activeCombatant);
         setIsActionPanelOpen(false);
-        toast({ title: 'Select a Target', description: 'Click on a creature to attack.'});
+        toast({ title: 'Select a Target', description: 'Click on a creature to attack. Right-click to cancel.'});
     };
 
     if (loading) return <div className="text-center p-8">Loading scene...</div>;
@@ -586,6 +597,8 @@ export default function MapViewPage() {
 
     const activeCombatant = isInCombat ? turnOrder[activeTokenIndex] : null;
     const activeTokenVisualData = scene?.tokens.find(t => t.id === activeCombatant?.id);
+    const attackerTokenForPosition = scene?.tokens.find(t => t.id === attacker?.id);
+
 
     return (
         <TooltipProvider>
@@ -617,14 +630,14 @@ export default function MapViewPage() {
                             {showGrid && <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`, backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.75) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.75) 1px, transparent 1px)' }} />}
                             
                             {/* ATTACK RANGE INDICATOR */}
-                            {targetingMode && attacker && (
+                            {targetingMode && attacker && attackerTokenForPosition && (
                                 <div
                                     className="absolute bg-red-500/20 border border-red-400 rounded-full pointer-events-none"
                                     style={{
                                         width: `${(1 * 2 + 1) * (100 / (scene.width || 30))}%`,
                                         height: `${(1 * 2 + 1) * (100 / (scene.height || 20))}%`,
-                                        left: `${attacker.position.x}%`,
-                                        top: `${attacker.position.y}%`,
+                                        left: `${attackerTokenForPosition.position.x}%`,
+                                        top: `${attackerTokenForPosition.position.y}%`,
                                         transform: 'translate(-50%, -50%)',
                                     }}
                                 />
