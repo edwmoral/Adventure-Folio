@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Book, Heart, Shield, Swords, ArrowUp, UserPlus, Sparkles, Target, Users, X, ChevronDown, BookOpen } from "lucide-react"
+import { Book, Heart, Shield, Swords, ArrowUp, UserPlus, Sparkles, Target, Users, X, ChevronDown, BookOpen, PlusCircle, Trash2 } from "lucide-react"
 import type { PlayerCharacter, Class, Action, Spell, Skill } from "@/lib/types";
 import { 
   AlertDialog, 
@@ -23,6 +23,15 @@ import {
   AlertDialogTitle, 
   AlertDialogTrigger 
 } from "@/components/ui/alert-dialog";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Label } from "@/components/ui/label";
@@ -34,6 +43,7 @@ import {
   DropdownMenuRadioItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const getHitDieAverage = (hitDie: string): number => {
     switch (hitDie) {
@@ -81,6 +91,9 @@ export default function CharacterSheetPage() {
     const [newSpellSlotsSummary, setNewSpellSlotsSummary] = useState<string[]>([]);
     const [newSpellsToChooseSummary, setNewSpellsToChooseSummary] = useState('');
 
+    // State for spell management
+    const [addSpellDialogOpen, setAddSpellDialogOpen] = useState(false);
+    const [spellToAdd, setSpellToAdd] = useState('');
 
     // State for delete character modal
     const [characterToDelete, setCharacterToDelete] = useState<PlayerCharacter | null>(null);
@@ -177,7 +190,7 @@ export default function CharacterSheetPage() {
 
         // --- New spell slot & spells known logic ---
         let newSpellSlots = character.spell_slots;
-        let newSpellsKnown = character.spellsKnown;
+        const newSpells = character.spells;
         const spellSlotsSummary: string[] = [];
         let spellsToChooseSummary = '';
 
@@ -226,10 +239,8 @@ export default function CharacterSheetPage() {
                     spellsToChooseSummary += ' You also add two new spells to your spellbook.';
                 }
             } else if (characterClass.spellcasting_type === 'known') {
-                // Simple rule: gain one spell per level up. Can be expanded with class tables.
-                const newSpellsCount = (character.spellsKnown || 0) + 1;
-                newSpellsKnown = newSpellsCount;
-                spellsToChooseSummary = `You can learn one new spell, bringing your total known to ${newSpellsCount}.`;
+                const knownSpellsCount = character.spells?.length || 0;
+                spellsToChooseSummary = `You can learn one new spell. You currently know ${knownSpellsCount} spells.`;
             }
         }
         setNewSpellSlotsSummary(spellSlotsSummary);
@@ -242,7 +253,7 @@ export default function CharacterSheetPage() {
             maxHp: newMaxHp,
             hp: newMaxHp, // Heal to full on level up
             spell_slots: newSpellSlots,
-            spellsKnown: newSpellsKnown,
+            spells: newSpells,
         };
 
         try {
@@ -307,6 +318,59 @@ export default function CharacterSheetPage() {
             toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the character." });
         }
     };
+
+    const handleAddSpell = () => {
+        if (!character || !spellToAdd) return;
+        
+        const updatedSpells = [...(character.spells || []), spellToAdd].sort();
+        
+        const updatedCharacter: PlayerCharacter = {
+            ...character,
+            spells: updatedSpells,
+        };
+        
+        try {
+            const updatedAllCharacters = allPlayerCharacters.map(pc =>
+                pc.id === character.id ? updatedCharacter : pc
+            );
+            setAllPlayerCharacters(updatedAllCharacters);
+            localStorage.setItem(STORAGE_KEY_PLAYER_CHARACTERS, JSON.stringify(updatedAllCharacters));
+            
+            setCharacter(updatedCharacter);
+            setSpellToAdd('');
+            setAddSpellDialogOpen(false);
+            toast({ title: 'Spell Added!', description: `"${spellToAdd}" has been added to the grimoire.` });
+        } catch (error) {
+            console.error("Failed to add spell:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not add the spell.' });
+        }
+    };
+
+    const handleRemoveSpell = (spellNameToRemove: string) => {
+        if (!character) return;
+        
+        const updatedSpells = character.spells?.filter(s => s !== spellNameToRemove) || [];
+        
+        const updatedCharacter: PlayerCharacter = {
+            ...character,
+            spells: updatedSpells,
+        };
+        
+        try {
+            const updatedAllCharacters = allPlayerCharacters.map(pc =>
+                pc.id === character.id ? updatedCharacter : pc
+            );
+            setAllPlayerCharacters(updatedAllCharacters);
+            localStorage.setItem(STORAGE_KEY_PLAYER_CHARACTERS, JSON.stringify(updatedAllCharacters));
+            
+            setCharacter(updatedCharacter);
+            toast({ title: 'Spell Removed!', description: `"${spellNameToRemove}" has been removed from the grimoire.` });
+        } catch (error) {
+            console.error("Failed to remove spell:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not remove the spell.' });
+        }
+    };
+
 
     if (allPlayerCharacters.length === 0) {
         return (
@@ -373,6 +437,9 @@ export default function CharacterSheetPage() {
             usage: { type: 'At Will' }
         }
     ];
+
+    const knownSpells = allSpells.filter(spell => character.spells?.includes(spell.name));
+    const availableSpells = allSpells.filter(spell => !character.spells?.includes(spell.name));
 
     return (
         <TooltipProvider>
@@ -566,17 +633,65 @@ export default function CharacterSheetPage() {
                                                                 </div>
                                                             </div>
                                                         )}
-                                                        {allSpells.length > 0 ? (
-                                                            allSpells.map(spell => (
-                                                              <div key={spell.name}>
+
+                                                        <Dialog open={addSpellDialogOpen} onOpenChange={setAddSpellDialogOpen}>
+                                                            <DialogTrigger asChild>
+                                                                <Button variant="outline" className="w-full">
+                                                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                                                    Add Spell to Grimoire
+                                                                </Button>
+                                                            </DialogTrigger>
+                                                            <DialogContent>
+                                                                <DialogHeader>
+                                                                    <DialogTitle>Add a Spell</DialogTitle>
+                                                                    <DialogDescription>
+                                                                        Choose a spell to add to {character.name}'s known spells.
+                                                                    </DialogDescription>
+                                                                </DialogHeader>
+                                                                <div className="py-4">
+                                                                    <Label htmlFor="spell-select">Available Spells</Label>
+                                                                    <Select value={spellToAdd} onValueChange={setSpellToAdd}>
+                                                                        <SelectTrigger id="spell-select">
+                                                                            <SelectValue placeholder="Select a spell..." />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            {availableSpells.map(spell => (
+                                                                                <SelectItem key={spell.name} value={spell.name}>
+                                                                                    {spell.name} (Lvl {spell.level})
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                                <DialogFooter>
+                                                                    <Button variant="ghost" onClick={() => setAddSpellDialogOpen(false)}>Cancel</Button>
+                                                                    <Button onClick={handleAddSpell} disabled={!spellToAdd}>Add Spell</Button>
+                                                                </DialogFooter>
+                                                            </DialogContent>
+                                                        </Dialog>
+
+                                                        <Separator />
+                                                        
+                                                        {knownSpells.length > 0 ? (
+                                                            knownSpells.map(spell => (
+                                                              <div key={spell.name} className="group relative pr-8">
                                                                   <h4 className="font-semibold">{spell.name} <span className="text-xs text-muted-foreground">({spell.level === 0 ? "Cantrip" : `Lvl ${spell.level}`}, {spell.school})</span></h4>
                                                                   <p className="text-sm text-muted-foreground mt-1">{spell.description}</p>
+                                                                  <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="absolute top-0 right-0 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                    onClick={() => handleRemoveSpell(spell.name)}
+                                                                  >
+                                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                                    <span className="sr-only">Remove {spell.name}</span>
+                                                                  </Button>
                                                               </div>
                                                             ))
                                                         ) : (
                                                             <div className="text-center text-muted-foreground py-4">
                                                                 <Book className="mx-auto h-8 w-8 mb-2" />
-                                                                <p className="text-sm">No spells added to the compendium yet.</p>
+                                                                <p className="text-sm">No spells added to the grimoire yet.</p>
                                                             </div>
                                                         )}
                                                     </div>

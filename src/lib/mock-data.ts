@@ -22,6 +22,7 @@ export const initialPlayerCharacters: PlayerCharacter[] = [
       '2': { current: 3, max: 3 },
       '3': { current: 2, max: 2 },
     },
+    spells: ["Magic Missile", "Shield", "Fireball"],
   },
   {
     id: 'char2',
@@ -38,6 +39,7 @@ export const initialPlayerCharacters: PlayerCharacter[] = [
     ac: 16,
     mp: 0,
     maxMp: 0,
+    spells: [],
   },
   {
     id: 'char3',
@@ -54,6 +56,7 @@ export const initialPlayerCharacters: PlayerCharacter[] = [
     ac: 18,
     mp: 0,
     maxMp: 0,
+    spells: [],
   },
   {
     id: 'char4',
@@ -77,6 +80,7 @@ export const initialPlayerCharacters: PlayerCharacter[] = [
       '4': { current: 3, max: 3 },
       '5': { current: 2, max: 2 },
     },
+    spells: [],
   },
   {
     id: 'char-test-1',
@@ -93,6 +97,7 @@ export const initialPlayerCharacters: PlayerCharacter[] = [
     ac: 16,
     mp: 0,
     maxMp: 0,
+    spells: [],
   },
 ];
 

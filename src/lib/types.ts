@@ -1,6 +1,7 @@
 
 
 
+
 // --- Base & Container Types ---
 
 export type Token = {
@@ -73,7 +74,7 @@ export type PlayerCharacter = {
   mp?: number;
   maxMp?: number;
   spell_slots?: Record<string, { current: number; max: number }>;
-  spellsKnown?: number;
+  spells?: string[];
 };
 
 export type Skill = {

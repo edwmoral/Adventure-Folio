@@ -265,12 +265,9 @@ export function CharacterCreationForm() {
             ac: ac,
             mp: 0,
             maxMp: 0,
+            spells: [],
         };
         
-        if (selectedClass?.spellcasting_type === 'known') {
-            newCharacter.spellsKnown = 2;
-        }
-
         const isCaster = selectedClass && selectedClass.spellcasting_type && selectedClass.spellcasting_type !== 'none';
         if (isCaster) {
             const level1SlotsData = fullCasterSpellSlots.find(l => l.level === 1)?.slots;
