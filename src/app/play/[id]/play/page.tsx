@@ -328,7 +328,8 @@ export default function MapViewPage() {
         } else {
             toast({ title: "MISS!", description: `${attacker.name} missed ${target.name}.` });
         }
-
+        
+        handleUseAction('action');
         setTargetingMode(false);
         setAttacker(null);
     };
@@ -473,7 +474,7 @@ export default function MapViewPage() {
                 });
             } else {
                 if (isInCombat) {
-                    setTurnOrder(prev => prev.map((c, i) => i === activeTokenIndex ? { ...c, movementRemaining: c.movementRemaining - distanceMoved } : c));
+                    setTurnOrder(prev => prev.map((c, i) => i === activeTokenIndex ? { ...c, movementRemaining: c.movementRemaining - distanceMoved, position: finalToken.position } : c));
                 }
                 saveCampaignChanges(scene);
             }
@@ -561,7 +562,6 @@ export default function MapViewPage() {
             toast({ variant: 'destructive', title: 'No Action', description: 'You have already used your action this turn.'});
             return;
         }
-        handleUseAction('action');
         setTargetingMode(true);
         setAttacker(activeCombatant);
         setIsActionPanelOpen(false);
@@ -585,6 +585,7 @@ export default function MapViewPage() {
     }
 
     const activeCombatant = isInCombat ? turnOrder[activeTokenIndex] : null;
+    const activeTokenVisualData = scene?.tokens.find(t => t.id === activeCombatant?.id);
 
     return (
         <TooltipProvider>
@@ -630,14 +631,14 @@ export default function MapViewPage() {
                             )}
 
                             {/* PERSISTENT MOVEMENT RANGE INDICATOR */}
-                            {isInCombat && activeCombatant && (
+                            {isInCombat && activeCombatant && activeTokenVisualData && (
                                 <div
                                     className="absolute bg-blue-500/20 border border-blue-400 rounded-full pointer-events-none"
                                     style={{
                                         width: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.width || 30))}%`,
                                         height: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.height || 20))}%`,
-                                        left: `${activeCombatant.position.x}%`,
-                                        top: `${activeCombatant.position.y}%`,
+                                        left: `${activeTokenVisualData.position.x}%`,
+                                        top: `${activeTokenVisualData.position.y}%`,
                                         transform: 'translate(-50%, -50%)',
                                     }}
                                 />
