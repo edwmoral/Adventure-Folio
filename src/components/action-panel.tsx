@@ -12,9 +12,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import { Heart, Shield, Swords, Footprints, CheckCircle2, XCircle } from 'lucide-react';
-import type { PlayerCharacter, Enemy, Token, Action, MonsterAction } from '@/lib/types';
+import { Heart, Shield, Swords, Footprints, CheckCircle2, XCircle, Book } from 'lucide-react';
+import type { PlayerCharacter, Enemy, Token, Action, MonsterAction, Spell } from '@/lib/types';
 import { Progress } from './ui/progress';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 
 interface ActionPanelProps {
   open: boolean;
@@ -23,6 +24,7 @@ interface ActionPanelProps {
   character: PlayerCharacter | null;
   enemy: Enemy | null;
   actions: Action[];
+  allSpells: Spell[];
   container?: HTMLElement | null;
   isInCombat?: boolean;
   combatState?: {
@@ -34,6 +36,7 @@ interface ActionPanelProps {
   onDash?: () => void;
   onAttack?: () => void;
   onDodge?: () => void;
+  onCastSpell?: (spell: Spell) => void;
 }
 
 const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string | number }) => (
@@ -66,6 +69,7 @@ export function ActionPanel({
   character,
   enemy,
   actions,
+  allSpells,
   container,
   isInCombat,
   combatState,
@@ -73,6 +77,7 @@ export function ActionPanel({
   onDash,
   onAttack,
   onDodge,
+  onCastSpell
 }: ActionPanelProps) {
 
   const data = character || enemy;
@@ -86,7 +91,7 @@ export function ActionPanel({
   const healthPercent = (health !== undefined && maxHealth) ? (health / maxHealth) * 100 : 100;
   
   const ac = isPlayer ? character.ac : (enemy ? parseInt(enemy.ac) : 'N/A');
-  const speed = isPlayer ? '30 ft.' : enemy?.speed; // Assuming base speed for players
+  const speed = isPlayer ? '30 ft.' : enemy?.speed; 
 
   const baseCombatActions = [
       { name: 'Attack', description: 'Make a melee or ranged attack.', type: 'action', action: () => { onAttack?.(); onOpenChange(false); } },
@@ -96,6 +101,7 @@ export function ActionPanel({
   ];
 
   let availableActions: { name: string; description: string; type: string; action: (() => void) | undefined; }[] = [];
+  let characterSpells: Spell[] = [];
 
   if (isPlayer) {
     const customActions = actions.map(a => ({ 
@@ -106,11 +112,16 @@ export function ActionPanel({
     }));
     const useItemAction = { name: 'Use an Item', description: 'Interact with an object or item.', type: 'action', action: () => onUseAction?.('action') };
     availableActions = [...baseCombatActions, useItemAction, ...customActions];
-  } else { // Is an enemy
+    
+    if (allSpells && character) {
+        characterSpells = allSpells.filter(spell => spell.classes?.includes(character.className));
+    }
+
+  } else { 
     const monsterSpecificActions = enemy?.action?.map(action => ({
       name: action.name,
       description: action.text,
-      type: 'action', // Assume all monster actions are 'action' for now
+      type: 'action',
       action: () => { onAttack?.(); onOpenChange(false); },
     })) || [];
     availableActions = [...baseCombatActions, ...monsterSpecificActions];
@@ -120,7 +131,7 @@ export function ActionPanel({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent 
-        className="w-[350px] sm:w-[400px]"
+        className="w-[350px] sm:w-[400px] flex flex-col"
         container={container}
         showOverlay={!isInCombat || !open}
       >
@@ -139,7 +150,7 @@ export function ActionPanel({
                   </div>
               </div>
             </SheetHeader>
-            <div className="py-4 space-y-4">
+            <div className="py-4 space-y-4 flex-1 min-h-0">
                 <div className="space-y-2">
                     <div className="flex justify-between text-sm font-medium">
                         <span>Health</span>
@@ -166,31 +177,48 @@ export function ActionPanel({
                 )}
 
                 <Separator />
-
-                <div className="space-y-2">
-                    <h4 className="font-semibold">Actions</h4>
-                    <div className="max-h-[calc(100vh-400px)] overflow-y-auto space-y-2 pr-2">
-                      {availableActions.map((action, index) => {
-                          const isDisabled = isInCombat && combatState && (
-                              (action.type === 'action' && !combatState.hasAction) ||
-                              (action.type === 'bonus' && !combatState.hasBonusAction)
-                          );
-                          return (
-                              <ActionButton 
-                                key={`${action.name}-${index}`} 
-                                name={action.name} 
-                                description={action.description} 
-                                disabled={isDisabled}
-                                onClick={() => {
-                                    if (action.action) {
-                                        action.action();
-                                    }
-                                }}
-                              />
-                          );
-                      })}
-                    </div>
-                </div>
+                
+                <Accordion type="multiple" defaultValue={['actions']} className="w-full">
+                    <AccordionItem value="actions">
+                        <AccordionTrigger className="text-lg font-semibold hover:no-underline"><div className="flex items-center gap-2"><Swords className="h-5 w-5" /> Actions</div></AccordionTrigger>
+                        <AccordionContent className="space-y-2 pt-2">
+                          {availableActions.map((action, index) => {
+                              const isDisabled = isInCombat && combatState && (
+                                  (action.type === 'action' && !combatState.hasAction) ||
+                                  (action.type === 'bonus' && !combatState.hasBonusAction)
+                              );
+                              return (
+                                  <ActionButton 
+                                    key={`${action.name}-${index}`} 
+                                    name={action.name} 
+                                    description={action.description} 
+                                    disabled={isDisabled}
+                                    onClick={() => action.action && action.action()}
+                                  />
+                              );
+                          })}
+                        </AccordionContent>
+                    </AccordionItem>
+                     {isPlayer && characterSpells.length > 0 && (
+                        <AccordionItem value="spells">
+                           <AccordionTrigger className="text-lg font-semibold hover:no-underline"><div className="flex items-center gap-2"><Book className="h-5 w-5" /> Spells</div></AccordionTrigger>
+                            <AccordionContent className="space-y-2 pt-2">
+                              {characterSpells.map((spell) => {
+                                  const isDisabled = isInCombat && combatState && !combatState.hasAction; // Assume spells take an action
+                                  return (
+                                    <ActionButton
+                                        key={spell.name}
+                                        name={spell.name}
+                                        description={`${spell.level === 0 ? "Cantrip" : `Lvl ${spell.level}`} - ${spell.school}`}
+                                        disabled={isDisabled}
+                                        onClick={() => onCastSpell?.(spell)}
+                                    />
+                                  );
+                              })}
+                            </AccordionContent>
+                        </AccordionItem>
+                    )}
+                </Accordion>
             </div>
           </TooltipProvider>
       </SheetContent>

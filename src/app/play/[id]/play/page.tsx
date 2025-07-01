@@ -9,7 +9,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
-import type { Campaign, Scene, Token, PlayerCharacter, Enemy, Action, MonsterAction } from '@/lib/types';
+import type { Campaign, Scene, Token, PlayerCharacter, Enemy, Action, MonsterAction, Spell } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ const STORAGE_KEY_MAPS = 'dnd_scene_maps';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 const STORAGE_KEY_ENEMIES = 'dnd_enemies';
 const STORAGE_KEY_ACTIONS = 'dnd_actions';
+const STORAGE_KEY_SPELLS = 'dnd_spells';
 
 type Combatant = Token & {
     initiative: number;
@@ -42,6 +43,7 @@ export default function MapViewPage() {
     const [allPlayerCharacters, setAllPlayerCharacters] = useState<PlayerCharacter[]>([]);
     const [allEnemies, setAllEnemies] = useState<Enemy[]>([]);
     const [allActions, setAllActions] = useState<Action[]>([]);
+    const [allSpells, setAllSpells] = useState<Spell[]>([]);
     const [loading, setLoading] = useState(true);
 
     const mapInteractionRef = useRef<HTMLDivElement>(null);
@@ -60,13 +62,22 @@ export default function MapViewPage() {
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
-    // Combat State
+    // --- Combat & Targeting State ---
     const [isInCombat, setIsInCombat] = useState(false);
     const [turnOrder, setTurnOrder] = useState<Combatant[]>([]);
     const [activeTokenIndex, setActiveTokenIndex] = useState(0);
     const [roundNumber, setRoundNumber] = useState(1);
-    const [targetingMode, setTargetingMode] = useState<boolean>(false);
-    const [attacker, setAttacker] = useState<Combatant | null>(null);
+    
+    // Unified targeting state
+    const [targeting, setTargeting] = useState<{
+        type: 'attack' | 'spell';
+        actor: Combatant;
+        spell?: Spell;
+        range: number;
+        aoe?: { radius: number };
+    } | null>(null);
+
+    const [mouseMapPos, setMouseMapPos] = useState<{ x: number, y: number } | null>(null);
 
 
     useEffect(() => {
@@ -95,7 +106,6 @@ export default function MapViewPage() {
 
             // If no scene is explicitly active, or more than one is active, fix it.
             if (!activeScene && currentCampaign.scenes.length > 0) {
-                // Deactivate all scenes first to handle multiple active scenes.
                 currentCampaign.scenes.forEach(s => s.is_active = false);
                 currentCampaign.scenes[0].is_active = true;
                 activeScene = currentCampaign.scenes[0];
@@ -151,6 +161,9 @@ export default function MapViewPage() {
             
             const storedActions = localStorage.getItem(STORAGE_KEY_ACTIONS);
             if (storedActions) setAllActions(JSON.parse(storedActions));
+
+            const storedSpells = localStorage.getItem(STORAGE_KEY_SPELLS);
+            if (storedSpells) setAllSpells(JSON.parse(storedSpells));
 
         } catch (error) {
             console.error("Failed to load session:", error);
@@ -234,7 +247,6 @@ export default function MapViewPage() {
             toast({ title: `Round ${newRoundNumber}`, description: "A new round has begun."});
         }
         
-        // Reset the next combatant's turn state
         const newTurnOrder = turnOrder.map((c, i) => {
             if (i === finalIndex) {
                 return {
@@ -242,7 +254,7 @@ export default function MapViewPage() {
                     movementRemaining: c.speed,
                     hasAction: true,
                     hasBonusAction: true,
-                    statusEffects: c.statusEffects?.filter(e => e !== 'dodging'), // Remove dodging at start of turn
+                    statusEffects: c.statusEffects?.filter(e => e !== 'dodging'),
                 };
             }
             return c;
@@ -263,11 +275,12 @@ export default function MapViewPage() {
     };
 
     const resolveAttack = (target: Token) => {
-        if (!attacker) return;
+        if (!targeting || targeting.type !== 'attack') return;
+        const { actor } = targeting;
 
-        const attackerData = attacker.type === 'character' 
-            ? allPlayerCharacters.find(c => c.id === attacker.linked_character_id) 
-            : allEnemies.find(e => e.id === attacker.linked_enemy_id);
+        const attackerData = actor.type === 'character' 
+            ? allPlayerCharacters.find(c => c.id === actor.linked_character_id) 
+            : allEnemies.find(e => e.id === actor.linked_enemy_id);
         const targetData = target.type === 'character' 
             ? allPlayerCharacters.find(c => c.id === target.linked_character_id) 
             : allEnemies.find(e => e.id === target.linked_enemy_id);
@@ -279,16 +292,12 @@ export default function MapViewPage() {
         const getMonsterProficiency = (cr: string) => {
             try {
                 const crNum = eval(cr);
-                if (crNum < 5) return 2;
-                if (crNum < 9) return 3;
-                if (crNum < 13) return 4;
-                if (crNum < 17) return 5;
-                return 6;
+                if (crNum < 5) return 2; if (crNum < 9) return 3; if (crNum < 13) return 4; if (crNum < 17) return 5; return 6;
             } catch { return 2; }
         };
 
         const defenderAC = parseInt(String(targetData.ac));
-        const attackerProficiency = attacker.type === 'character' ? getProficiencyBonus((attackerData as PlayerCharacter).level) : getMonsterProficiency((attackerData as Enemy).cr);
+        const attackerProficiency = actor.type === 'character' ? getProficiencyBonus((attackerData as PlayerCharacter).level) : getMonsterProficiency((attackerData as Enemy).cr);
         const strMod = getModifierValue(attackerData.str);
         const attackBonus = strMod + attackerProficiency;
 
@@ -311,7 +320,6 @@ export default function MapViewPage() {
         if (totalAttack >= defenderAC || attackRoll === 20) {
             const damageRoll = Math.floor(Math.random() * 8) + 1;
             const totalDamage = Math.max(1, damageRoll + strMod);
-
             const currentHp = target.hp ?? (targetData.type === 'Humanoid' ? (targetData as PlayerCharacter).hp : parseInt((targetData as Enemy).hp.split(' ')[0]));
             const newHp = currentHp - totalDamage;
 
@@ -324,23 +332,33 @@ export default function MapViewPage() {
                 saveCampaignChanges(newScene);
             }
             
-            toast({ title: "HIT!", description: `${attacker.name} hits ${target.name} for ${totalDamage} damage!` });
+            toast({ title: "HIT!", description: `${actor.name} hits ${target.name} for ${totalDamage} damage!` });
         } else {
-            toast({ title: "MISS!", description: `${attacker.name} missed ${target.name}.` });
+            toast({ title: "MISS!", description: `${actor.name} missed ${target.name}.` });
         }
         
         handleUseAction('action');
-        setTargetingMode(false);
-        setAttacker(null);
+        setTargeting(null);
     };
+
+    const cancelTargeting = () => {
+        if (!targeting) return;
+        toast({ title: `${targeting.type === 'attack' ? 'Attack' : 'Spell'} Cancelled` });
+        setTargeting(null);
+    }
     
-    const handleTokenClick = (token: Token) => {
-        if (targetingMode) {
-            if (attacker && token.id === attacker.id) {
+    const handleTokenClick = (e: React.MouseEvent<HTMLDivElement>, token: Token) => {
+        e.stopPropagation();
+        
+        if (targeting) {
+             if (targeting.actor && token.id === targeting.actor.id) {
                 toast({ variant: 'destructive', title: 'Invalid Target', description: "You cannot target yourself." });
                 return;
             }
-            resolveAttack(token);
+            if (targeting.type === 'attack') {
+                resolveAttack(token);
+            }
+            // Add spell logic here later
         } else {
             if (isInCombat && token.id !== turnOrder[activeTokenIndex]?.id) {
                 toast({ variant: 'destructive', title: "Not their turn!", description: `It is currently ${turnOrder[activeTokenIndex]?.name}'s turn.` });
@@ -350,9 +368,26 @@ export default function MapViewPage() {
             setIsActionPanelOpen(true);
         }
     };
+    
+    const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!targeting || !targeting.aoe || !mouseMapPos) return;
+
+        const { range, actor, spell } = targeting;
+        const dist = Math.hypot(mouseMapPos.x - actor.position.x, mouseMapPos.y - actor.position.y);
+        const rangeInPercent = range / 5 * (100 / (scene?.width || 30));
+
+        if (dist > rangeInPercent) {
+            toast({ variant: 'destructive', title: 'Out of Range', description: `Target is too far away.` });
+            return;
+        }
+
+        toast({ title: "Spell Cast!", description: `You cast ${spell?.name || 'a spell'}.` });
+        handleUseAction('action');
+        setTargeting(null);
+    };
 
     const handleTokenMouseDown = (e: React.MouseEvent<HTMLDivElement>, tokenId: string) => {
-        if (e.button !== 0 || targetingMode) return;
+        if (e.button !== 0 || targeting) return;
 
         if (isInCombat && tokenId !== turnOrder[activeTokenIndex]?.id) {
             toast({ variant: 'destructive', title: "Not their turn!", description: "You can only move the active creature." });
@@ -378,9 +413,7 @@ export default function MapViewPage() {
     const handleInteractionMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
         if (e.button === 2) {
             e.preventDefault();
-            if (targetingMode) {
-                return;
-            }
+            if (targeting) return;
             setIsPanning(true);
             setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
         }
@@ -389,48 +422,44 @@ export default function MapViewPage() {
     const handleInteractionMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
         if (isPanning) {
             e.preventDefault();
-            setPan({
-                x: e.clientX - panStart.x,
-                y: e.clientY - panStart.y,
-            });
+            setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
             return;
         }
+        
+        if (!mapInteractionRef.current || !scene) return;
+        
+        const containerRect = mapInteractionRef.current.getBoundingClientRect();
+        const mouseX = e.clientX - containerRect.left;
+        const mouseY = e.clientY - containerRect.top;
+        const mapX = (mouseX - pan.x) / zoom;
+        const mapY = (mouseY - pan.y) / zoom;
+        const newXPercent = (mapX / mapInteractionRef.current.offsetWidth) * 100;
+        const newYPercent = (mapY / mapInteractionRef.current.offsetHeight) * 100;
+        setMouseMapPos({ x: newXPercent, y: newYPercent });
 
-        if (draggedToken && mapInteractionRef.current && scene && dragStartPos) {
+        if (draggedToken && dragStartPos) {
             e.preventDefault();
             
-            if (isInCombat && draggedToken.id !== turnOrder[activeTokenIndex]?.id) {
-                return;
-            }
+            if (isInCombat && draggedToken.id !== turnOrder[activeTokenIndex]?.id) return;
 
-            const containerRect = mapInteractionRef.current.getBoundingClientRect();
-            
-            const mouseX = e.clientX - containerRect.left;
-            const mouseY = e.clientY - containerRect.top;
-
-            const mapX = (mouseX - pan.x) / zoom;
-            const mapY = (mouseY - pan.y) / zoom;
-            
             const newX = mapX - (draggedToken.offsetX / zoom);
             const newY = mapY - (draggedToken.offsetY / zoom);
 
-            let newXPercent = (newX / mapInteractionRef.current.offsetWidth) * 100;
-            let newYPercent = (newY / mapInteractionRef.current.offsetHeight) * 100;
-
+            let newXSnappedPercent = (newX / mapInteractionRef.current.offsetWidth) * 100;
+            let newYSmappedPercent = (newY / mapInteractionRef.current.offsetHeight) * 100;
             const cellWidthPercent = 100 / (scene.width || 30);
             const cellHeightPercent = 100 / (scene.height || 20);
             const halfCellWidth = cellWidthPercent / 2;
             const halfCellHeight = cellHeightPercent / 2;
-            newXPercent = Math.round(newXPercent / halfCellWidth) * halfCellWidth;
-            newYPercent = Math.round(newYPercent / halfCellHeight) * halfCellHeight;
-            
-            newXPercent = Math.max(0, Math.min(100, newXPercent));
-            newYPercent = Math.max(0, Math.min(100, newYPercent));
+            newXSnappedPercent = Math.round(newXSnappedPercent / halfCellWidth) * halfCellWidth;
+            newYSmappedPercent = Math.round(newYSmappedPercent / halfCellHeight) * halfCellHeight;
+            newXSnappedPercent = Math.max(0, Math.min(100, newXSnappedPercent));
+            newYSmappedPercent = Math.max(0, Math.min(100, newYSmappedPercent));
             
             const startGridX = Math.floor(dragStartPos.x / cellWidthPercent);
             const startGridY = Math.floor(dragStartPos.y / cellHeightPercent);
-            const currentGridX = Math.floor(newXPercent / cellWidthPercent);
-            const currentGridY = Math.floor(newYPercent / cellHeightPercent);
+            const currentGridX = Math.floor(newXSnappedPercent / cellWidthPercent);
+            const currentGridY = Math.floor(newYSmappedPercent / cellHeightPercent);
             const distanceMoved = Math.max(Math.abs(currentGridX - startGridX), Math.abs(currentGridY - startGridY)) * 5;
             setDragDistance(distanceMoved);
 
@@ -440,7 +469,7 @@ export default function MapViewPage() {
                     ...prevScene,
                     tokens: prevScene.tokens.map(token => 
                         token.id === draggedToken.id 
-                            ? { ...token, position: { x: newXPercent, y: newYPercent } } 
+                            ? { ...token, position: { x: newXSnappedPercent, y: newYSmappedPercent } } 
                             : token
                     )
                 };
@@ -458,13 +487,10 @@ export default function MapViewPage() {
             if (!finalToken) return;
 
             const cellWidthPercent = 100 / (scene.width || 30);
-            const cellHeightPercent = 100 / (scene.height || 20);
-            
-            const startGridX = Math.floor(dragStartPos.x / cellWidthPercent);
-            const startGridY = Math.floor(dragStartPos.y / cellHeightPercent);
             const finalGridX = Math.floor(finalToken.position.x / cellWidthPercent);
-            const finalGridY = Math.floor(finalToken.position.y / cellHeightPercent);
-            
+            const finalGridY = Math.floor(finalToken.position.y / cellWidthPercent);
+            const startGridX = Math.floor(dragStartPos.x / cellWidthPercent);
+            const startGridY = Math.floor(dragStartPos.y / cellWidthPercent);
             const distanceMoved = Math.max(Math.abs(finalGridX - startGridX), Math.abs(finalGridY - startGridY)) * 5;
             
             const activeCombatant = turnOrder[activeTokenIndex];
@@ -498,10 +524,8 @@ export default function MapViewPage() {
 
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
-
         const mapX = (mouseX - pan.x) / zoom;
         const mapY = (mouseY - pan.y) / zoom;
-
         const newPanX = mouseX - mapX * newZoom;
         const newPanY = mouseY - mapY * newZoom;
 
@@ -511,15 +535,9 @@ export default function MapViewPage() {
 
     const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
-        if (targetingMode) {
-            setTargetingMode(false);
-            setAttacker(null);
-            toast({ title: "Attack Cancelled" });
-        }
+        if (targeting) cancelTargeting();
     };
-    const handleZoomIn = () => setZoom(z => Math.min(z * 1.2, 5));
-    const handleZoomOut = () => setZoom(z => Math.max(z / 1.2, 0.2));
-    const toggleGrid = () => setShowGrid(prev => !prev);
+
     const toggleFullscreen = () => {
         const element = fullscreenContainerRef.current;
         if (!element) return;
@@ -573,11 +591,40 @@ export default function MapViewPage() {
             toast({ variant: 'destructive', title: 'No Action', description: 'You have already used your action this turn.'});
             return;
         }
-        setTargetingMode(true);
-        setAttacker(activeCombatant);
+        setTargeting({ type: 'attack', actor: activeCombatant, range: 5 });
         setIsActionPanelOpen(false);
         toast({ title: 'Select a Target', description: 'Click on a creature to attack. Right-click to cancel.'});
     };
+    
+    // --- Spellcasting ---
+    const parseSpellRange = (rangeStr: string): number => {
+        if (rangeStr.toLowerCase() === 'self' || rangeStr.toLowerCase() === 'touch') return 5; // Treat as melee
+        const match = rangeStr.match(/(\d+)/);
+        return match ? parseInt(match[1]) : 0;
+    };
+
+    const parseSpellAoe = (description: string): { radius: number } | undefined => {
+        const match = description.match(/(\d+)-foot-radius/i);
+        return match ? { radius: parseInt(match[1]) } : undefined;
+    };
+
+    const handleInitiateSpellcast = (spell: Spell) => {
+        const caster = turnOrder.find(c => c.id === selectedToken?.id);
+        if (!caster) return;
+
+        if (!caster.hasAction) { // Simplification: assume all spells cost an action
+            toast({ variant: 'destructive', title: 'No Action', description: 'You have already used your action this turn.'});
+            return;
+        }
+
+        const range = parseSpellRange(spell.range);
+        const aoe = parseSpellAoe(spell.text);
+        
+        setTargeting({ type: 'spell', actor: caster, spell, range, aoe });
+        setIsActionPanelOpen(false);
+        toast({ title: `Casting ${spell.name}`, description: 'Select a target or point on the map. Right-click to cancel.' });
+    };
+
 
     if (loading) return <div className="text-center p-8">Loading scene...</div>;
 
@@ -596,8 +643,6 @@ export default function MapViewPage() {
     }
 
     const activeCombatant = isInCombat ? turnOrder[activeTokenIndex] : null;
-    const attackerTokenForPosition = scene?.tokens.find(t => t.id === attacker?.id);
-
 
     return (
         <TooltipProvider>
@@ -613,48 +658,69 @@ export default function MapViewPage() {
                     </div>
                      <h2 className="text-lg font-semibold">Active Scene: {scene.name}</h2>
                     <div className="flex items-center gap-2">
-                        <Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" onClick={handleZoomIn}><ZoomIn /></Button></TooltipTrigger><TooltipContent><p>Zoom In</p></TooltipContent></Tooltip>
-                        <Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" onClick={handleZoomOut}><ZoomOut /></Button></TooltipTrigger><TooltipContent><p>Zoom Out</p></TooltipContent></Tooltip>
-                        <Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" onClick={toggleGrid}><Grid /></Button></TooltipTrigger><TooltipContent><p>Toggle Grid</p></TooltipContent></Tooltip>
-                        <Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" onClick={toggleFullscreen}>{isFullscreen ? <Minimize /> : <Maximize />}</Button></TooltipTrigger><TooltipContent><p>{isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}</p></TooltipContent></Tooltip>
+                        <Button variant="outline" size="icon" onClick={() => setZoom(z => Math.min(z * 1.2, 5))}><ZoomIn /></Button>
+                        <Button variant="outline" size="icon" onClick={() => setZoom(z => Math.max(z / 1.2, 0.2))}><ZoomOut /></Button>
+                        <Button variant="outline" size="icon" onClick={() => setShowGrid(p => !p)}><Grid /></Button>
+                        <Button variant="outline" size="icon" onClick={toggleFullscreen}>{isFullscreen ? <Minimize /> : <Maximize />}</Button>
                     </div>
                 </div>
 
                 {isInCombat && <TurnOrderTracker turnOrder={turnOrder} activeTokenIndex={activeTokenIndex} roundNumber={roundNumber} />}
                 
-                <div ref={mapInteractionRef} className={cn("flex-grow relative overflow-hidden bg-card-foreground/10 rounded-b-lg select-none", targetingMode && "cursor-crosshair")} onMouseDown={handleInteractionMouseDown} onMouseMove={handleInteractionMouseMove} onMouseUp={handleInteractionMouseUp} onMouseLeave={handleInteractionMouseUp} onWheel={handleWheel} onContextMenu={handleContextMenu}>
+                <div ref={mapInteractionRef} className={cn("flex-grow relative overflow-hidden bg-card-foreground/10 rounded-b-lg select-none", targeting && "cursor-crosshair")} onMouseDown={handleInteractionMouseDown} onMouseMove={handleInteractionMouseMove} onMouseUp={handleInteractionMouseUp} onMouseLeave={handleInteractionMouseUp} onWheel={handleWheel} onContextMenu={handleContextMenu} onClick={handleMapClick}>
                     <div className="absolute top-0 left-0 w-full h-full" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', cursor: isPanning ? 'grabbing' : 'default' }}>
                         <div className="relative w-full h-full" style={{ aspectRatio: `${scene.width || 30}/${scene.height || 20}` }}>
                             {resolvedMapUrl && <Image src={resolvedMapUrl} alt="Fantasy battle map" fill className="object-contain" data-ai-hint="fantasy map" draggable="false" />}
                             {showGrid && <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`, backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.75) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.75) 1px, transparent 1px)' }} />}
                             
-                            {/* ATTACK RANGE INDICATOR */}
-                            {targetingMode && attackerTokenForPosition && (
-                                <div
-                                    className="absolute bg-red-500/20 border border-red-400 rounded-full pointer-events-none"
-                                    style={{
-                                        width: `${(1 * 2 + 1) * (100 / (scene.width || 30))}%`,
-                                        height: `${(1 * 2 + 1) * (100 / (scene.height || 20))}%`,
-                                        left: `${attackerTokenForPosition.position.x}%`,
-                                        top: `${attackerTokenForPosition.position.y}%`,
-                                        transform: 'translate(-50%, -50%)',
-                                    }}
-                                />
-                            )}
+                            {/* TARGETING INDICATORS */}
+                            {targeting && scene && (() => {
+                                const actorToken = scene.tokens.find(t => t.id === targeting.actor.id);
+                                if (!actorToken) return null;
 
-                            {/* PERSISTENT MOVEMENT RANGE INDICATOR */}
-                            {isInCombat && activeCombatant && !draggedToken && (() => {
+                                const rangeInPercent = targeting.range / 5 * (100 / (scene.width || 30));
+                                
+                                return (
+                                    <>
+                                        {/* Max Range Indicator */}
+                                        <div
+                                            className="absolute bg-blue-500/10 border border-blue-400/50 rounded-full pointer-events-none"
+                                            style={{
+                                                width: `${rangeInPercent * 2}%`,
+                                                height: `${rangeInPercent * 2}%`,
+                                                left: `${actorToken.position.x}%`,
+                                                top: `${actorToken.position.y}%`,
+                                                transform: 'translate(-50%, -50%)',
+                                            }}
+                                        />
+                                        {/* AoE Indicator (follows mouse) */}
+                                        {targeting.aoe && mouseMapPos && (
+                                             <div
+                                                className="absolute bg-red-500/20 border border-red-400 rounded-full pointer-events-none"
+                                                style={{
+                                                    width: `${targeting.aoe.radius / 5 * (100 / scene.width) * 2}%`,
+                                                    height: `${targeting.aoe.radius / 5 * (100 / scene.height) * 2}%`,
+                                                    left: `${mouseMapPos.x}%`,
+                                                    top: `${mouseMapPos.y}%`,
+                                                    transform: 'translate(-50%, -50%)',
+                                                }}
+                                            />
+                                        )}
+                                    </>
+                                );
+                            })()}
+
+                            {/* MOVEMENT RANGE INDICATOR */}
+                            {isInCombat && activeCombatant && !draggedToken && !targeting && (() => {
                                 const visualTokenForActiveCombatant = scene.tokens.find(t => t.id === activeCombatant.id);
                                 if (!visualTokenForActiveCombatant) return null;
-
+                                const movementRadius = Math.floor(activeCombatant.movementRemaining / 5) * (100 / (scene.width || 30));
                                 return (
                                     <div
                                         className="absolute bg-blue-500/20 border border-blue-400 rounded-full pointer-events-none"
                                         style={{
-                                            width: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.width || 30))}%`,
-                                            height: `${(Math.floor(activeCombatant.movementRemaining / 5) * 2 + 1) * (100 / (scene.height || 20))}%`,
-                                            left: `${visualTokenForActiveCombatant.position.x}%`,
-                                            top: `${visualTokenForActiveCombatant.position.y}%`,
+                                            width: `${movementRadius * 2}%`, height: `${movementRadius * 2}%`,
+                                            left: `${visualTokenForActiveCombatant.position.x}%`, top: `${visualTokenForActiveCombatant.position.y}%`,
                                             transform: 'translate(-50%, -50%)',
                                         }}
                                     />
@@ -664,49 +730,10 @@ export default function MapViewPage() {
                             {/* DRAG INDICATORS */}
                             {draggedToken && dragStartPos && scene && (
                                 <div className="absolute inset-0 w-full h-full pointer-events-none">
-                                    {/* Original Position Indicator */}
-                                    <div
-                                        className="absolute bg-black/30 border-2 border-dashed border-white"
-                                        style={{
-                                            left: `${dragStartPos.x}%`,
-                                            top: `${dragStartPos.y}%`,
-                                            width: `${100 / (scene.width || 30)}%`,
-                                            height: `${100 / (scene.height || 20)}%`,
-                                            transform: 'translate(-50%, -50%)',
-                                        }}
-                                    />
-
-                                    {/* Line and Distance SVG */}
+                                    <div className="absolute bg-black/30 border-2 border-dashed border-white" style={{ left: `${dragStartPos.x}%`, top: `${dragStartPos.y}%`, width: `${100 / (scene.width || 30)}%`, height: `${100 / (scene.height || 20)}%`, transform: 'translate(-50%, -50%)' }} />
                                     <svg className="absolute inset-0 w-full h-full" style={{ overflow: 'visible' }}>
-                                        <line
-                                            x1={`${dragStartPos.x}%`}
-                                            y1={`${dragStartPos.y}%`}
-                                            x2={`${scene.tokens.find(t => t.id === draggedToken.id)?.position.x}%`}
-                                            y2={`${scene.tokens.find(t => t.id === draggedToken.id)?.position.y}%`}
-                                            stroke="white"
-                                            strokeWidth={2 / zoom}
-                                            strokeDasharray="4 4"
-                                            strokeLinecap="round"
-                                        />
-                                        {dragDistance > 0 && (
-                                            <text
-                                                x={`${(dragStartPos.x + (scene.tokens.find(t => t.id === draggedToken.id)?.position.x || dragStartPos.x)) / 2}%`}
-                                                y={`${(dragStartPos.y + (scene.tokens.find(t => t.id === draggedToken.id)?.position.y || dragStartPos.y)) / 2}%`}
-                                                fill="white"
-                                                stroke="black"
-                                                strokeWidth={0.5 / zoom}
-                                                style={{
-                                                    fontSize: `${14 / zoom}px`,
-                                                    paintOrder: 'stroke',
-                                                    fontWeight: 'bold'
-                                                }}
-                                                textAnchor="middle"
-                                                dominantBaseline="bottom"
-                                                dy={-4 / zoom}
-                                            >
-                                                {dragDistance}ft
-                                            </text>
-                                        )}
+                                        <line x1={`${dragStartPos.x}%`} y1={`${dragStartPos.y}%`} x2={`${scene.tokens.find(t => t.id === draggedToken.id)?.position.x}%`} y2={`${scene.tokens.find(t => t.id === draggedToken.id)?.position.y}%`} stroke="white" strokeWidth={2 / zoom} strokeDasharray="4 4" strokeLinecap="round" />
+                                        {dragDistance > 0 && <text x={`${(dragStartPos.x + (scene.tokens.find(t => t.id === draggedToken.id)?.position.x || dragStartPos.x)) / 2}%`} y={`${(dragStartPos.y + (scene.tokens.find(t => t.id === draggedToken.id)?.position.y || dragStartPos.y)) / 2}%`} fill="white" stroke="black" strokeWidth={0.5 / zoom} style={{ fontSize: `${14 / zoom}px`, paintOrder: 'stroke', fontWeight: 'bold' }} textAnchor="middle" dominantBaseline="bottom" dy={-4 / zoom}>{dragDistance}ft</text>}
                                     </svg>
                                 </div>
                             )}
@@ -727,7 +754,7 @@ export default function MapViewPage() {
                                 return (
                                     <Tooltip key={token.id}>
                                         <TooltipTrigger asChild>
-                                            <div className={cn("absolute group transition-opacity", isInCombat && activeTokenIdInCombat !== token.id && "opacity-70", isInCombat && activeTokenIdInCombat === token.id && "ring-4 ring-yellow-400 ring-offset-2 ring-offset-background rounded-full z-10")} style={{ left: `${token.position.x}%`, top: `${token.position.y}%`, width: `${tokenWidth}%`, height: `${tokenHeight}%`, transform: 'translate(-50%, -50%)', cursor: (draggedToken?.id === token.id) || (isInCombat && activeTokenIdInCombat === token.id) ? 'grabbing' : 'grab' }} onClick={() => handleTokenClick(token)} onMouseDown={(e) => handleTokenMouseDown(e, token.id)}>
+                                            <div className={cn("absolute group transition-opacity", isInCombat && activeTokenIdInCombat !== token.id && "opacity-70", isInCombat && activeTokenIdInCombat === token.id && "ring-4 ring-yellow-400 ring-offset-2 ring-offset-background rounded-full z-10")} style={{ left: `${token.position.x}%`, top: `${token.position.y}%`, width: `${tokenWidth}%`, height: `${tokenHeight}%`, transform: 'translate(-50%, -50%)', cursor: (draggedToken?.id === token.id) || (isInCombat && activeTokenIdInCombat === token.id) ? 'grabbing' : 'grab' }} onClick={(e) => handleTokenClick(e, token)} onMouseDown={(e) => handleTokenMouseDown(e, token.id)}>
                                                 <div className="relative w-full h-full flex flex-col items-center justify-center p-[5%]">
                                                     {isDodging && <Shield className="absolute -top-1 -right-1 h-4 w-4 text-blue-400 bg-background rounded-full p-0.5 z-10" />}
                                                     {maxHealth && <Progress value={healthPercent} className={cn("absolute -top-1 w-full h-1", isPlayer ? "bg-green-900/50 [&>div]:bg-green-500" : "bg-red-900/50 [&>div]:bg-red-500")} />}
@@ -745,7 +772,7 @@ export default function MapViewPage() {
                  <div className="absolute bottom-4 right-4 z-20 flex gap-2">
                     {!isInCombat ? <Button size="lg" onClick={handleStartCombat}><Swords className="mr-2" /> Start Combat</Button> : (<><Button size="lg" variant="destructive" onClick={handleEndCombat}><ShieldClose className="mr-2" /> End Combat</Button><Button size="lg" onClick={handleEndTurn}>End Turn</Button></>)}
                 </div>
-                 <ActionPanel open={isActionPanelOpen} onOpenChange={setIsActionPanelOpen} token={selectedToken} character={selectedToken?.type === 'character' ? allPlayerCharacters.find(p => p.id === selectedToken.linked_character_id) || null : null} enemy={selectedToken?.type === 'monster' ? allEnemies.find(e => e.id === selectedToken.linked_enemy_id) || null : null} actions={allActions} container={fullscreenContainerRef.current} isInCombat={isInCombat} combatState={activeCombatant} onUseAction={handleUseAction} onDash={handleDash} onAttack={handleAttack} onDodge={handleDodge} />
+                 <ActionPanel open={isActionPanelOpen} onOpenChange={setIsActionPanelOpen} token={selectedToken} character={selectedToken?.type === 'character' ? allPlayerCharacters.find(p => p.id === selectedToken.linked_character_id) || null : null} enemy={selectedToken?.type === 'monster' ? allEnemies.find(e => e.id === selectedToken.linked_enemy_id) || null : null} actions={allActions} allSpells={allSpells} container={fullscreenContainerRef.current} isInCombat={isInCombat} combatState={activeCombatant} onUseAction={handleUseAction} onDash={handleDash} onAttack={handleAttack} onDodge={handleDodge} onCastSpell={handleInitiateSpellcast} />
             </div>
         </TooltipProvider>
     );
