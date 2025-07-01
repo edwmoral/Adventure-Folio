@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { Campaign, Scene } from '@/lib/types';
+import { saveCampaignsAndCleanup } from "@/lib/storage-utils";
 
 const STORAGE_KEY = 'dnd_campaigns';
 
@@ -46,7 +47,7 @@ export default function NewCampaignPage() {
         };
 
         const updatedCampaigns = [...campaigns, newCampaign];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
+        saveCampaignsAndCleanup(updatedCampaigns);
 
         router.push('/play');
 

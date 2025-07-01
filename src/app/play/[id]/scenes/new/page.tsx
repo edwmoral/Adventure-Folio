@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { generateMapAction } from "./actions";
+import { saveCampaignsAndCleanup } from "@/lib/storage-utils";
 
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
@@ -141,7 +142,7 @@ export default function NewScenePage() {
         currentCampaign.scenes.push(newScene);
         campaigns[campaignIndex] = currentCampaign;
         
-        localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
+        saveCampaignsAndCleanup(campaigns);
 
         toast({ title: "Scene Created!", description: "Your new scene has been added to the campaign." });
         router.push(`/play/${id}/edit`);

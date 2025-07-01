@@ -17,9 +17,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { AlertDialogTrigger } from '@radix-ui/react-alert-dialog';
+import { cleanupUnusedMaps, saveCampaignsAndCleanup } from '@/lib/storage-utils';
 
 const STORAGE_KEY = 'dnd_campaigns';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
@@ -55,8 +56,8 @@ export default function PlayDashboardPage() {
     if (!campaignToDelete) return;
 
     const updatedCampaigns = campaigns.filter(c => c.id !== campaignToDelete.id);
+    saveCampaignsAndCleanup(updatedCampaigns);
     setCampaigns(updatedCampaigns);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
     
     toast({
       title: "Campaign Deleted",
@@ -66,19 +67,26 @@ export default function PlayDashboardPage() {
     setCampaignToDelete(null);
   };
 
-  const handleClearImageCache = () => {
+  const handleCleanupUnusedImages = () => {
     try {
-      localStorage.removeItem(STORAGE_KEY_MAPS);
-      toast({
-        title: "Image Cache Cleared",
-        description: "All AI-generated map images have been deleted.",
-      });
+      const deletedCount = cleanupUnusedMaps();
+      if (deletedCount > 0) {
+        toast({
+            title: "Cleanup Complete",
+            description: `${deletedCount} unused map image(s) have been deleted.`,
+        });
+      } else {
+          toast({
+              title: "Nothing to Clean",
+              description: "No unused map images were found.",
+          });
+      }
     } catch (error) {
-      console.error("Failed to clear image cache:", error);
+      console.error("Failed to clean up images:", error);
       toast({
         variant: "destructive",
-        title: "Deletion Failed",
-        description: "Could not clear the image cache.",
+        title: "Cleanup Failed",
+        description: "Could not clean up unused images.",
       });
     }
     setClearCacheDialogOpen(false);
@@ -93,20 +101,20 @@ export default function PlayDashboardPage() {
             <AlertDialogTrigger asChild>
                 <Button variant="outline">
                 <Trash2 className="mr-2 h-4 w-4" />
-                Clear Image Cache
+                Clean Up Images
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogTitle>Clean up unused images?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete all AI-generated map images from your browser's storage, which can help free up space. Scenes using these maps will revert to placeholders.
+                    This will scan for any AI-generated map images that are no longer linked to a scene and delete them to free up space. This action cannot be undone.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearImageCache} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    Delete All Images
+                <AlertDialogAction onClick={handleCleanupUnusedImages}>
+                    Clean Up
                 </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

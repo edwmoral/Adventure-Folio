@@ -38,6 +38,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { saveCampaignsAndCleanup } from '@/lib/storage-utils';
 
 const STORAGE_KEY = 'dnd_campaigns';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
@@ -105,7 +106,7 @@ export default function EditCampaignPage() {
         const storedCampaigns = localStorage.getItem(STORAGE_KEY);
         const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
         const updatedCampaigns = campaigns.map(c => c.id === campaign.id ? campaign : c);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
+        saveCampaignsAndCleanup(updatedCampaigns);
         toast({ title: "Campaign Saved!", description: "Your changes have been successfully saved." });
         router.push(`/play/${campaign.id}`);
     } catch (error) {
@@ -139,7 +140,7 @@ export default function EditCampaignPage() {
         const storedCampaigns = localStorage.getItem(STORAGE_KEY);
         const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
         const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
+        saveCampaignsAndCleanup(updatedCampaigns);
 
         setCampaign(newCampaign);
         toast({ title: "Character Removed", description: `${removedCharacterName || 'The character'} has been removed from the campaign.` });
@@ -183,7 +184,7 @@ export default function EditCampaignPage() {
         const storedCampaigns = localStorage.getItem(STORAGE_KEY);
         const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
         const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
+        saveCampaignsAndCleanup(updatedCampaigns);
 
         setCampaign(newCampaign);
         setCharacterToAdd('');
@@ -252,7 +253,7 @@ export default function EditCampaignPage() {
       const updatedCampaignsList = campaigns.map((c) =>
         c.id === updatedCampaign.id ? updatedCampaign : c
       );
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaignsList));
+      saveCampaignsAndCleanup(updatedCampaignsList);
 
       setCampaign(updatedCampaign);
       setEnemyToAdd('');
@@ -294,7 +295,7 @@ export default function EditCampaignPage() {
         const storedCampaigns = localStorage.getItem(STORAGE_KEY);
         const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
         const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
+        saveCampaignsAndCleanup(updatedCampaigns);
         
         setCampaign(newCampaign);
         toast({ title: "Active Scene Changed", description: "The new scene is now active for your next session." });
@@ -334,7 +335,7 @@ export default function EditCampaignPage() {
         const storedCampaigns = localStorage.getItem(STORAGE_KEY);
         const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
         const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaigns));
+        saveCampaignsAndCleanup(updatedCampaigns);
         
         setCampaign(newCampaign);
         toast({ title: "Scene Deleted", description: "The scene has been removed from the campaign." });
@@ -371,7 +372,7 @@ export default function EditCampaignPage() {
       const updatedCampaignsList = campaigns.map((c) =>
         c.id === updatedCampaign.id ? updatedCampaign : c
       );
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCampaignsList));
+      saveCampaignsAndCleanup(updatedCampaignsList);
 
       setCampaign(updatedCampaign);
       toast({
