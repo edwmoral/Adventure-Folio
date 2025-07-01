@@ -524,6 +524,21 @@ export default function CharacterSheetPage() {
                                                 </AccordionTrigger>
                                                 <AccordionContent>
                                                     <div className="space-y-4 pt-4 border-t mt-2">
+                                                        {character.spell_slots && Object.keys(character.spell_slots).length > 0 && (
+                                                            <div className="mb-4">
+                                                                <h4 className="font-semibold mb-2">Spell Slots</h4>
+                                                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                                                    {Object.entries(character.spell_slots)
+                                                                        .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                                                                        .map(([level, slots]) => (
+                                                                        <div key={level} className="flex flex-col items-center justify-center p-2 bg-card-foreground/10 rounded-lg">
+                                                                            <Label className="text-xs text-muted-foreground">Level {level}</Label>
+                                                                            <span className="text-lg font-bold">{slots.current}/{slots.max}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                         {allSpells.length > 0 ? (
                                                             allSpells.map(spell => (
                                                               <div key={spell.name}>
@@ -636,3 +651,5 @@ export default function CharacterSheetPage() {
         </TooltipProvider>
     );
 }
+
+    
