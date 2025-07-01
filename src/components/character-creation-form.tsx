@@ -241,7 +241,8 @@ export function CharacterCreationForm() {
         const conModifier = Math.floor((values.stats.con - 10) / 2);
         const dexModifier = Math.floor((values.stats.dex - 10) / 2);
 
-        const maxHp = selectedClass.hd + conModifier;
+        const initialHp = (selectedClass.hd || 0) + conModifier;
+        const finalHp = Math.max(1, initialHp);
         const ac = 10 + dexModifier;
 
         const newCharacterId = String(Date.now());
@@ -259,8 +260,8 @@ export function CharacterCreationForm() {
             armorPreference: values.armorPreference,
             colorPreference: values.colorPreference,
             stats: values.stats,
-            hp: maxHp,
-            maxHp: maxHp,
+            hp: finalHp,
+            maxHp: finalHp,
             ac: ac,
             mp: 0,
             maxMp: 0,
