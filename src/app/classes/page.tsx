@@ -7,7 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Class } from "@/lib/types";
-import { Pencil } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const initialMockClasses: Class[] = [
   {
@@ -101,6 +112,8 @@ const groupClassesByName = (classes: Class[]) => {
 
 export default function ClassesPage() {
   const [classes, setClasses] = useState<Class[]>([]);
+  const [classToDelete, setClassToDelete] = useState<Class | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     try {
@@ -116,6 +129,26 @@ export default function ClassesPage() {
       setClasses(initialMockClasses);
     }
   }, []);
+
+  const handleDeleteClass = () => {
+    if (!classToDelete) return;
+
+    try {
+        const updatedClasses = classes.filter(c => !(c.name === classToDelete.name && c.subclass === classToDelete.subclass));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedClasses));
+        setClasses(updatedClasses);
+
+        toast({
+          title: "Class Deleted",
+          description: `"${classToDelete.name} - ${classToDelete.subclass}" has been deleted.`
+        });
+        
+        setClassToDelete(null); // Close the dialog
+    } catch (error) {
+        console.error("Failed to delete class:", error);
+        toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the class." });
+    }
+  };
 
   const groupedClasses = groupClassesByName(classes);
 
@@ -145,7 +178,7 @@ export default function ClassesPage() {
                     <TableHead className="w-[250px]">Subclass</TableHead>
                     <TableHead>Primary Ability</TableHead>
                     <TableHead>Hit Die</TableHead>
-                    <TableHead className="w-[100px] text-right">Actions</TableHead>
+                    <TableHead className="w-[120px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -155,12 +188,18 @@ export default function ClassesPage() {
                       <TableCell>{subclass.primary_ability}</TableCell>
                       <TableCell>d{subclass.hd}</TableCell>
                        <TableCell className="text-right">
-                        <Button asChild variant="outline" size="icon">
-                            <Link href={`/classes/edit?name=${encodeURIComponent(subclass.name)}&subclass=${encodeURIComponent(subclass.subclass)}`}>
-                                <Pencil className="h-4 w-4" />
-                                <span className="sr-only">Edit {subclass.name} - {subclass.subclass}</span>
-                            </Link>
-                        </Button>
+                         <div className="flex justify-end gap-2">
+                            <Button asChild variant="outline" size="icon">
+                                <Link href={`/classes/edit?name=${encodeURIComponent(subclass.name)}&subclass=${encodeURIComponent(subclass.subclass)}`}>
+                                    <Pencil className="h-4 w-4" />
+                                    <span className="sr-only">Edit {subclass.name} - {subclass.subclass}</span>
+                                </Link>
+                            </Button>
+                            <Button variant="destructive" size="icon" onClick={() => setClassToDelete(subclass)}>
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Delete {subclass.name} - {subclass.subclass}</span>
+                            </Button>
+                         </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -170,6 +209,23 @@ export default function ClassesPage() {
           </Card>
         ))}
       </div>
+
+      <AlertDialog open={!!classToDelete} onOpenChange={(open) => !open && setClassToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the "{classToDelete?.name} - {classToDelete?.subclass}" class. This may affect characters using this class.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setClassToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteClass} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
