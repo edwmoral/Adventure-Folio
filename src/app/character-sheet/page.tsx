@@ -35,6 +35,19 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 
+const getHitDieAverage = (hitDie: string): number => {
+    switch (hitDie) {
+        case 'd6': return 4;
+        case 'd8': return 5;
+        case 'd10': return 6;
+        case 'd12': return 7;
+        default: 
+            const dieValue = parseInt(hitDie.replace('d', ''));
+            if (isNaN(dieValue)) return 1;
+            return Math.floor(dieValue / 2) + 1;
+    }
+};
+
 const StatCard = ({ name, value, modifier }: { name: string, value: string, modifier: string }) => (
     <div className="flex flex-col items-center justify-center p-4 bg-card-foreground/5 rounded-lg">
         <div className="text-xs text-muted-foreground">{name}</div>
@@ -142,13 +155,14 @@ export default function CharacterSheetPage() {
             return;
         }
 
-        const hitDieValue = parseInt(characterClass.hit_die.replace('d', ''));
         const conModifier = Math.floor((character.stats.con - 10) / 2);
         let hpIncrease = 0;
 
         if (method === 'average') {
-            hpIncrease = Math.floor(hitDieValue / 2) + 1 + conModifier;
+            const averageRoll = getHitDieAverage(characterClass.hit_die);
+            hpIncrease = averageRoll + conModifier;
         } else { // 'roll'
+            const hitDieValue = parseInt(characterClass.hit_die.replace('d', ''));
             const roll = Math.floor(Math.random() * hitDieValue) + 1;
             hpIncrease = roll + conModifier;
         }
@@ -176,16 +190,17 @@ export default function CharacterSheetPage() {
             
             if (levelData) {
                 const newMaxSlots = levelData.slots;
-                const updatedSlots: PlayerCharacter['spell_slots'] = {};
+                const updatedSlots: PlayerCharacter['spell_slots'] = {...character.spell_slots}; // Start with old slots
 
                 for (const levelKey in newMaxSlots) {
                     if (Object.prototype.hasOwnProperty.call(newMaxSlots, levelKey)) {
                         const max = newMaxSlots[levelKey as keyof typeof newMaxSlots];
-                        updatedSlots[levelKey] = { current: max, max: max };
-                        
                         const oldMax = oldSlots[levelKey]?.max || 0;
-                        if (max > oldMax || (max > 0 && oldMax === 0)) {
-                             spellSlotsSummary.push(`Level ${levelKey} slots: ${oldMax} -> ${max}`);
+                        
+                        // Only update if new max is greater or the slot level is new
+                        if (max > oldMax || (max > 0 && !oldSlots[levelKey])) {
+                            updatedSlots[levelKey] = { current: max, max: max };
+                            spellSlotsSummary.push(`Level ${levelKey} slots: ${oldMax} -> ${max}`);
                         }
                     }
                 }
@@ -196,15 +211,16 @@ export default function CharacterSheetPage() {
                 const spellcastingAbility = characterClass.primary_ability.toLowerCase().substring(0, 3) as keyof PlayerCharacter['stats'];
                 const abilityScore = character.stats[spellcastingAbility];
                 const abilityModifier = getModifierValue(abilityScore);
-                const preparableSpells = newLevel + abilityModifier;
+                const preparableSpells = Math.max(1, newLevel + abilityModifier); // Can prepare at least 1
                 spellsToChooseSummary = `You can now prepare up to ${preparableSpells} spells each day.`;
                 if (characterClass.name === 'Wizard') {
                     spellsToChooseSummary += ' You also add two new spells to your spellbook.';
                 }
             } else if (characterClass.spellcasting_type === 'known') {
                 // Simple rule: gain one spell per level up. Can be expanded with class tables.
-                newSpellsKnown = (character.spellsKnown || 0) + 1;
-                spellsToChooseSummary = `You can learn one new spell, bringing your total known to ${newSpellsKnown}.`;
+                const newSpellsCount = (character.spellsKnown || 0) + 1;
+                newSpellsKnown = newSpellsCount;
+                spellsToChooseSummary = `You can learn one new spell, bringing your total known to ${newSpellsCount}.`;
             }
         }
         setNewSpellSlotsSummary(spellSlotsSummary);
@@ -653,5 +669,3 @@ export default function CharacterSheetPage() {
         </TooltipProvider>
     );
 }
-
-    
