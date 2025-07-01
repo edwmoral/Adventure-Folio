@@ -38,6 +38,7 @@ export default function MapViewPage() {
     
     const [campaign, setCampaign] = useState<Campaign | null>(null);
     const [scene, setScene] = useState<Scene | null>(null);
+    const [resolvedMapUrl, setResolvedMapUrl] = useState<string>('');
     const [allPlayerCharacters, setAllPlayerCharacters] = useState<PlayerCharacter[]>([]);
     const [allEnemies, setAllEnemies] = useState<Enemy[]>([]);
     const [allActions, setAllActions] = useState<Action[]>([]);
@@ -116,25 +117,25 @@ export default function MapViewPage() {
                 localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
             }
             
-            // Resolve map URL if it's a reference
             if (activeScene) {
-                const mapUrl = activeScene.background_map_url;
+                let mapUrl = activeScene.background_map_url;
                 if (mapUrl.startsWith('map_')) {
                     try {
                         const mapsJSON = localStorage.getItem(STORAGE_KEY_MAPS);
                         const maps = mapsJSON ? JSON.parse(mapsJSON) : {};
                         if (maps[mapUrl]) {
-                            activeScene.background_map_url = maps[mapUrl];
+                            setResolvedMapUrl(maps[mapUrl]);
                         } else {
-                            // Fallback if map data is missing
-                            activeScene.background_map_url = 'https://placehold.co/1200x800.png';
+                            setResolvedMapUrl('https://placehold.co/1200x800.png');
                             toast({ variant: "destructive", title: "Map Missing", description: "The map image for this scene could not be found." });
                         }
                     } catch (e) {
                         console.error("Failed to load scene map:", e);
-                        activeScene.background_map_url = 'https://placehold.co/1200x800.png';
+                        setResolvedMapUrl('https://placehold.co/1200x800.png');
                         toast({ variant: "destructive", title: "Map Load Error", description: "There was an error loading the map image." });
                     }
+                } else {
+                    setResolvedMapUrl(mapUrl);
                 }
             }
 
@@ -563,6 +564,7 @@ export default function MapViewPage() {
         handleUseAction('action');
         setTargetingMode(true);
         setAttacker(activeCombatant);
+        setIsActionPanelOpen(false);
         toast({ title: 'Select a Target', description: 'Click on a creature to attack.'});
     };
 
@@ -610,7 +612,7 @@ export default function MapViewPage() {
                 <div ref={mapInteractionRef} className={cn("flex-grow relative overflow-hidden bg-card-foreground/10 rounded-b-lg select-none", targetingMode && "cursor-crosshair")} onMouseDown={handleInteractionMouseDown} onMouseMove={handleInteractionMouseMove} onMouseUp={handleInteractionMouseUp} onMouseLeave={handleInteractionMouseUp} onWheel={handleWheel} onContextMenu={handleContextMenu}>
                     <div className="absolute top-0 left-0 w-full h-full" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', cursor: isPanning ? 'grabbing' : 'default' }}>
                         <div className="relative w-full h-full" style={{ aspectRatio: `${scene.width || 30}/${scene.height || 20}` }}>
-                            <Image src={scene.background_map_url} alt="Fantasy battle map" fill className="object-contain" data-ai-hint="fantasy map" draggable="false" />
+                            {resolvedMapUrl && <Image src={resolvedMapUrl} alt="Fantasy battle map" fill className="object-contain" data-ai-hint="fantasy map" draggable="false" />}
                             {showGrid && <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`, backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.75) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.75) 1px, transparent 1px)' }} />}
                             
                             {/* ATTACK RANGE INDICATOR */}
@@ -730,5 +732,3 @@ export default function MapViewPage() {
         </TooltipProvider>
     );
 }
-
-    

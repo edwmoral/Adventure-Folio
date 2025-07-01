@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -131,8 +132,17 @@ export default function CampaignDetailPage() {
             setIsAddDialogOpen(false);
             toast({ title: 'Character Added', description: `${character.name} has joined the campaign!` });
         } catch (error) {
-            console.error("Failed to save character to campaign:", error);
-            toast({ variant: "destructive", title: "Save Failed", description: "Could not add character to the campaign." });
+            if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Storage Limit Reached',
+                    description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                    duration: 10000,
+                });
+            } else {
+                console.error("Failed to save character to campaign:", error);
+                toast({ variant: "destructive", title: "Save Failed", description: "Could not add character to the campaign." });
+            }
         }
     };
 
