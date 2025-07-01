@@ -103,9 +103,9 @@ export const initialMockCampaigns: Campaign[] = [
     name: 'The Sunless Citadel',
     imageUrl: 'https://placehold.co/400x225.png',
     characters: [
-      { id: 'char1', name: 'Eldrin', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
-      { id: 'char2', name: 'Lyra', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
-      { id: 'char3', name: 'Borg', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char1', name: 'Eldrin', class: 'Wizard', level: 5, avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char2', name: 'Lyra', class: 'Rogue', level: 5, avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char3', name: 'Borg', class: 'Fighter', level: 5, avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
     ],
     scenes: [
         {
@@ -131,7 +131,7 @@ export const initialMockCampaigns: Campaign[] = [
     name: 'Curse of Strahd',
     imageUrl: 'https://placehold.co/400x225.png',
      characters: [
-      { id: 'char4', name: 'Gandalf', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char4', name: 'Gandalf', class: 'Wizard', level: 10, avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
     ],
     scenes: [
         {
@@ -153,9 +153,9 @@ export const initialMockCampaigns: Campaign[] = [
     name: 'Lost Mine of Phandelver',
     imageUrl: 'https://placehold.co/400x225.png',
     characters: [
-      { id: 'char1', name: 'Eldrin', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
-      { id: 'char2', name: 'Lyra', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
-      { id: 'char3', name: 'Borg', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char1', name: 'Eldrin', class: 'Wizard', level: 5, avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char2', name: 'Lyra', class: 'Rogue', level: 5, avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char3', name: 'Borg', class: 'Fighter', level: 5, avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
     ],
     scenes: [
         {
@@ -179,7 +179,7 @@ export const initialMockCampaigns: Campaign[] = [
     name: 'Testing Grounds',
     imageUrl: 'https://placehold.co/400x225.png',
     characters: [
-      { id: 'char-test-1', name: 'Tester T. Testington', avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
+      { id: 'char-test-1', name: 'Tester T. Testington', class: 'Fighter', level: 1, avatarUrl: 'https://placehold.co/40x40.png', tokenImageUrl: 'https://placehold.co/48x48.png' },
     ],
     scenes: [
         {
