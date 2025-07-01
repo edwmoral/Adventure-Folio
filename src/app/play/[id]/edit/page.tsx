@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -108,8 +109,17 @@ export default function EditCampaignPage() {
         toast({ title: "Campaign Saved!", description: "Your changes have been successfully saved." });
         router.push(`/play/${campaign.id}`);
     } catch (error) {
-        console.error("Failed to save campaign:", error);
-        toast({ variant: "destructive", title: "Save Failed", description: "Could not save changes." });
+        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+            toast({
+                variant: 'destructive',
+                title: 'Storage Limit Reached',
+                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                duration: 10000,
+            });
+        } else {
+            console.error("Failed to save campaign:", error);
+            toast({ variant: "destructive", title: "Save Failed", description: "Could not save changes." });
+        }
     }
   };
 
@@ -134,8 +144,17 @@ export default function EditCampaignPage() {
         setCampaign(newCampaign);
         toast({ title: "Character Removed", description: `${removedCharacterName || 'The character'} has been removed from the campaign.` });
     } catch (error) {
-        console.error("Failed to remove character:", error);
-        toast({ variant: "destructive", title: "Save Failed", description: "Could not remove character." });
+         if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+            toast({
+                variant: 'destructive',
+                title: 'Storage Limit Reached',
+                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                duration: 10000,
+            });
+        } else {
+            console.error("Failed to remove character:", error);
+            toast({ variant: "destructive", title: "Save Failed", description: "Could not remove character." });
+        }
     }
   };
 
@@ -170,8 +189,17 @@ export default function EditCampaignPage() {
         setCharacterToAdd('');
         toast({ title: "Character Added", description: `${character.name} is ready for adventure!` });
     } catch (error) {
-        console.error("Failed to add character:", error);
-        toast({ variant: "destructive", title: "Save Failed", description: "Could not add character." });
+        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+            toast({
+                variant: 'destructive',
+                title: 'Storage Limit Reached',
+                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                duration: 10000,
+            });
+        } else {
+            console.error("Failed to add character:", error);
+            toast({ variant: "destructive", title: "Save Failed", description: "Could not add character." });
+        }
     }
   };
 
@@ -233,12 +261,21 @@ export default function EditCampaignPage() {
         description: `A ${enemy.name} has been added to the scene.`,
       });
     } catch (error) {
-      console.error('Failed to add enemy:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Add Failed',
-        description: 'Could not add the enemy to the scene.',
-      });
+       if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+            toast({
+                variant: 'destructive',
+                title: 'Storage Limit Reached',
+                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                duration: 10000,
+            });
+        } else {
+            console.error('Failed to add enemy:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Add Failed',
+                description: 'Could not add the enemy to the scene.',
+            });
+        }
     }
   };
 
@@ -262,8 +299,17 @@ export default function EditCampaignPage() {
         setCampaign(newCampaign);
         toast({ title: "Active Scene Changed", description: "The new scene is now active for your next session." });
     } catch (error) {
-        console.error("Failed to set active scene:", error);
-        toast({ variant: "destructive", title: "Save Failed", description: "Could not set active scene." });
+        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+            toast({
+                variant: 'destructive',
+                title: 'Storage Limit Reached',
+                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                duration: 10000,
+            });
+        } else {
+            console.error("Failed to set active scene:", error);
+            toast({ variant: "destructive", title: "Save Failed", description: "Could not set active scene." });
+        }
     }
   };
 
@@ -293,8 +339,17 @@ export default function EditCampaignPage() {
         setCampaign(newCampaign);
         toast({ title: "Scene Deleted", description: "The scene has been removed from the campaign." });
     } catch (error) {
-        console.error("Failed to delete scene:", error);
-        toast({ variant: "destructive", title: "Save Failed", description: "Could not delete scene." });
+        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+            toast({
+                variant: 'destructive',
+                title: 'Storage Limit Reached',
+                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                duration: 10000,
+            });
+        } else {
+            console.error("Failed to delete scene:", error);
+            toast({ variant: "destructive", title: "Save Failed", description: "Could not delete scene." });
+        }
     }
   };
 
@@ -324,12 +379,21 @@ export default function EditCampaignPage() {
         description: 'The enemy has been removed from the scene.',
       });
     } catch (error) {
-      console.error('Failed to remove enemy:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Remove Failed',
-        description: 'Could not remove the enemy from the scene.',
-      });
+        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+            toast({
+                variant: 'destructive',
+                title: 'Storage Limit Reached',
+                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                duration: 10000,
+            });
+        } else {
+            console.error('Failed to remove enemy:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Remove Failed',
+                description: 'Could not remove the enemy from the scene.',
+            });
+        }
     }
   };
 
