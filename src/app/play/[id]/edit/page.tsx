@@ -397,6 +397,21 @@ export default function EditCampaignPage() {
         }
     }
   };
+  
+  const handleSceneDimensionChange = (sceneId: string, dimension: 'width' | 'height', value: number) => {
+    if (!campaign || isNaN(value)) return;
+
+    const newCampaign = {
+        ...campaign,
+        scenes: campaign.scenes.map(scene => {
+            if (scene.id === sceneId) {
+                return { ...scene, [dimension]: value };
+            }
+            return scene;
+        })
+    };
+    setCampaign(newCampaign);
+  };
 
 
   if (!campaign) {
@@ -544,6 +559,34 @@ export default function EditCampaignPage() {
                                                 </AlertDialog>
                                             </div>
 
+                                            <Separator/>
+
+                                            <div>
+                                                <h4 className="mb-2 font-semibold text-sm">Scene Dimensions</h4>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor={`scene-width-${scene.id}`}>Width (squares)</Label>
+                                                        <Input
+                                                            id={`scene-width-${scene.id}`}
+                                                            type="number"
+                                                            value={scene.width || ''}
+                                                            onChange={(e) => handleSceneDimensionChange(scene.id, 'width', parseInt(e.target.value))}
+                                                            placeholder="e.g., 30"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor={`scene-height-${scene.id}`}>Height (squares)</Label>
+                                                        <Input
+                                                            id={`scene-height-${scene.id}`}
+                                                            type="number"
+                                                            value={scene.height || ''}
+                                                            onChange={(e) => handleSceneDimensionChange(scene.id, 'height', parseInt(e.target.value))}
+                                                            placeholder="e.g., 20"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
                                             <Separator/>
 
                                             {/* Enemy List */}
