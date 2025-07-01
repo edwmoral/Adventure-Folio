@@ -341,6 +341,26 @@ export default function MapViewPage() {
         setTargeting(null);
     };
 
+    const resolveSpellOnToken = (targetToken: Token) => {
+        if (!targeting || targeting.type !== 'spell' || !scene) return;
+        const { actor, spell, range } = targeting;
+
+        // Check range
+        const rangeInPercent = range / 5 * (100 / (scene.width || 30));
+        const dist = Math.hypot(targetToken.position.x - actor.position.x, targetToken.position.y - actor.position.y);
+        if (dist > rangeInPercent) {
+            toast({ variant: 'destructive', title: 'Out of Range', description: `Target is too far away.` });
+            return;
+        }
+
+        // Logic for what the spell does can be added here (e.g., damage, effects)
+        // For now, a simple notification.
+        toast({ title: "Spell Cast!", description: `${actor.name} casts ${spell.name} on ${targetToken.name}.` });
+
+        handleUseAction('action'); // Assumes all spells are an action. Could be improved.
+        setTargeting(null);
+    };
+
     const cancelTargeting = () => {
         if (!targeting) return;
         toast({ title: `${targeting.type === 'attack' ? 'Attack' : 'Spell'} Cancelled` });
@@ -358,7 +378,14 @@ export default function MapViewPage() {
             if (targeting.type === 'attack') {
                 resolveAttack(token);
             }
-            // Add spell logic here later
+            if (targeting.type === 'spell') {
+                // AoE spells are resolved by clicking the map, not a token.
+                if (targeting.aoe) {
+                     toast({ variant: 'destructive', title: 'Invalid Action', description: 'For Area of Effect spells, click on the map to set the center point.' });
+                     return;
+                }
+                resolveSpellOnToken(token);
+            }
         } else {
             if (isInCombat && token.id !== turnOrder[activeTokenIndex]?.id) {
                 toast({ variant: 'destructive', title: "Not their turn!", description: `It is currently ${turnOrder[activeTokenIndex]?.name}'s turn.` });
@@ -370,20 +397,23 @@ export default function MapViewPage() {
     };
     
     const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!targeting || !targeting.aoe || !mouseMapPos) return;
+        if (!targeting || !mouseMapPos || !scene) return;
 
-        const { range, actor, spell } = targeting;
-        const dist = Math.hypot(mouseMapPos.x - actor.position.x, mouseMapPos.y - actor.position.y);
-        const rangeInPercent = range / 5 * (100 / (scene?.width || 30));
+        // Spells with an area of effect are cast on the map
+        if (targeting.type === 'spell' && targeting.aoe) {
+            const { range, actor, spell } = targeting;
+            const dist = Math.hypot(mouseMapPos.x - actor.position.x, mouseMapPos.y - actor.position.y);
+            const rangeInPercent = range / 5 * (100 / (scene.width || 30));
 
-        if (dist > rangeInPercent) {
-            toast({ variant: 'destructive', title: 'Out of Range', description: `Target is too far away.` });
-            return;
+            if (dist > rangeInPercent) {
+                toast({ variant: 'destructive', title: 'Out of Range', description: `Target is too far away.` });
+                return;
+            }
+
+            toast({ title: "Spell Cast!", description: `You cast ${spell?.name || 'a spell'}.` });
+            handleUseAction('action');
+            setTargeting(null);
         }
-
-        toast({ title: "Spell Cast!", description: `You cast ${spell?.name || 'a spell'}.` });
-        handleUseAction('action');
-        setTargeting(null);
     };
 
     const handleTokenMouseDown = (e: React.MouseEvent<HTMLDivElement>, tokenId: string) => {
@@ -711,6 +741,20 @@ export default function MapViewPage() {
                                                     transform: 'translate(-50%, -50%)',
                                                 }}
                                             />
+                                        )}
+                                        {/* Dotted targeting line */}
+                                        {mouseMapPos && (
+                                            <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
+                                                <line 
+                                                    x1={`${actorToken.position.x}%`} 
+                                                    y1={`${actorToken.position.y}%`} 
+                                                    x2={`${mouseMapPos.x}%`} 
+                                                    y2={`${mouseMapPos.y}%`} 
+                                                    stroke="hsl(var(--destructive))" 
+                                                    strokeWidth={2 / zoom} 
+                                                    strokeDasharray="5 5"
+                                                />
+                                            </svg>
                                         )}
                                     </>
                                 );
