@@ -357,7 +357,7 @@ export default function MapViewPage() {
         // For now, a simple notification.
         toast({ title: "Spell Cast!", description: `${actor.name} casts ${spell.name} on ${targetToken.name}.` });
 
-        handleUseAction('action'); // Assumes all spells are an action. Could be improved.
+        if (isInCombat) handleUseAction('action'); // Assumes all spells are an action. Could be improved.
         setTargeting(null);
     };
 
@@ -411,7 +411,7 @@ export default function MapViewPage() {
             }
 
             toast({ title: "Spell Cast!", description: `You cast ${spell?.name || 'a spell'}.` });
-            handleUseAction('action');
+            if (isInCombat) handleUseAction('action');
             setTargeting(null);
         }
     };
@@ -645,19 +645,43 @@ export default function MapViewPage() {
     };
 
     const handleInitiateSpellcast = (spell: Spell) => {
-        const caster = turnOrder.find(c => c.id === selectedToken?.id);
-        if (!caster) return;
+        if (!selectedToken || !scene) return;
 
-        if (!caster.hasAction) { // Simplification: assume all spells cost an action
-            toast({ variant: 'destructive', title: 'No Action', description: 'You have already used your action this turn.'});
-            return;
+        let actor: Combatant;
+
+        if (isInCombat) {
+            const combatant = turnOrder.find(c => c.id === selectedToken.id);
+            if (!combatant) {
+                toast({ variant: 'destructive', title: "Error", description: "Could not find the spellcaster in the turn order." });
+                return;
+            }
+            if (!combatant.hasAction) {
+                toast({ variant: 'destructive', title: 'No Action', description: 'You have already used your action this turn.'});
+                return;
+            }
+            actor = combatant;
+        } else {
+            // Not in combat, create a temporary combatant object for targeting visuals
+            const characterData = allPlayerCharacters.find(pc => pc.id === selectedToken.linked_character_id);
+            const enemyData = allEnemies.find(e => e.id === selectedToken.linked_enemy_id);
+            const speedInFt = selectedToken.type === 'character' ? 30 : (enemyData?.speed.match(/\d+/)?.[0] || 30);
+
+            actor = {
+                ...selectedToken,
+                initiative: 0,
+                speed: Number(speedInFt),
+                movementRemaining: Number(speedInFt),
+                hasAction: true,
+                hasBonusAction: true,
+                statusEffects: [],
+            };
         }
-
+        
         const range = parseSpellRange(spell.range);
         const aoe = parseSpellAoe(spell);
         
-        setTargeting({ type: 'spell', actor: caster, spell, range, aoe });
-        setIsActionPanelOpen(false);
+        setTargeting({ type: 'spell', actor, spell, range, aoe });
+        setIsActionPanelOpen(false); // Hide the panel to see the map
         toast({ title: `Casting ${spell.name}`, description: 'Select a target or point on the map. Right-click to cancel.' });
     };
 
@@ -734,8 +758,8 @@ export default function MapViewPage() {
                                              <div
                                                 className="absolute bg-red-500/20 border border-red-400 rounded-full pointer-events-none"
                                                 style={{
-                                                    width: `${targeting.aoe.radius / 5 * (100 / scene.width) * 2}%`,
-                                                    height: `${targeting.aoe.radius / 5 * (100 / scene.height) * 2}%`,
+                                                    width: `${targeting.aoe.radius / 5 * (100 / (scene.width || 30)) * 2}%`,
+                                                    height: `${targeting.aoe.radius / 5 * (100 / (scene.height || 20)) * 2}%`,
                                                     left: `${mouseMapPos.x}%`,
                                                     top: `${mouseMapPos.y}%`,
                                                     transform: 'translate(-50%, -50%)',
@@ -827,3 +851,5 @@ export default function MapViewPage() {
         </TooltipProvider>
     );
 }
+
+    
