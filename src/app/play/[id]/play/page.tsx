@@ -32,6 +32,14 @@ type Combatant = Token & {
     statusEffects: ('dodging')[];
 };
 
+type TargetingState = {
+    type: 'attack' | 'spell';
+    actor: Combatant;
+    spell?: Spell;
+    range: number;
+    aoe?: { shape: string; size: number };
+} | null;
+
 export default function MapViewPage() {
     const params = useParams();
     const id = params.id as string;
@@ -68,14 +76,7 @@ export default function MapViewPage() {
     const [activeTokenIndex, setActiveTokenIndex] = useState(0);
     const [roundNumber, setRoundNumber] = useState(1);
     
-    // Unified targeting state
-    const [targeting, setTargeting] = useState<{
-        type: 'attack' | 'spell';
-        actor: Combatant;
-        spell?: Spell;
-        range: number;
-        aoe?: { radius: number };
-    } | null>(null);
+    const [targeting, setTargeting] = useState<TargetingState>(null);
 
     const [mouseMapPos, setMouseMapPos] = useState<{ x: number, y: number } | null>(null);
 
@@ -633,15 +634,13 @@ export default function MapViewPage() {
         return match ? parseInt(match[1]) : 0;
     };
 
-    const parseSpellAoe = (spell: Spell): { radius: number } | undefined => {
-        // Prefer structured data if available
-        if (spell.aoe && (spell.aoe.shape === 'sphere' || spell.aoe.shape === 'cylinder')) {
-            return { radius: spell.aoe.size };
+    const parseSpellAoe = (spell: Spell): { shape: string, size: number } | undefined => {
+        if (spell.aoe) {
+            return { shape: spell.aoe.shape, size: spell.aoe.size };
         }
-    
-        // Fallback to regex for older spell data or simple descriptions
-        const match = spell.text.match(/(\d+)-foot-radius/i);
-        return match ? { radius: parseInt(match[1]) } : undefined;
+        const radiusMatch = spell.text.match(/(\d+)-foot-radius/i);
+        if (radiusMatch) return { shape: 'sphere', size: parseInt(radiusMatch[1]) };
+        return undefined;
     };
 
     const handleInitiateSpellcast = (spell: Spell) => {
@@ -652,7 +651,7 @@ export default function MapViewPage() {
         if (isInCombat) {
             const combatant = turnOrder.find(c => c.id === selectedToken.id);
             if (!combatant) {
-                toast({ variant: 'destructive', title: "Error", description: "Could not find the spellcaster in the turn order." });
+                toast({ variant: "destructive", title: "Error", description: "Could not find the spellcaster in the turn order." });
                 return;
             }
             if (!combatant.hasAction) {
@@ -703,6 +702,7 @@ export default function MapViewPage() {
     }
 
     const activeCombatant = isInCombat ? turnOrder[activeTokenIndex] : null;
+    const actorToken = targeting ? scene.tokens.find(t => t.id === targeting.actor.id) : null;
 
     return (
         <TooltipProvider>
@@ -734,11 +734,8 @@ export default function MapViewPage() {
                             {showGrid && <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`, backgroundImage: 'linear-gradient(to right, hsla(var(--border) / 0.75) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--border) / 0.75) 1px, transparent 1px)' }} />}
                             
                             {/* TARGETING INDICATORS */}
-                            {targeting && scene && (() => {
-                                const actorToken = scene.tokens.find(t => t.id === targeting.actor.id);
-                                if (!actorToken) return null;
-
-                                const rangeInPercent = targeting.range / 5 * (100 / (scene.width || 30));
+                            {targeting && actorToken && scene && (() => {
+                                const rangeInPercent = (targeting.range / 5) * (100 / (scene.width || 30));
                                 
                                 return (
                                     <>
@@ -753,33 +750,62 @@ export default function MapViewPage() {
                                                 transform: 'translate(-50%, -50%)',
                                             }}
                                         />
+
                                         {/* AoE Indicator (follows mouse) */}
-                                        {targeting.aoe && mouseMapPos && (
-                                             <div
-                                                className="absolute bg-red-500/20 border border-red-400 rounded-full pointer-events-none"
-                                                style={{
-                                                    width: `${targeting.aoe.radius / 5 * (100 / (scene.width || 30)) * 2}%`,
-                                                    height: `${targeting.aoe.radius / 5 * (100 / (scene.height || 20)) * 2}%`,
-                                                    left: `${mouseMapPos.x}%`,
-                                                    top: `${mouseMapPos.y}%`,
-                                                    transform: 'translate(-50%, -50%)',
-                                                }}
-                                            />
-                                        )}
+                                        {targeting.type === 'spell' && targeting.aoe && mouseMapPos && (() => {
+                                            const feetToPercentX = (feet: number) => (feet / 5) * (100 / (scene.width || 30));
+                                            const feetToPercentY = (feet: number) => (feet / 5) * (100 / (scene.height || 20));
+                                            const { shape, size } = targeting.aoe;
+
+                                            const style: React.CSSProperties = {
+                                                position: 'absolute',
+                                                left: `${mouseMapPos.x}%`,
+                                                top: `${mouseMapPos.y}%`,
+                                                transform: 'translate(-50%, -50%)',
+                                                pointerEvents: 'none',
+                                                backgroundColor: 'hsla(0, 84.2%, 60.2%, 0.2)',
+                                                border: '1px solid hsl(0, 84.2%, 60.2%)',
+                                            };
+
+                                            if (shape === 'sphere' || shape === 'cylinder') {
+                                                style.width = `${feetToPercentX(size) * 2}%`;
+                                                style.height = `${feetToPercentY(size) * 2}%`;
+                                                style.borderRadius = '9999px';
+                                            } else if (shape === 'cube') {
+                                                style.width = `${feetToPercentX(size)}%`;
+                                                style.height = `${feetToPercentY(size)}%`;
+                                            } else {
+                                                return null;
+                                            }
+
+                                            return <div style={style} />;
+                                        })()}
+                                        
                                         {/* Dotted targeting line */}
-                                        {mouseMapPos && (
-                                            <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
-                                                <line 
-                                                    x1={`${actorToken.position.x}%`} 
-                                                    y1={`${actorToken.position.y}%`} 
-                                                    x2={`${mouseMapPos.x}%`} 
-                                                    y2={`${mouseMapPos.y}%`} 
-                                                    stroke="hsl(var(--destructive))" 
-                                                    strokeWidth={2 / zoom} 
-                                                    strokeDasharray="5 5"
-                                                />
-                                            </svg>
-                                        )}
+                                        {mouseMapPos && (() => {
+                                            const dist = Math.hypot(
+                                                mouseMapPos.x - actorToken.position.x,
+                                                mouseMapPos.y - actorToken.position.y
+                                            );
+                                            
+                                            if (dist > rangeInPercent) {
+                                                return null;
+                                            }
+
+                                            return (
+                                                <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
+                                                    <line 
+                                                        x1={`${actorToken.position.x}%`} 
+                                                        y1={`${actorToken.position.y}%`} 
+                                                        x2={`${mouseMapPos.x}%`} 
+                                                        y2={`${mouseMapPos.y}%`} 
+                                                        stroke="hsl(var(--destructive))" 
+                                                        strokeWidth={2 / zoom} 
+                                                        strokeDasharray="5 5"
+                                                    />
+                                                </svg>
+                                            )
+                                        })()}
                                     </>
                                 );
                             })()}
@@ -851,5 +877,7 @@ export default function MapViewPage() {
         </TooltipProvider>
     );
 }
+
+    
 
     
