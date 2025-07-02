@@ -3,12 +3,13 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import type { Scene, Token } from '@/lib/types';
+import type { Scene, Token, Shape } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, Grid, Pointer } from 'lucide-react';
+import { ZoomIn, ZoomOut, Grid, Pointer, Circle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdate: (scene: Scene) => void }) {
     const [resolvedMapUrl, setResolvedMapUrl] = useState('');
@@ -20,6 +21,9 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
     const [draggedToken, setDraggedToken] = useState<{ id: string; startPos: { x: number; y: number } } | null>(null);
     const [showConfirm, setShowConfirm] = useState(false);
     const [pendingUpdate, setPendingUpdate] = useState<{ scene: Scene, description: string } | null>(null);
+    
+    const [activeTool, setActiveTool] = useState<'pointer' | 'circle'>('pointer');
+    const [drawingShape, setDrawingShape] = useState<Shape | null>(null);
     
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
@@ -40,20 +44,93 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
     }, [scene.background_map_url]);
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (e.button !== 1) return; // Middle mouse for panning
-        e.preventDefault();
-        setIsPanning(true);
-        setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+        // Panning logic (middle mouse button)
+        if (e.button === 1) {
+            e.preventDefault();
+            setIsPanning(true);
+            setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+            return;
+        }
+
+        // Circle drawing logic (left mouse button)
+        if (e.button === 0 && activeTool === 'circle' && mapContainerRef.current) {
+            e.preventDefault();
+            const containerRect = mapContainerRef.current.getBoundingClientRect();
+            const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
+            const mapY = (e.clientY - containerRect.top - pan.y) / zoom;
+            
+            const centerX = (mapX / mapContainerRef.current.offsetWidth) * 100;
+            const centerY = (mapY / mapContainerRef.current.offsetHeight) * 100;
+            
+            setDrawingShape({
+                id: `shape-${Date.now()}`,
+                type: 'circle',
+                center: { x: centerX, y: centerY },
+                radius: 0,
+                color: '#ef4444' // A red color for the tool
+            });
+        }
     };
 
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!isPanning || !mapContainerRef.current) return;
-        e.preventDefault();
-        setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+        if (isPanning && mapContainerRef.current) {
+            e.preventDefault();
+            setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+            return;
+        }
+
+        if (drawingShape && mapContainerRef.current) {
+            e.preventDefault();
+            const containerRect = mapContainerRef.current.getBoundingClientRect();
+            const mapWidthPixels = containerRect.width;
+            const mapHeightPixels = containerRect.height;
+
+            const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
+            const mapY = (e.clientY - containerRect.top - pan.y) / zoom;
+
+            const currentX_pc = (mapX / mapWidthPixels) * 100;
+            const currentY_pc = (mapY / mapHeightPixels) * 100;
+
+            const dx_pc = currentX_pc - drawingShape.center.x;
+            const dy_pc = currentY_pc - drawingShape.center.y;
+
+            const dx_px = dx_pc / 100 * mapWidthPixels;
+            const dy_px = dy_pc / 100 * mapHeightPixels;
+
+            const radius_px = Math.hypot(dx_px, dy_px);
+            const radius_pc = (radius_px / mapWidthPixels) * 100;
+
+            setDrawingShape(prev => prev ? { ...prev, radius: radius_pc } : null);
+        }
     };
 
     const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
-        setIsPanning(false);
+        if (isPanning) {
+            setIsPanning(false);
+        }
+        
+        if (drawingShape) {
+            const finalShape = { ...drawingShape };
+            
+            if (finalShape.radius < 1) { // Ignore tiny accidental clicks
+                setDrawingShape(null);
+                return;
+            }
+            
+            const mapWidthInFt = (scene.width || 30) * 5;
+            const radiusInFt = (finalShape.radius / 100) * mapWidthInFt;
+
+            const description = `Draw a circle with a ${radiusInFt.toFixed(0)}ft radius.`;
+            
+            setPendingUpdate({
+                scene: { ...scene, shapes: [...(scene.shapes || []), finalShape] },
+                description: description
+            });
+
+            setShowConfirm(true);
+            setDrawingShape(null);
+            setActiveTool('pointer');
+        }
     };
 
     const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -76,7 +153,7 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
     };
 
     const handleTokenMouseDown = (e: React.MouseEvent, tokenId: string) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0 || activeTool !== 'pointer') return;
         const token = scene.tokens.find(t => t.id === tokenId);
         if (token) {
             setDraggedToken({ id: tokenId, startPos: token.position });
@@ -98,7 +175,6 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                 ? { ...token, position: { x: newXPercent, y: newYPercent } } 
                 : token
         );
-        // This creates a temporary state for the GM's view while dragging
         onSceneUpdate({ ...scene, tokens: updatedTokens });
     }
 
@@ -115,7 +191,6 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
             description: description
         });
 
-        // Revert UI change until confirmed
         const revertedTokens = scene.tokens.map(t => t.id === tokenId ? {...t, position: startPos} : t);
         onSceneUpdate({...scene, tokens: revertedTokens});
         
@@ -125,7 +200,6 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
     
     const confirmAction = () => {
         if (pendingUpdate) {
-            // Apply the final state and "sync" it
             onSceneUpdate(pendingUpdate.scene);
             toast({ title: 'Action Confirmed', description: pendingUpdate.description });
         }
@@ -141,7 +215,7 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
 
     return (
         <div 
-            className="w-full h-full relative overflow-hidden bg-muted" 
+            className={cn("w-full h-full relative overflow-hidden bg-muted", activeTool === 'circle' && 'cursor-crosshair')}
             ref={mapContainerRef} 
             onMouseDown={handleMouseDown} 
             onMouseMove={handleMouseMove} 
@@ -167,13 +241,63 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
             </AlertDialog>
             <div className="absolute top-0 left-0 w-full h-full" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
                 <div className="relative w-full h-full bg-gray-700" style={{ aspectRatio: `${scene.width || 30}/${scene.height || 20}` }}>
-                    {resolvedMapUrl && <Image src={resolvedMapUrl} alt={scene.name} fill className="object-cover" draggable={false} />}
+                    {resolvedMapUrl && <Image src={resolvedMapUrl} alt={scene.name} fill className="object-cover" draggable={false} data-ai-hint="fantasy map" />}
                     {showGrid && <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`, backgroundImage: 'linear-gradient(to right, hsla(0,0%,100%,0.1) 1px, transparent 1px), linear-gradient(to bottom, hsla(0,0%,100%,0.1) 1px, transparent 1px)' }} />}
                     
+                    <div className="absolute inset-0 pointer-events-none">
+                        <svg width="100%" height="100%" style={{ overflow: 'visible' }}>
+                            {scene.shapes?.map(shape => {
+                                if (shape.type === 'circle') {
+                                    const heightRadius = shape.radius * ((scene.width || 30) / (scene.height || 20));
+                                    return (
+                                        <ellipse
+                                            key={shape.id}
+                                            cx={`${shape.center.x}%`}
+                                            cy={`${shape.center.y}%`}
+                                            rx={`${shape.radius}%`}
+                                            ry={`${heightRadius}%`}
+                                            fill={`${shape.color}4D`}
+                                            stroke={shape.color}
+                                            strokeWidth={2 / zoom}
+                                        />
+                                    );
+                                }
+                                return null;
+                            })}
+                            {drawingShape && (
+                                <>
+                                    <ellipse
+                                        cx={`${drawingShape.center.x}%`}
+                                        cy={`${drawingShape.center.y}%`}
+                                        rx={`${drawingShape.radius}%`}
+                                        ry={`${drawingShape.radius * ((scene.width || 30) / (scene.height || 20))}%`}
+                                        fill={`${drawingShape.color}4D`}
+                                        stroke={drawingShape.color}
+                                        strokeWidth={2 / zoom}
+                                        strokeDasharray={`${4 / zoom}`}
+                                    />
+                                    <text
+                                        x={`${drawingShape.center.x + drawingShape.radius}%`}
+                                        y={`${drawingShape.center.y}%`}
+                                        fill="white"
+                                        stroke="black"
+                                        strokeWidth={0.5 / zoom}
+                                        fontSize={14 / zoom}
+                                        textAnchor="start"
+                                        dominantBaseline="middle"
+                                        dx={5 / zoom}
+                                    >
+                                        {`${(((drawingShape.radius / 100) * ((scene.width || 30) * 5)).toFixed(0))}ft`}
+                                    </text>
+                                </>
+                            )}
+                        </svg>
+                    </div>
+
                     {scene.tokens.map(token => (
                          <div
                             key={token.id}
-                            className="absolute cursor-grab active:cursor-grabbing"
+                            className={cn("absolute", activeTool === 'pointer' ? "cursor-grab active:cursor-grabbing" : "cursor-default")}
                             style={{
                                 left: `${token.position.x}%`,
                                 top: `${token.position.y}%`,
@@ -196,7 +320,22 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                 <Button variant="secondary" size="icon" onClick={() => setZoom(z => z * 1.2)}><ZoomIn /></Button>
                 <Button variant="secondary" size="icon" onClick={() => setZoom(z => z / 1.2)}><ZoomOut /></Button>
                 <Button variant="secondary" size="icon" onClick={() => setShowGrid(g => !g)}><Grid /></Button>
-                <Button variant="secondary" size="icon"><Pointer /></Button>
+                <Button 
+                    variant="secondary" 
+                    size="icon" 
+                    onClick={() => setActiveTool('pointer')}
+                    className={cn(activeTool === 'pointer' && 'ring-2 ring-primary')}
+                >
+                    <Pointer />
+                </Button>
+                <Button 
+                    variant="secondary" 
+                    size="icon" 
+                    onClick={() => setActiveTool('circle')}
+                    className={cn(activeTool === 'circle' && 'ring-2 ring-primary')}
+                >
+                    <Circle />
+                </Button>
             </div>
         </div>
     );

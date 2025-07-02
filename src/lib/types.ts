@@ -3,7 +3,16 @@
 
 
 
+
 // --- Base & Container Types ---
+
+export type Shape = {
+  id: string;
+  type: 'circle';
+  center: { x: number; y: number };
+  radius: number; // in percentage of map width
+  color: string;
+};
 
 export type Token = {
   id: string;
@@ -29,6 +38,7 @@ export type Scene = {
   description?: string;
   width?: number;
   height?: number;
+  shapes?: Shape[];
 };
 
 export type Character = {
