@@ -323,14 +323,14 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                     {showGrid && <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: `${100 / (scene.width || 30)}% ${100 / (scene.height || 20)}%`, backgroundImage: 'linear-gradient(to right, hsla(0,0%,100%,0.1) 1px, transparent 1px), linear-gradient(to bottom, hsla(0,0%,100%,0.1) 1px, transparent 1px)' }} />}
                     
                     <div className="absolute inset-0 pointer-events-none">
-                        <svg width="100%" height="100%" style={{ overflow: 'visible' }}>
+                        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
                             {scene.shapes?.map(shape => renderShape(shape))}
                             {drawingShape && renderShape(drawingShape)}
 
                             {drawingShape?.type === 'circle' && (
                                 <text
-                                    x={`${drawingShape.center.x}%`}
-                                    y={`${drawingShape.center.y}%`}
+                                    x={drawingShape.center.x}
+                                    y={drawingShape.center.y}
                                     fill="white"
                                     stroke="black"
                                     strokeWidth={0.5 / zoom}
@@ -353,8 +353,8 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                                 const length_ft = Math.hypot(dx_ft, dy_ft);
                                 return (
                                     <text
-                                        x={`${endPoint.x}%`}
-                                        y={`${endPoint.y}%`}
+                                        x={endPoint.x}
+                                        y={endPoint.y}
                                         fill="white"
                                         stroke="black"
                                         strokeWidth={0.5 / zoom}
