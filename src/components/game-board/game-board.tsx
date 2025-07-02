@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import type { Campaign, Scene, Token, PlayerCharacter, Enemy } from '@/lib/types';
 import { BattleMap } from './battle-map';
 import { ModulePanel } from './module-panel';
@@ -67,23 +67,6 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
             console.error("Failed to save campaign:", error);
         }
     }
-    
-    const selectedTokenData = useMemo(() => {
-        if (!selectedTokenId || !activeScene) return { token: null, character: null, enemy: null };
-
-        const token = activeScene.tokens.find(t => t.id === selectedTokenId);
-        if (!token) return { token: null, character: null, enemy: null };
-
-        if (token.type === 'character') {
-            const character = allPlayerCharacters.find(c => c.id === token.linked_character_id);
-            return { token, character, enemy: null };
-        } else if (token.type === 'monster') {
-            const enemy = allEnemies.find(e => e.id === token.linked_enemy_id);
-            return { token, character: null, enemy };
-        }
-        return { token, character: null, enemy: null };
-    }, [selectedTokenId, activeScene, allPlayerCharacters, allEnemies]);
-
 
     if (loading) {
         return (
@@ -124,7 +107,11 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                 <ModulePanel 
                     currentPosition={panelPosition}
                     onTogglePosition={() => setPanelPosition(p => p === 'left' ? 'right' : 'left')} 
-                    {...selectedTokenData}
+                    scene={activeScene}
+                    allPlayerCharacters={allPlayerCharacters}
+                    allEnemies={allEnemies}
+                    selectedTokenId={selectedTokenId}
+                    onTokenSelect={setSelectedTokenId}
                 />
             </aside>
         </div>

@@ -4,24 +4,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChatModule } from './chat-module';
 import { MenuModule } from './menu-module';
 import { CharacterSheetModule } from './character-sheet-module';
-import type { PlayerCharacter, Enemy, Token } from '@/lib/types';
+import type { PlayerCharacter, Enemy, Token, Scene } from '@/lib/types';
 import { ScrollText, Settings, MessageSquare } from "lucide-react";
 
 
 interface ModulePanelProps {
     onTogglePosition: () => void;
     currentPosition: 'left' | 'right';
-    token: Token | null;
-    character: PlayerCharacter | null;
-    enemy: Enemy | null;
+    scene: Scene | null;
+    allPlayerCharacters: PlayerCharacter[];
+    allEnemies: Enemy[];
+    selectedTokenId: string | null;
+    onTokenSelect: (tokenId: string | null) => void;
 }
 
 export function ModulePanel({ 
     onTogglePosition, 
     currentPosition, 
-    token,
-    character,
-    enemy
+    scene,
+    allPlayerCharacters,
+    allEnemies,
+    selectedTokenId,
+    onTokenSelect
 }: ModulePanelProps) {
     return (
         <div className="h-full flex flex-col">
@@ -45,9 +49,11 @@ export function ModulePanel({
                 </TabsContent>
                 <TabsContent value="sheet" className="flex-1 min-h-0 mt-0">
                     <CharacterSheetModule 
-                        token={token} 
-                        character={character} 
-                        enemy={enemy} 
+                        scene={scene} 
+                        allPlayerCharacters={allPlayerCharacters}
+                        allEnemies={allEnemies}
+                        selectedTokenId={selectedTokenId}
+                        onTokenSelect={onTokenSelect}
                     />
                 </TabsContent>
                 <TabsContent value="menu" className="flex-1 min-h-0 mt-0 p-4">

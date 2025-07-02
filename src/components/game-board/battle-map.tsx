@@ -152,7 +152,7 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
                 else {
                     const mapWidthInFt = (scene.width || 30) * 5;
                     const diameterInFt = ((finalShape.radius / 100) * mapWidthInFt * 2).toFixed(0);
-                    description = `Draw a circle with a ${diameterInFt}ft diameter.`;
+                    description = `Draw a circle with a ${diameterInFt} diameter.`;
                 }
             } else if (finalShape.type === 'cone') {
                 const dx = finalShape.endPoint.x - finalShape.origin.x;
@@ -164,7 +164,7 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
                     const dx_ft = dx / 100 * mapWidthInFt;
                     const dy_ft = dy / 100 * mapHeightInFt;
                     const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
-                    description = `Draw a cone with a ${lengthInFt}ft length.`;
+                    description = `Draw a cone with a ${lengthInFt} length.`;
                 }
             } else if (finalShape.type === 'line') {
                 const dx = finalShape.end.x - finalShape.start.x;
@@ -176,7 +176,7 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
                     const dx_ft = dx / 100 * mapWidthInFt;
                     const dy_ft = dy / 100 * mapHeightInFt;
                     const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
-                    description = `Draw a line ${lengthInFt}ft long.`;
+                    description = `Draw a line ${lengthInFt} long.`;
                 }
             }
 
@@ -247,21 +247,6 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
 
     const handleTokenMouseUp = (e: React.MouseEvent, tokenId: string) => {
         if (!draggedToken) return;
-
-        const startPos = draggedToken.startPos;
-        const endToken = scene.tokens.find(t => t.id === tokenId);
-        if (!endToken) return;
-
-        const description = `Move ${endToken.name} token.`;
-        setPendingUpdate({
-            scene: { ...scene, tokens: scene.tokens.map(t => t.id === tokenId ? { ...t, position: endToken.position } : t) },
-            description: description
-        });
-
-        const revertedTokens = scene.tokens.map(t => t.id === tokenId ? {...t, position: startPos} : t);
-        onSceneUpdate({...scene, tokens: revertedTokens});
-        
-        setShowConfirm(true);
         setDraggedToken(null);
     }
     
@@ -337,8 +322,8 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
             
             return (
                 <g key={shape.id}>
-                    <path d={pathData} fill={`${shape.color}4D`} stroke="black" strokeWidth={borderStrokeWidth} />
-                    <path d={pathData} fill="none" stroke={shape.color} strokeWidth={mainStrokeWidth} />
+                    <path d={pathData} fill={`${shape.color}4D`} stroke="black" strokeWidth={borderStrokeWidth} style={{ vectorEffect: 'non-scaling-stroke' }} />
+                    <path d={pathData} fill="none" stroke={shape.color} strokeWidth={mainStrokeWidth} style={{ vectorEffect: 'non-scaling-stroke' }} />
                 </g>
             )
         }
@@ -354,6 +339,7 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
                         stroke="black"
                         strokeWidth={borderStrokeWidth}
                         strokeLinecap="round"
+                        style={{ vectorEffect: 'non-scaling-stroke' }}
                     />
                     <line
                         x1={`${start.x}%`}
@@ -363,6 +349,7 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
                         stroke={shape.color}
                         strokeWidth={mainStrokeWidth}
                         strokeLinecap="round"
+                        style={{ vectorEffect: 'non-scaling-stroke' }}
                     />
                 </g>
             );
@@ -374,11 +361,12 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
         const textStyle: React.CSSProperties = {
             fill: "white",
             stroke: "black",
-            strokeWidth: 0.5 / zoom,
+            strokeWidth: 4 / zoom,
             fontSize: 14 / zoom,
             textAnchor: "middle",
             paintOrder: 'stroke',
             fontWeight: 'bold',
+            vectorEffect: 'non-scaling-stroke'
         };
 
         if (shape.type === 'circle') {
@@ -439,7 +427,6 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
             onMouseDown={handleMouseDown} 
             onMouseMove={handleMouseMove} 
             onMouseUp={handleMouseUp} 
-            onWheel={handleWheel} 
             onMouseLeave={handleMouseUp} 
             onMouseMoveCapture={handleMapMouseMoveForDrag}
         >
@@ -468,8 +455,10 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
                             {scene.shapes?.map(shape => renderShape(shape))}
                             {drawingShape && renderShape(drawingShape)}
                             {/* Labels are rendered separately to ensure they are on top */}
-                            {scene.shapes?.map(shape => renderShapeLabel(shape))}
-                            {drawingShape && renderShapeLabel(drawingShape)}
+                            <g>
+                                {scene.shapes?.map(shape => renderShapeLabel(shape))}
+                                {drawingShape && renderShapeLabel(drawingShape)}
+                            </g>
                         </svg>
                     </div>
 
