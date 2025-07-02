@@ -111,7 +111,6 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     allPlayerCharacters={allPlayerCharacters}
                     allEnemies={allEnemies}
                     selectedTokenId={selectedTokenId}
-                    onTokenSelect={setSelectedTokenId}
                 />
             </aside>
         </div>
