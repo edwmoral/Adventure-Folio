@@ -5,15 +5,19 @@ import { useMemo } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { Shield, Footprints, Users } from 'lucide-react';
-import type { PlayerCharacter, Scene, Token } from '@/lib/types';
+import { Shield, Footprints, Users, Swords, Sparkles, BookOpen } from 'lucide-react';
+import type { PlayerCharacter, Scene, Token, Class, Spell, Action as ActionType } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
+import { Badge } from '../ui/badge';
 
 interface PlayerCharacterSheetModuleProps {
   scene: Scene | null;
   allPlayerCharacters: PlayerCharacter[];
+  allClasses: Class[];
+  allSpells: Spell[];
   selectedTokenId: string | null;
   onTokenSelect: (id: string | null) => void;
 }
@@ -26,7 +30,16 @@ const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: str
     </div>
 );
 
-export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, selectedTokenId, onTokenSelect }: PlayerCharacterSheetModuleProps) {
+const basicActions: ActionType[] = [
+    { name: 'Attack', type: 'Action', action_type: 'Standard', description: 'Make a weapon attack.', usage: {type: 'At Will'} },
+    { name: 'Dash', type: 'Action', action_type: 'Standard', description: 'Double your movement speed for the turn.', usage: {type: 'At Will'} },
+    { name: 'Disengage', type: 'Action', action_type: 'Standard', description: 'Your movement doesn\'t provoke opportunity attacks.', usage: {type: 'At Will'} },
+    { name: 'Dodge', type: 'Action', action_type: 'Standard', description: 'Attack rolls against you have disadvantage until your next turn.', usage: {type: 'At Will'} },
+    { name: 'Help', type: 'Action', action_type: 'Standard', description: 'Grant an ally advantage on an ability check or their next attack.', usage: {type: 'At Will'} },
+    { name: 'Hide', type: 'Action', action_type: 'Standard', description: 'Make a Dexterity (Stealth) check to become unseen.', usage: {type: 'At Will'} },
+];
+
+export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClasses, allSpells, selectedTokenId, onTokenSelect }: PlayerCharacterSheetModuleProps) {
   
   const playerTokens = useMemo(() => {
     if (!scene) return [];
@@ -42,6 +55,27 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, selecte
     const character = allPlayerCharacters.find(c => c.id === token.linked_character_id);
     return { token, character };
   }, [selectedTokenId, scene, allPlayerCharacters]);
+  
+  const { characterFeatures, knownSpells } = useMemo(() => {
+    if (!character || !allClasses.length || !allSpells.length) {
+        return { characterFeatures: [], knownSpells: [] };
+    }
+    
+    const characterClass = allClasses.find(
+      c => c.name === character.className && c.subclass === character.subclass
+    );
+
+    const features = characterClass?.levels
+      .filter(l => l.level <= character.level)
+      .flatMap(l => l.feature || [])
+      .map(f => ({ name: f.name, description: f.text })) || [];
+      
+    const spells = allSpells.filter(spell => character.spells?.includes(spell.name));
+
+    return { characterFeatures: features, knownSpells: spells };
+
+  }, [character, allClasses, allSpells]);
+
 
   return (
     <div className="h-full flex flex-col">
@@ -100,10 +134,70 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, selecte
 
                     <Separator />
 
-                    <div className="space-y-2">
-                        <h3 className="font-semibold">Actions & Abilities</h3>
-                        <p className="text-sm text-muted-foreground">Character actions and abilities will be shown here.</p>
-                    </div>
+                    <Accordion type="multiple" defaultValue={['actions']} className="w-full space-y-1">
+                        <AccordionItem value="actions">
+                            <AccordionTrigger className="text-xl font-semibold hover:no-underline">
+                                <div className="flex items-center gap-2"><Swords className="h-5 w-5" /> Actions</div>
+                            </AccordionTrigger>
+                            <AccordionContent className="pt-2">
+                                <div className="space-y-3 pt-2 border-t text-sm">
+                                    {basicActions.map((action) => (
+                                        <div key={action.name}>
+                                            <h4 className="font-semibold">{action.name} <Badge variant="secondary">{action.type}</Badge></h4>
+                                            <p className="text-muted-foreground mt-1">{action.description}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="features">
+                            <AccordionTrigger className="text-xl font-semibold hover:no-underline">
+                                <div className="flex items-center gap-2"><Sparkles className="h-5 w-5" /> Features</div>
+                            </AccordionTrigger>
+                            <AccordionContent className="pt-2">
+                                <div className="space-y-3 pt-2 border-t text-sm">
+                                    {characterFeatures.map((feature) => (
+                                        <div key={feature.name}>
+                                            <h4 className="font-semibold">{feature.name}</h4>
+                                            <p className="text-muted-foreground mt-1">{feature.description}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                         <AccordionItem value="spells">
+                            <AccordionTrigger className="text-xl font-semibold hover:no-underline">
+                                <div className="flex items-center gap-2"><BookOpen className="h-5 w-5" /> Spells</div>
+                            </AccordionTrigger>
+                            <AccordionContent className="pt-2">
+                                <div className="space-y-4 pt-2 border-t">
+                                    {character.spell_slots && Object.keys(character.spell_slots).length > 0 && (
+                                        <div className="mb-4">
+                                            <h4 className="font-semibold mb-2 text-sm">Spell Slots</h4>
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {Object.entries(character.spell_slots)
+                                                    .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                                                    .map(([level, slots]) => (
+                                                    <div key={level} className="flex flex-col items-center justify-center p-2 bg-card-foreground/10 rounded-lg">
+                                                        <Label className="text-xs text-muted-foreground">Lvl {level}</Label>
+                                                        <span className="text-lg font-bold">{slots.current}/{slots.max}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="space-y-3 text-sm">
+                                        {knownSpells.length > 0 ? knownSpells.map(spell => (
+                                          <div key={spell.name} className="group relative">
+                                              <h4 className="font-semibold">{spell.name} <span className="text-xs text-muted-foreground">({spell.level === 0 ? "Cantrip" : `Lvl ${spell.level}`}, {spell.school})</span></h4>
+                                              <p className="text-sm text-muted-foreground mt-1">{spell.text}</p>
+                                          </div>
+                                        )) : <p className="text-sm text-muted-foreground text-center py-2">No spells known.</p>}
+                                    </div>
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
                 </div>
             ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4">

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { Campaign, Scene, Token, PlayerCharacter, Enemy } from '@/lib/types';
+import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell } from '@/lib/types';
 import { BattleMap } from './battle-map';
 import { ModulePanel } from './module-panel';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,6 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 const STORAGE_KEY_ENEMIES = 'dnd_enemies';
+const STORAGE_KEY_CLASSES = 'dnd_classes';
+const STORAGE_KEY_SPELLS = 'dnd_spells';
 
 
 export function GameBoard({ campaignId }: { campaignId: string }) {
@@ -20,6 +22,8 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
 
     const [allPlayerCharacters, setAllPlayerCharacters] = useState<PlayerCharacter[]>([]);
     const [allEnemies, setAllEnemies] = useState<Enemy[]>([]);
+    const [allClasses, setAllClasses] = useState<Class[]>([]);
+    const [allSpells, setAllSpells] = useState<Spell[]>([]);
     const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -40,6 +44,13 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
 
             const storedEnemies = localStorage.getItem(STORAGE_KEY_ENEMIES);
             if (storedEnemies) setAllEnemies(JSON.parse(storedEnemies));
+            
+            const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
+            if (storedClasses) setAllClasses(JSON.parse(storedClasses));
+
+            const storedSpells = localStorage.getItem(STORAGE_KEY_SPELLS);
+            if (storedSpells) setAllSpells(JSON.parse(storedSpells));
+
 
         } catch (error) {
             console.error("Failed to load data from localStorage", error);
@@ -112,6 +123,8 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     scene={activeScene}
                     allPlayerCharacters={allPlayerCharacters}
                     allEnemies={allEnemies}
+                    allClasses={allClasses}
+                    allSpells={allSpells}
                     selectedTokenId={selectedTokenId}
                     onTokenSelect={setSelectedTokenId}
                 />

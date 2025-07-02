@@ -6,8 +6,8 @@ import { ChatModule } from './chat-module';
 import { MenuModule } from './menu-module';
 import { PlayerCharacterSheetModule } from './player-character-sheet-module';
 import { NpcSheetModule } from './npc-sheet-module';
-import type { PlayerCharacter, Enemy, Scene } from '@/lib/types';
-import { Users, Shield, Settings, MessageSquare } from "lucide-react";
+import type { PlayerCharacter, Enemy, Scene, Class, Spell } from '@/lib/types';
+import { Users, Shield, Settings, MessageSquare, ScrollText } from "lucide-react";
 
 
 interface ModulePanelProps {
@@ -16,6 +16,8 @@ interface ModulePanelProps {
     scene: Scene | null;
     allPlayerCharacters: PlayerCharacter[];
     allEnemies: Enemy[];
+    allClasses: Class[];
+    allSpells: Spell[];
     selectedTokenId: string | null;
     onTokenSelect: (id: string | null) => void;
 }
@@ -26,6 +28,8 @@ export function ModulePanel({
     scene,
     allPlayerCharacters,
     allEnemies,
+    allClasses,
+    allSpells,
     selectedTokenId,
     onTokenSelect,
 }: ModulePanelProps) {
@@ -72,6 +76,8 @@ export function ModulePanel({
                     <PlayerCharacterSheetModule 
                         scene={scene} 
                         allPlayerCharacters={allPlayerCharacters}
+                        allClasses={allClasses}
+                        allSpells={allSpells}
                         selectedTokenId={selectedTokenId}
                         onTokenSelect={onTokenSelect}
                     />

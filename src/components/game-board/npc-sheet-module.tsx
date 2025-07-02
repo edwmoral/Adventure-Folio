@@ -5,11 +5,12 @@ import { useMemo } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { Shield, Footprints } from 'lucide-react';
-import type { Enemy, Scene, Token } from '@/lib/types';
+import { Shield, Footprints, Swords, Star, MessageSquare } from 'lucide-react';
+import type { Enemy, Scene } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 
 interface NpcSheetModuleProps {
   scene: Scene | null;
@@ -25,6 +26,26 @@ const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: str
         <div className="text-xs text-muted-foreground">{label}</div>
     </div>
 );
+
+const ActionSection = ({ title, actions, icon }: { title: string, actions: Enemy['action'], icon: React.ReactNode }) => {
+    if (!actions || actions.length === 0) return null;
+    return (
+        <AccordionItem value={title.toLowerCase()}>
+            <AccordionTrigger className="text-xl font-semibold hover:no-underline">
+                <div className="flex items-center gap-2">{icon} {title}</div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2">
+                 <div className="space-y-3 pt-2 border-t text-sm">
+                    {actions.map((action) => (
+                        <div key={action.name}>
+                            <p><span className="font-bold text-foreground">{action.name}.</span> {action.text}</p>
+                        </div>
+                    ))}
+                </div>
+            </AccordionContent>
+        </AccordionItem>
+    );
+};
 
 export function NpcSheetModule({ scene, allEnemies, selectedTokenId, onTokenSelect }: NpcSheetModuleProps) {
   
@@ -101,21 +122,12 @@ export function NpcSheetModule({ scene, allEnemies, selectedTokenId, onTokenSele
 
                 <Separator />
 
-                <div className="space-y-2">
-                    <h3 className="font-semibold">Actions & Traits</h3>
-                    <div className="text-sm text-muted-foreground space-y-2">
-                        {enemy.trait?.map(t => (
-                            <div key={t.name}>
-                                <p><span className="font-bold text-foreground">{t.name}.</span> {t.text}</p>
-                            </div>
-                        ))}
-                        {enemy.action?.map(a => (
-                            <div key={a.name}>
-                                <p><span className="font-bold text-foreground">{a.name}.</span> {a.text}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                <Accordion type="multiple" defaultValue={['traits', 'actions']} className="w-full space-y-1">
+                    <ActionSection title="Traits" actions={enemy.trait} icon={<Star className="h-5 w-5" />} />
+                    <ActionSection title="Actions" actions={enemy.action} icon={<Swords className="h-5 w-5" />} />
+                    <ActionSection title="Reactions" actions={enemy.reaction} icon={<MessageSquare className="h-5 w-5 rotate-90" />} />
+                    <ActionSection title="Legendary Actions" actions={enemy.legendary} icon={<Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />} />
+                </Accordion>
             </div>
         ) : (
             <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4">

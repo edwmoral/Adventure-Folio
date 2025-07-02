@@ -445,6 +445,7 @@ export function BattleMap({
             onMouseUp={handleMouseUp} 
             onMouseLeave={handleMouseUp} 
             onMouseMoveCapture={handleMapMouseMoveForDrag}
+            onWheel={handleWheel}
         >
              <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
                 <AlertDialogContent>
@@ -479,26 +480,31 @@ export function BattleMap({
 
                     {scene.tokens.map(token => {
                         const isPlayer = token.type === 'character';
-                        const borderColor = isPlayer ? (token.color || 'hsl(var(--primary))') : 'hsl(var(--destructive))';
                         
                         const data = isPlayer 
                             ? allPlayerCharacters.find(c => c.id === token.linked_character_id)
                             : allEnemies.find(e => e.id === token.linked_enemy_id);
 
-                        let health, maxHealth, healthPercent;
+                        let health, maxHealth, healthPercent, ac, speed;
                         
                         if (data) {
                             if (isPlayer) {
                                 const character = data as PlayerCharacter;
                                 health = token.hp ?? character.hp;
                                 maxHealth = token.maxHp ?? character.maxHp;
+                                ac = character.ac;
+                                speed = '30ft'; // Default player speed
                             } else {
                                 const enemy = data as Enemy;
                                 health = token.hp ?? (enemy.hp ? parseInt(String(enemy.hp).split(' ')[0]) : undefined);
                                 maxHealth = token.maxHp ?? (enemy.hp ? parseInt(String(enemy.hp).split(' ')[0]) : undefined);
+                                ac = enemy.ac;
+                                speed = enemy.speed;
                             }
                             healthPercent = (health !== undefined && maxHealth && maxHealth > 0) ? (health / maxHealth) * 100 : 0;
                         }
+                        
+                        const borderColor = isPlayer ? (allPlayerCharacters.find(c => c.id === token.linked_character_id)?.tokenBorderColor || 'hsl(var(--primary))') : 'hsl(var(--destructive))';
 
                         return (
                          <TooltipProvider key={token.id} delayDuration={100}>
@@ -541,10 +547,14 @@ export function BattleMap({
                                     </div>
                                 </TooltipTrigger>
                                  <TooltipContent>
-                                    <p className="font-semibold">{token.name}</p>
-                                    {health !== undefined && maxHealth !== undefined && (
-                                        <p>HP: {health} / {maxHealth}</p>
-                                    )}
+                                    <div className="space-y-1">
+                                        <p className="font-semibold">{token.name}</p>
+                                        {health !== undefined && maxHealth !== undefined && (
+                                            <p>HP: {health} / {maxHealth}</p>
+                                        )}
+                                        {ac && <p>AC: {ac}</p>}
+                                        {speed && <p>Speed: {speed}</p>}
+                                    </div>
                                 </TooltipContent>
                             </Tooltip>
                          </TooltipProvider>
