@@ -2,10 +2,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell } from '@/lib/types';
+import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell, Combatant } from '@/lib/types';
 import { BattleMap } from './battle-map';
 import { ModulePanel } from './module-panel';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Swords, Shield } from 'lucide-react';
+import { InitiativeDialog } from './initiative-dialog';
+import { InitiativeTracker } from './initiative-tracker';
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
@@ -25,6 +29,12 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     const [allClasses, setAllClasses] = useState<Class[]>([]);
     const [allSpells, setAllSpells] = useState<Spell[]>([]);
     const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
+
+    // Combat State
+    const [isInCombat, setIsInCombat] = useState(false);
+    const [isInitiativeDialogOpen, setIsInitiativeDialogOpen] = useState(false);
+    const [combatants, setCombatants] = useState<Combatant[]>([]);
+    const [turnIndex, setTurnIndex] = useState(0);
 
     useEffect(() => {
         try {
@@ -79,6 +89,26 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }
     }
 
+    const handleCombatStart = (finalCombatants: Combatant[]) => {
+        setCombatants(finalCombatants);
+        setTurnIndex(0);
+        setIsInCombat(true);
+        setIsInitiativeDialogOpen(false);
+        onTokenSelect(finalCombatants[0]?.tokenId);
+    };
+    
+    const handleNextTurn = () => {
+        const newTurnIndex = (turnIndex + 1) % combatants.length;
+        setTurnIndex(newTurnIndex);
+        onTokenSelect(combatants[newTurnIndex]?.tokenId);
+    };
+
+    const handleEndCombat = () => {
+        setIsInCombat(false);
+        setCombatants([]);
+        setTurnIndex(0);
+    };
+
     if (loading) {
         return (
             <div className="fixed inset-0 bg-background flex items-center justify-center">
@@ -103,10 +133,26 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     
     const panelClasses = "w-[350px] h-full flex-shrink-0 bg-background";
     const borderClass = panelPosition === 'right' ? 'border-l' : 'border-r';
+    const activeCombatantId = isInCombat ? combatants[turnIndex]?.tokenId : null;
 
     return (
         <div className={`fixed inset-0 bg-muted flex ${panelPosition === 'right' ? 'flex-row' : 'flex-row-reverse'}`}>
-            <main className="flex-1 h-full bg-black">
+            <main className="flex-1 h-full bg-black relative">
+                {isInCombat && (
+                    <InitiativeTracker combatants={combatants} activeTurnIndex={turnIndex} />
+                )}
+                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-background/80 backdrop-blur-sm p-1 rounded-md shadow-lg">
+                    {!isInCombat ? (
+                        <Button onClick={() => setIsInitiativeDialogOpen(true)}>
+                            <Swords className="mr-2 h-4 w-4" /> Start Combat
+                        </Button>
+                    ) : (
+                        <div className="flex gap-2">
+                            <Button onClick={handleNextTurn}>Next Turn</Button>
+                            <Button onClick={handleEndCombat} variant="destructive">End Combat</Button>
+                        </div>
+                    )}
+                </div>
                 <BattleMap 
                     scene={activeScene} 
                     onSceneUpdate={handleUpdateScene}
@@ -114,6 +160,8 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     onTokenSelect={setSelectedTokenId}
                     allPlayerCharacters={allPlayerCharacters}
                     allEnemies={allEnemies}
+                    isInCombat={isInCombat}
+                    activeCombatantId={activeCombatantId}
                 />
             </main>
             <aside className={`${panelClasses} ${borderClass} border-border`}>
@@ -126,9 +174,17 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     allClasses={allClasses}
                     allSpells={allSpells}
                     selectedTokenId={selectedTokenId}
-                    onTokenSelect={setSelectedTokenId}
+                    onTokenSelect={onTokenSelect}
                 />
             </aside>
+            <InitiativeDialog 
+                isOpen={isInitiativeDialogOpen}
+                onOpenChange={setIsInitiativeDialogOpen}
+                scene={activeScene}
+                allPlayerCharacters={allPlayerCharacters}
+                allEnemies={allEnemies}
+                onCombatStart={handleCombatStart}
+            />
         </div>
     );
 }

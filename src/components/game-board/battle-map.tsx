@@ -19,14 +19,18 @@ export function BattleMap({
     onTokenSelect, 
     onSceneUpdate,
     allPlayerCharacters,
-    allEnemies
+    allEnemies,
+    isInCombat,
+    activeCombatantId,
 }: { 
     scene: Scene, 
     selectedTokenId: string | null, 
     onTokenSelect: (tokenId: string | null) => void, 
     onSceneUpdate: (scene: Scene) => void,
     allPlayerCharacters: PlayerCharacter[],
-    allEnemies: Enemy[]
+    allEnemies: Enemy[],
+    isInCombat: boolean,
+    activeCombatantId: string | null
 }) {
     const [resolvedMapUrl, setResolvedMapUrl] = useState('');
     const [zoom, setZoom] = useState(1);
@@ -230,6 +234,11 @@ export function BattleMap({
 
     const handleTokenMouseDown = (e: React.MouseEvent, tokenId: string) => {
         if (e.button !== 0 || activeTool !== 'pointer') return;
+        if (isInCombat && tokenId !== activeCombatantId) {
+            toast({ variant: 'destructive', title: 'Not Your Turn', description: 'You can only move the active character.' });
+            return;
+        }
+
         e.stopPropagation();
         const token = scene.tokens.find(t => t.id === tokenId);
         if (token) {
@@ -297,6 +306,7 @@ export function BattleMap({
                         fill={`${shape.color}4D`}
                         stroke="black"
                         strokeWidth={borderStrokeWidth}
+                        style={{ vectorEffect: 'non-scaling-stroke' }}
                     />
                     <ellipse
                         cx={`${shape.center.x}%`}
@@ -306,6 +316,7 @@ export function BattleMap({
                         fill="none"
                         stroke={shape.color}
                         strokeWidth={mainStrokeWidth}
+                        style={{ vectorEffect: 'non-scaling-stroke' }}
                     />
                 </g>
             );
@@ -505,6 +516,8 @@ export function BattleMap({
                         }
                         
                         const borderColor = isPlayer ? (allPlayerCharacters.find(c => c.id === token.linked_character_id)?.tokenBorderColor || 'hsl(var(--primary))') : 'hsl(var(--destructive))';
+                        const isSelected = selectedTokenId === token.id;
+                        const isActive = activeCombatantId === token.id;
 
                         return (
                          <TooltipProvider key={token.id} delayDuration={100}>
@@ -514,7 +527,7 @@ export function BattleMap({
                                         className={cn(
                                             "absolute",
                                             activeTool === 'pointer' ? "cursor-grab active:cursor-grabbing" : "cursor-default",
-                                            selectedTokenId === token.id && "z-10"
+                                            (isSelected || isActive) && "z-10"
                                         )}
                                         style={{
                                             left: `${token.position.x}%`,
@@ -530,7 +543,8 @@ export function BattleMap({
                                         <div className="relative h-full w-full">
                                             <Avatar className={cn(
                                                 "h-full w-full border-4 shadow-lg",
-                                                selectedTokenId === token.id && "ring-4 ring-yellow-400"
+                                                isSelected && "ring-4 ring-yellow-400",
+                                                isActive && "ring-4 ring-green-400"
                                             )} style={{ borderColor }}>
                                                 <AvatarImage src={token.imageUrl} className="object-cover" />
                                                 <AvatarFallback>{token.name.substring(0,1)}</AvatarFallback>

@@ -7,6 +7,7 @@
 
 
 
+
 // --- Base & Container Types ---
 
 export type CircleShape = {
@@ -277,4 +278,12 @@ export type Monster = {
     environment?: string;
     description?: string;
     tokenImageUrl?: string;
+};
+
+export type Combatant = {
+  tokenId: string;
+  name: string;
+  initiative: number;
+  dexterityModifier: number;
+  avatarUrl: string;
 };
