@@ -27,14 +27,23 @@ export function ModulePanel({
         <div className="h-full flex flex-col">
             <Tabs defaultValue="chat" className="flex-1 flex flex-col min-h-0">
                 <TabsList className="grid w-full grid-cols-3 rounded-none border-b">
-                    <TabsTrigger value="chat" className="rounded-none"><MessageSquare className="h-4 w-4 mr-2"/>Chat</TabsTrigger>
-                    <TabsTrigger value="sheet" className="rounded-none"><ScrollText className="h-4 w-4 mr-2"/>Sheet</TabsTrigger>
-                    <TabsTrigger value="menu" className="rounded-none"><Settings className="h-4 w-4 mr-2"/>Menu</TabsTrigger>
+                    <TabsTrigger value="chat" className="rounded-none flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4"/>
+                        <span>Chat</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="sheet" className="rounded-none flex items-center gap-2">
+                        <ScrollText className="h-4 w-4"/>
+                        <span>Sheet</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="menu" className="rounded-none flex items-center gap-2">
+                        <Settings className="h-4 w-4"/>
+                        <span>Menu</span>
+                    </TabsTrigger>
                 </TabsList>
                 <TabsContent value="chat" className="flex-1 min-h-0 mt-0">
                    <ChatModule />
                 </TabsContent>
-                 <TabsContent value="sheet" className="flex-1 min-h-0 mt-0">
+                <TabsContent value="sheet" className="flex-1 min-h-0 mt-0">
                     <CharacterSheetModule 
                         token={token} 
                         character={character} 
