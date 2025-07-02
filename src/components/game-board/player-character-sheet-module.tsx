@@ -43,17 +43,11 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, selecte
     return { token, character };
   }, [selectedTokenId, scene, allPlayerCharacters]);
 
-  if (!character || !token) {
-    return (
-      <div className="h-full p-4 space-y-4">
-        <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-          <Users className="h-12 w-12 mb-4" />
-          <h3 className="font-semibold">Player Characters</h3>
-          <p>Select a player on the map or from the list below.</p>
-        </div>
-        <div className="space-y-2">
+  return (
+    <div className="h-full flex flex-col">
+        <div className="p-4 border-b">
             <Label>Select Character</Label>
-            <Select onValueChange={onTokenSelect}>
+            <Select value={selectedTokenId || ''} onValueChange={onTokenSelect}>
                 <SelectTrigger>
                     <SelectValue placeholder="Select a character..." />
                 </SelectTrigger>
@@ -62,77 +56,63 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, selecte
                 </SelectContent>
             </Select>
         </div>
-      </div>
-    );
-  }
+        <ScrollArea className="flex-1">
+            {character && token ? (
+                <div className="p-4 space-y-4">
+                    <div className="flex items-center gap-4">
+                        <Avatar className="h-20 w-20 border-4" style={{ borderColor: character.tokenBorderColor || 'hsl(var(--primary))' }}>
+                            <AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" />
+                            <AvatarFallback>{token.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <h2 className="text-2xl font-bold font-headline">{token.name}</h2>
+                            <p className="text-muted-foreground">
+                                {character.race} {character.className}
+                            </p>
+                        </div>
+                    </div>
 
-  const health = token.hp ?? character.hp;
-  const maxHealth = token.maxHp ?? character.maxHp;
-  const healthPercent = (health !== undefined && maxHealth && maxHealth > 0) ? (health / maxHealth) * 100 : 100;
-  
-  const ac = character.ac;
-  const speed = '30 ft.'; // Assuming a standard speed for now
+                    <Separator />
 
-  return (
-    <ScrollArea className="h-full">
-        <div className="p-4 space-y-4">
-            <div className="space-y-2">
-              <Label>Select Character</Label>
-              <Select value={selectedTokenId || ''} onValueChange={onTokenSelect}>
-                  <SelectTrigger>
-                      <SelectValue placeholder="Select a character..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                      {playerTokens.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                  </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-4">
-                <Avatar className="h-20 w-20 border-4" style={{ borderColor: character.tokenBorderColor || 'hsl(var(--primary))' }}>
-                    <AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" />
-                    <AvatarFallback>{token.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div>
-                    <h2 className="text-2xl font-bold font-headline">{token.name}</h2>
-                    <p className="text-muted-foreground">
-                        {character.race} {character.className}
-                    </p>
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm font-medium">
+                            <span>Health</span>
+                            <span>{token.hp ?? character.hp} / {token.maxHp ?? character.maxHp}</span>
+                        </div>
+                        <Progress value={(token.hp && token.maxHp) ? (token.hp/token.maxHp)*100 : 0} className={"[&>div]:bg-green-500"} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <StatDisplay icon={<Shield />} label="Armor Class" value={character.ac} />
+                        <StatDisplay icon={<Footprints />} label="Speed" value={'30 ft.'} />
+                    </div>
+
+                    <Separator />
+                    
+                    <div className="grid grid-cols-3 gap-2">
+                        <StatDisplay icon={<>STR</>} label="Strength" value={character.stats.str} />
+                        <StatDisplay icon={<>DEX</>} label="Dexterity" value={character.stats.dex} />
+                        <StatDisplay icon={<>CON</>} label="Constitution" value={character.stats.con} />
+                        <StatDisplay icon={<>INT</>} label="Intelligence" value={character.stats.int} />
+                        <StatDisplay icon={<>WIS</>} label="Wisdom" value={character.stats.wis} />
+                        <StatDisplay icon={<>CHA</>} label="Charisma" value={character.stats.cha} />
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                        <h3 className="font-semibold">Actions & Abilities</h3>
+                        <p className="text-sm text-muted-foreground">Character actions and abilities will be shown here.</p>
+                    </div>
                 </div>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-                <div className="flex justify-between text-sm font-medium">
-                    <span>Health</span>
-                    <span>{health} / {maxHealth}</span>
+            ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4">
+                    <Users className="h-12 w-12 mb-4" />
+                    <h3 className="font-semibold">Player Characters</h3>
+                    <p>Select a player on the map or from the list above.</p>
                 </div>
-                <Progress value={healthPercent} className={"[&>div]:bg-green-500"} />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-                <StatDisplay icon={<Shield />} label="Armor Class" value={ac} />
-                <StatDisplay icon={<Footprints />} label="Speed" value={speed} />
-            </div>
-
-            <Separator />
-            
-            <div className="grid grid-cols-3 gap-2">
-                <StatDisplay icon={<>STR</>} label="Strength" value={character.stats.str} />
-                <StatDisplay icon={<>DEX</>} label="Dexterity" value={character.stats.dex} />
-                <StatDisplay icon={<>CON</>} label="Constitution" value={character.stats.con} />
-                <StatDisplay icon={<>INT</>} label="Intelligence" value={character.stats.int} />
-                <StatDisplay icon={<>WIS</>} label="Wisdom" value={character.stats.wis} />
-                <StatDisplay icon={<>CHA</>} label="Charisma" value={character.stats.cha} />
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-                <h3 className="font-semibold">Actions & Abilities</h3>
-                <p className="text-sm text-muted-foreground">Character actions and abilities will be shown here.</p>
-            </div>
-        </div>
-    </ScrollArea>
+            )}
+        </ScrollArea>
+    </div>
   );
 }

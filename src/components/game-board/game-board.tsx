@@ -101,6 +101,8 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     onSceneUpdate={handleUpdateScene}
                     selectedTokenId={selectedTokenId}
                     onTokenSelect={setSelectedTokenId}
+                    allPlayerCharacters={allPlayerCharacters}
+                    allEnemies={allEnemies}
                 />
             </main>
             <aside className={`${panelClasses} ${borderClass} border-border`}>

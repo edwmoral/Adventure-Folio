@@ -3,15 +3,31 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import type { Scene, Token, Shape } from '@/lib/types';
+import type { Scene, Token, Shape, PlayerCharacter, Enemy } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, Grid, Pointer, Circle, Triangle, Minus, Ruler } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate }: { scene: Scene, selectedTokenId: string | null, onTokenSelect: (tokenId: string | null) => void, onSceneUpdate: (scene: Scene) => void }) {
+
+export function BattleMap({ 
+    scene, 
+    selectedTokenId, 
+    onTokenSelect, 
+    onSceneUpdate,
+    allPlayerCharacters,
+    allEnemies
+}: { 
+    scene: Scene, 
+    selectedTokenId: string | null, 
+    onTokenSelect: (tokenId: string | null) => void, 
+    onSceneUpdate: (scene: Scene) => void,
+    allPlayerCharacters: PlayerCharacter[],
+    allEnemies: Enemy[]
+}) {
     const [resolvedMapUrl, setResolvedMapUrl] = useState('');
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -152,7 +168,7 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
                 else {
                     const mapWidthInFt = (scene.width || 30) * 5;
                     const diameterInFt = ((finalShape.radius / 100) * mapWidthInFt * 2).toFixed(0);
-                    description = `Draw a circle with a ${diameterInFt} diameter.`;
+                    description = `Draw a circle with a ${diameterInFt} ft diameter.`;
                 }
             } else if (finalShape.type === 'cone') {
                 const dx = finalShape.endPoint.x - finalShape.origin.x;
@@ -164,7 +180,7 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
                     const dx_ft = dx / 100 * mapWidthInFt;
                     const dy_ft = dy / 100 * mapHeightInFt;
                     const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
-                    description = `Draw a cone with a ${lengthInFt} length.`;
+                    description = `Draw a cone with a ${lengthInFt} ft length.`;
                 }
             } else if (finalShape.type === 'line') {
                 const dx = finalShape.end.x - finalShape.start.x;
@@ -176,7 +192,7 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
                     const dx_ft = dx / 100 * mapWidthInFt;
                     const dy_ft = dy / 100 * mapHeightInFt;
                     const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
-                    description = `Draw a line ${lengthInFt} long.`;
+                    description = `Draw a line ${lengthInFt} ft long.`;
                 }
             }
 
@@ -454,7 +470,6 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
                         <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
                             {scene.shapes?.map(shape => renderShape(shape))}
                             {drawingShape && renderShape(drawingShape)}
-                            {/* Labels are rendered separately to ensure they are on top */}
                             <g>
                                 {scene.shapes?.map(shape => renderShapeLabel(shape))}
                                 {drawingShape && renderShapeLabel(drawingShape)}
@@ -465,31 +480,74 @@ export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate
                     {scene.tokens.map(token => {
                         const isPlayer = token.type === 'character';
                         const borderColor = isPlayer ? (token.color || 'hsl(var(--primary))') : 'hsl(var(--destructive))';
+                        
+                        const data = isPlayer 
+                            ? allPlayerCharacters.find(c => c.id === token.linked_character_id)
+                            : allEnemies.find(e => e.id === token.linked_enemy_id);
+
+                        let health, maxHealth, healthPercent;
+                        
+                        if (data) {
+                            if (isPlayer) {
+                                const character = data as PlayerCharacter;
+                                health = token.hp ?? character.hp;
+                                maxHealth = token.maxHp ?? character.maxHp;
+                            } else {
+                                const enemy = data as Enemy;
+                                health = token.hp ?? (enemy.hp ? parseInt(String(enemy.hp).split(' ')[0]) : undefined);
+                                maxHealth = token.maxHp ?? (enemy.hp ? parseInt(String(enemy.hp).split(' ')[0]) : undefined);
+                            }
+                            healthPercent = (health !== undefined && maxHealth && maxHealth > 0) ? (health / maxHealth) * 100 : 0;
+                        }
 
                         return (
-                         <div
-                            key={token.id}
-                            className={cn(
-                                "absolute",
-                                activeTool === 'pointer' ? "cursor-grab active:cursor-grabbing" : "cursor-default",
-                                selectedTokenId === token.id && "ring-4 ring-yellow-400 rounded-full z-10"
-                            )}
-                            style={{
-                                left: `${token.position.x}%`,
-                                top: `${token.position.y}%`,
-                                width: `${100 / (scene.width || 30)}%`,
-                                height: `${100 / (scene.height || 20)}%`,
-                                transform: 'translate(-50%, -50%)',
-                            }}
-                            onMouseDown={(e) => handleTokenMouseDown(e, token.id)}
-                            onMouseUp={(e) => handleTokenMouseUp(e, token.id)}
-                            onClick={(e) => handleTokenClick(e, token.id)}
-                         >
-                            <Avatar className="h-full w-full border-4 shadow-lg" style={{ borderColor }}>
-                                <AvatarImage src={token.imageUrl} className="object-cover" />
-                                <AvatarFallback>{token.name.substring(0,1)}</AvatarFallback>
-                            </Avatar>
-                         </div>
+                         <TooltipProvider key={token.id} delayDuration={100}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div
+                                        className={cn(
+                                            "absolute",
+                                            activeTool === 'pointer' ? "cursor-grab active:cursor-grabbing" : "cursor-default",
+                                            selectedTokenId === token.id && "z-10"
+                                        )}
+                                        style={{
+                                            left: `${token.position.x}%`,
+                                            top: `${token.position.y}%`,
+                                            width: `${100 / (scene.width || 30)}%`,
+                                            height: `${100 / (scene.height || 20)}%`,
+                                            transform: 'translate(-50%, -50%)',
+                                        }}
+                                        onMouseDown={(e) => handleTokenMouseDown(e, token.id)}
+                                        onMouseUp={(e) => handleTokenMouseUp(e, token.id)}
+                                        onClick={(e) => handleTokenClick(e, token.id)}
+                                    >
+                                        <div className="relative h-full w-full">
+                                            <Avatar className={cn(
+                                                "h-full w-full border-4 shadow-lg",
+                                                selectedTokenId === token.id && "ring-4 ring-yellow-400"
+                                            )} style={{ borderColor }}>
+                                                <AvatarImage src={token.imageUrl} className="object-cover" />
+                                                <AvatarFallback>{token.name.substring(0,1)}</AvatarFallback>
+                                            </Avatar>
+                                            {healthPercent !== undefined && (
+                                                <div className="absolute -bottom-1.5 left-0 w-full h-1.5 bg-gray-600 rounded-full overflow-hidden border border-black/50" style={{ transform: `scale(${1/zoom})`, transformOrigin: 'bottom' }}>
+                                                    <div 
+                                                        className={cn("h-full", isPlayer ? "bg-green-500" : "bg-red-500")}
+                                                        style={{ width: `${healthPercent}%`}}
+                                                    ></div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </TooltipTrigger>
+                                 <TooltipContent>
+                                    <p className="font-semibold">{token.name}</p>
+                                    {health !== undefined && maxHealth !== undefined && (
+                                        <p>HP: {health} / {maxHealth}</p>
+                                    )}
+                                </TooltipContent>
+                            </Tooltip>
+                         </TooltipProvider>
                         )
                     })}
                 </div>

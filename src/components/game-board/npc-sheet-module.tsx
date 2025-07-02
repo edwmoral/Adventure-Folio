@@ -42,112 +42,89 @@ export function NpcSheetModule({ scene, allEnemies, selectedTokenId, onTokenSele
     const enemy = allEnemies.find(e => e.id === token.linked_enemy_id);
     return { token, enemy };
   }, [selectedTokenId, scene, allEnemies]);
-  
-  if (!enemy || !token) {
-    return (
-      <div className="h-full p-4 space-y-4">
-        <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-          <Shield className="h-12 w-12 mb-4" />
-          <h3 className="font-semibold">Enemies & NPCs</h3>
-          <p>Select an enemy on the map or from the list below.</p>
-        </div>
-        <div className="space-y-2">
-            <Label>Select NPC</Label>
-            <Select onValueChange={onTokenSelect}>
-                <SelectTrigger>
-                    <SelectValue placeholder="Select an NPC..." />
-                </SelectTrigger>
-                <SelectContent>
-                    {npcTokens.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-            </Select>
-        </div>
-      </div>
-    );
-  }
-
-  const stats = {
-    str: enemy.str, dex: enemy.dex, con: enemy.con, int: enemy.int, wis: enemy.wis, cha: enemy.cha
-  };
-
-  const health = token.hp ?? (enemy ? parseInt(String(enemy.hp).split(' ')[0]) : undefined);
-  const maxHealth = token.maxHp ?? (enemy ? parseInt(String(enemy.hp).split(' ')[0]) : undefined);
-  const healthPercent = (health !== undefined && maxHealth && maxHealth > 0) ? (health / maxHealth) * 100 : 100;
-  
-  const ac = enemy.ac;
-  const speed = enemy.speed;
 
   return (
-    <ScrollArea className="h-full">
-        <div className="p-4 space-y-4">
-            <div className="space-y-2">
-              <Label>Select NPC</Label>
-              <Select value={selectedTokenId || ''} onValueChange={onTokenSelect}>
-                  <SelectTrigger>
-                      <SelectValue placeholder="Select an NPC..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                      {npcTokens.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                  </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-4">
-                <Avatar className="h-20 w-20 border-4 border-destructive">
-                    <AvatarImage src={token.imageUrl} data-ai-hint="fantasy monster icon" />
-                    <AvatarFallback>{token.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div>
-                    <h2 className="text-2xl font-bold font-headline">{token.name}</h2>
-                    <p className="text-muted-foreground">
-                        {enemy.type}
-                    </p>
+    <div className="h-full flex flex-col">
+      <div className="p-4 border-b">
+        <Label>Select NPC</Label>
+        <Select value={selectedTokenId || ''} onValueChange={onTokenSelect}>
+            <SelectTrigger>
+                <SelectValue placeholder="Select an NPC..." />
+            </SelectTrigger>
+            <SelectContent>
+                {npcTokens.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+            </SelectContent>
+        </Select>
+      </div>
+
+      <ScrollArea className="flex-1">
+        {enemy && token ? (
+            <div className="p-4 space-y-4">
+                <div className="flex items-center gap-4">
+                    <Avatar className="h-20 w-20 border-4 border-destructive">
+                        <AvatarImage src={token.imageUrl} data-ai-hint="fantasy monster icon" />
+                        <AvatarFallback>{token.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                        <h2 className="text-2xl font-bold font-headline">{token.name}</h2>
+                        <p className="text-muted-foreground">
+                            {enemy.type}
+                        </p>
+                    </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                    <div className="flex justify-between text-sm font-medium">
+                        <span>Health</span>
+                        <span>{token.hp ?? 'N/A'} / {token.maxHp ?? 'N/A'}</span>
+                    </div>
+                    <Progress value={token.hp && token.maxHp ? (token.hp/token.maxHp)*100 : 0} className={"[&>div]:bg-red-500"} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                    <StatDisplay icon={<Shield />} label="Armor Class" value={enemy.ac} />
+                    <StatDisplay icon={<Footprints />} label="Speed" value={enemy.speed} />
+                </div>
+
+                <Separator />
+                
+                <div className="grid grid-cols-3 gap-2">
+                    <StatDisplay icon={<>STR</>} label="Strength" value={enemy.str} />
+                    <StatDisplay icon={<>DEX</>} label="Dexterity" value={enemy.dex} />
+                    <StatDisplay icon={<>CON</>} label="Constitution" value={enemy.con} />
+                    <StatDisplay icon={<>INT</>} label="Intelligence" value={enemy.int} />
+                    <StatDisplay icon={<>WIS</>} label="Wisdom" value={enemy.wis} />
+                    <StatDisplay icon={<>CHA</>} label="Charisma" value={enemy.cha} />
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                    <h3 className="font-semibold">Actions & Traits</h3>
+                    <div className="text-sm text-muted-foreground space-y-2">
+                        {enemy.trait?.map(t => (
+                            <div key={t.name}>
+                                <p><span className="font-bold text-foreground">{t.name}.</span> {t.text}</p>
+                            </div>
+                        ))}
+                        {enemy.action?.map(a => (
+                            <div key={a.name}>
+                                <p><span className="font-bold text-foreground">{a.name}.</span> {a.text}</p>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-                <div className="flex justify-between text-sm font-medium">
-                    <span>Health</span>
-                    <span>{health} / {maxHealth}</span>
-                </div>
-                <Progress value={healthPercent} className={"[&>div]:bg-red-500"} />
+        ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4">
+                <Shield className="h-12 w-12 mb-4" />
+                <h3 className="font-semibold">Enemies & NPCs</h3>
+                <p>Select an enemy on the map or from the list above.</p>
             </div>
-
-            <div className="grid grid-cols-2 gap-2">
-                <StatDisplay icon={<Shield />} label="Armor Class" value={ac} />
-                <StatDisplay icon={<Footprints />} label="Speed" value={speed} />
-            </div>
-
-            <Separator />
-            
-            <div className="grid grid-cols-3 gap-2">
-                <StatDisplay icon={<>STR</>} label="Strength" value={stats.str} />
-                <StatDisplay icon={<>DEX</>} label="Dexterity" value={stats.dex} />
-                <StatDisplay icon={<>CON</>} label="Constitution" value={stats.con} />
-                <StatDisplay icon={<>INT</>} label="Intelligence" value={stats.int} />
-                <StatDisplay icon={<>WIS</>} label="Wisdom" value={stats.wis} />
-                <StatDisplay icon={<>CHA</>} label="Charisma" value={stats.cha} />
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-                <h3 className="font-semibold">Actions & Traits</h3>
-                <div className="text-sm text-muted-foreground space-y-2">
-                    {enemy.trait?.map(t => (
-                        <div key={t.name}>
-                            <p><span className="font-bold text-foreground">{t.name}.</span> {t.text}</p>
-                        </div>
-                    ))}
-                    {enemy.action?.map(a => (
-                        <div key={a.name}>
-                            <p><span className="font-bold text-foreground">{a.name}.</span> {a.text}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    </ScrollArea>
+        )}
+      </ScrollArea>
+    </div>
   );
 }
