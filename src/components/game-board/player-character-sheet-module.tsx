@@ -6,13 +6,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Shield, Footprints, Users } from 'lucide-react';
-import type { PlayerCharacter, Scene } from '@/lib/types';
+import type { PlayerCharacter, Scene, Token } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 interface PlayerCharacterSheetModuleProps {
   scene: Scene | null;
   allPlayerCharacters: PlayerCharacter[];
   selectedTokenId: string | null;
+  onTokenSelect: (id: string | null) => void;
 }
 
 const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string | number }) => (
@@ -23,8 +26,13 @@ const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: str
     </div>
 );
 
-export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, selectedTokenId }: PlayerCharacterSheetModuleProps) {
+export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, selectedTokenId, onTokenSelect }: PlayerCharacterSheetModuleProps) {
   
+  const playerTokens = useMemo(() => {
+    if (!scene) return [];
+    return scene.tokens.filter(t => t.type === 'character');
+  }, [scene]);
+
   const { token, character } = useMemo(() => {
     if (!selectedTokenId || !scene) return { token: null, character: null };
 
@@ -37,10 +45,23 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, selecte
 
   if (!character || !token) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4">
-        <Users className="h-12 w-12 mb-4" />
-        <h3 className="font-semibold">Player Characters</h3>
-        <p>Select a player character on the map to view their details.</p>
+      <div className="h-full p-4 space-y-4">
+        <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+          <Users className="h-12 w-12 mb-4" />
+          <h3 className="font-semibold">Player Characters</h3>
+          <p>Select a player on the map or from the list below.</p>
+        </div>
+        <div className="space-y-2">
+            <Label>Select Character</Label>
+            <Select onValueChange={onTokenSelect}>
+                <SelectTrigger>
+                    <SelectValue placeholder="Select a character..." />
+                </SelectTrigger>
+                <SelectContent>
+                    {playerTokens.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+            </Select>
+        </div>
       </div>
     );
   }
@@ -55,6 +76,17 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, selecte
   return (
     <ScrollArea className="h-full">
         <div className="p-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Select Character</Label>
+              <Select value={selectedTokenId || ''} onValueChange={onTokenSelect}>
+                  <SelectTrigger>
+                      <SelectValue placeholder="Select a character..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {playerTokens.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20 border-4" style={{ borderColor: character.tokenBorderColor || 'hsl(var(--primary))' }}>
                     <AvatarImage src={token.imageUrl} data-ai-hint="fantasy character icon" />

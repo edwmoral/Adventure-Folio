@@ -6,13 +6,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Shield, Footprints } from 'lucide-react';
-import type { Enemy, Scene } from '@/lib/types';
+import type { Enemy, Scene, Token } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 interface NpcSheetModuleProps {
   scene: Scene | null;
   allEnemies: Enemy[];
   selectedTokenId: string | null;
+  onTokenSelect: (id: string | null) => void;
 }
 
 const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string | number }) => (
@@ -23,8 +26,13 @@ const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: str
     </div>
 );
 
-export function NpcSheetModule({ scene, allEnemies, selectedTokenId }: NpcSheetModuleProps) {
+export function NpcSheetModule({ scene, allEnemies, selectedTokenId, onTokenSelect }: NpcSheetModuleProps) {
   
+  const npcTokens = useMemo(() => {
+    if (!scene) return [];
+    return scene.tokens.filter(t => t.type === 'monster' || t.type === 'npc');
+  }, [scene]);
+
   const { token, enemy } = useMemo(() => {
     if (!selectedTokenId || !scene) return { token: null, enemy: null };
 
@@ -37,10 +45,23 @@ export function NpcSheetModule({ scene, allEnemies, selectedTokenId }: NpcSheetM
   
   if (!enemy || !token) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4">
-        <Shield className="h-12 w-12 mb-4" />
-        <h3 className="font-semibold">Enemies & NPCs</h3>
-        <p>Select an enemy or NPC on the map to view their details.</p>
+      <div className="h-full p-4 space-y-4">
+        <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+          <Shield className="h-12 w-12 mb-4" />
+          <h3 className="font-semibold">Enemies & NPCs</h3>
+          <p>Select an enemy on the map or from the list below.</p>
+        </div>
+        <div className="space-y-2">
+            <Label>Select NPC</Label>
+            <Select onValueChange={onTokenSelect}>
+                <SelectTrigger>
+                    <SelectValue placeholder="Select an NPC..." />
+                </SelectTrigger>
+                <SelectContent>
+                    {npcTokens.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+            </Select>
+        </div>
       </div>
     );
   }
@@ -59,6 +80,17 @@ export function NpcSheetModule({ scene, allEnemies, selectedTokenId }: NpcSheetM
   return (
     <ScrollArea className="h-full">
         <div className="p-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Select NPC</Label>
+              <Select value={selectedTokenId || ''} onValueChange={onTokenSelect}>
+                  <SelectTrigger>
+                      <SelectValue placeholder="Select an NPC..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {npcTokens.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20 border-4 border-destructive">
                     <AvatarImage src={token.imageUrl} data-ai-hint="fantasy monster icon" />
