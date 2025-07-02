@@ -50,7 +50,7 @@ export function ModulePanel({
                         enemy={enemy} 
                     />
                 </TabsContent>
-                <TabsContent value="menu" className="p-4 mt-0">
+                <TabsContent value="menu" className="flex-1 min-h-0 mt-0 p-4">
                     <MenuModule onTogglePosition={onTogglePosition} currentPosition={currentPosition} />
                 </TabsContent>
             </Tabs>
