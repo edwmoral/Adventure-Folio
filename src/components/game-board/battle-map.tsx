@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import type { Scene, Token, Shape } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, Grid, Pointer, Circle, Triangle, Minus } from 'lucide-react';
+import { ZoomIn, ZoomOut, Grid, Pointer, Circle, Triangle, Minus, Ruler } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +23,8 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
     const [pendingUpdate, setPendingUpdate] = useState<{ scene: Scene, description: string } | null>(null);
     
     const [activeTool, setActiveTool] = useState<'pointer' | 'circle' | 'cone' | 'line'>('pointer');
+    const [lastUsedTool, setLastUsedTool] = useState<'circle' | 'cone' | 'line'>('circle');
+    const [isMeasureToolsOpen, setIsMeasureToolsOpen] = useState(false);
     const [drawingShape, setDrawingShape] = useState<Shape | null>(null);
     
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -267,19 +269,32 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
     }
 
     const renderShape = (shape: Shape) => {
+        const borderStrokeWidth = 2.5 / zoom;
+        const mainStrokeWidth = 1 / zoom;
+
         if (shape.type === 'circle') {
             const heightRadius = shape.radius * ((scene.width || 30) / (scene.height || 20));
             return (
-                <ellipse
-                    key={shape.id}
-                    cx={`${shape.center.x}%`}
-                    cy={`${shape.center.y}%`}
-                    rx={`${shape.radius}%`}
-                    ry={`${heightRadius}%`}
-                    fill={`${shape.color}4D`}
-                    stroke={shape.color}
-                    strokeWidth={2 / zoom}
-                />
+                <g key={shape.id}>
+                    <ellipse
+                        cx={`${shape.center.x}%`}
+                        cy={`${shape.center.y}%`}
+                        rx={`${shape.radius}%`}
+                        ry={`${heightRadius}%`}
+                        fill={`${shape.color}4D`}
+                        stroke="black"
+                        strokeWidth={borderStrokeWidth}
+                    />
+                    <ellipse
+                        cx={`${shape.center.x}%`}
+                        cy={`${shape.center.y}%`}
+                        rx={`${shape.radius}%`}
+                        ry={`${heightRadius}%`}
+                        fill="none"
+                        stroke={shape.color}
+                        strokeWidth={mainStrokeWidth}
+                    />
+                </g>
             );
         }
         if (shape.type === 'cone') {
@@ -308,10 +323,64 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
 
             const pathData = `M ${origin.x},${origin.y} L ${p1x},${p1y} A ${arc_radius_x_pc},${arc_radius_y_pc} 0 0 1 ${p2x},${p2y} Z`;
             
-            return <path key={shape.id} d={pathData} fill={`${shape.color}4D`} stroke={shape.color} strokeWidth={2/zoom} />
+            return (
+                <g key={shape.id}>
+                    <path d={pathData} fill={`${shape.color}4D`} stroke="black" strokeWidth={borderStrokeWidth} />
+                    <path d={pathData} fill="none" stroke={shape.color} strokeWidth={mainStrokeWidth} />
+                </g>
+            )
         }
         if (shape.type === 'line') {
             const { start, end } = shape;
+            return (
+                <g key={shape.id}>
+                     <line
+                        x1={`${start.x}%`}
+                        y1={`${start.y}%`}
+                        x2={`${end.x}%`}
+                        y2={`${end.y}%`}
+                        stroke="black"
+                        strokeWidth={borderStrokeWidth}
+                        strokeLinecap="round"
+                    />
+                    <line
+                        x1={`${start.x}%`}
+                        y1={`${start.y}%`}
+                        x2={`${end.x}%`}
+                        y2={`${end.y}%`}
+                        stroke={shape.color}
+                        strokeWidth={mainStrokeWidth}
+                        strokeLinecap="round"
+                    />
+                </g>
+            );
+        }
+        return null;
+    }
+
+    const renderShapeLabel = (shape: Shape) => {
+        const textStyle: React.CSSProperties = {
+            fill: "white",
+            stroke: "black",
+            strokeWidth: 0.5 / zoom,
+            fontSize: 14 / zoom,
+            textAnchor: "middle",
+            paintOrder: 'stroke',
+            fontWeight: 'bold',
+        };
+
+        if (shape.type === 'circle') {
+             const mapWidthInFt = (scene.width || 30) * 5;
+             const diameter = ((shape.radius / 100) * mapWidthInFt * 2).toFixed(0);
+            return (
+                <text key={`${shape.id}-label`} x={`${shape.center.x}%`} y={`${shape.center.y}%`} dominantBaseline="middle" {...textStyle}>
+                   {diameter}
+                </text>
+            );
+        }
+        if (shape.type === 'cone' || shape.type === 'line') {
+            const start = shape.type === 'cone' ? shape.origin : shape.start;
+            const end = shape.type === 'cone' ? shape.endPoint : shape.end;
             const dx_pc = end.x - start.x;
             const dy_pc = end.y - start.y;
             const map_width_ft = (scene.width || 30) * 5;
@@ -321,34 +390,35 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
             const length_ft = Math.hypot(dx_ft, dy_ft);
 
             return (
-                <g key={shape.id}>
-                    <line
-                        x1={`${start.x}%`}
-                        y1={`${start.y}%`}
-                        x2={`${end.x}%`}
-                        y2={`${end.y}%`}
-                        stroke={shape.color}
-                        strokeWidth={2 / zoom}
-                        strokeLinecap="round"
-                    />
-                    <text
-                        x={(start.x + end.x) / 2}
-                        y={(start.y + end.y) / 2}
-                        fill="white"
-                        stroke="black"
-                        strokeWidth={0.5 / zoom}
-                        fontSize={14 / zoom}
-                        textAnchor="middle"
-                        dominantBaseline="text-after-edge"
-                        dy={-5 / zoom}
-                    >
-                        {`${length_ft.toFixed(0)}`}
-                    </text>
-                </g>
+                <text key={`${shape.id}-label`} x={`${(start.x + end.x) / 2}%`} y={`${(start.y + end.y) / 2}%`} dominantBaseline="text-after-edge" dy={-5 / zoom} {...textStyle}>
+                   {`${length_ft.toFixed(0)}`}
+                </text>
             );
         }
         return null;
     }
+    
+    const handleToolSelect = (tool: 'circle' | 'cone' | 'line') => {
+        setActiveTool(tool);
+        setLastUsedTool(tool);
+        setIsMeasureToolsOpen(false);
+    };
+
+    const handleMeasureButtonClick = () => {
+        if (isMeasureToolsOpen) {
+            setIsMeasureToolsOpen(false);
+            setActiveTool('pointer');
+        } else {
+            setIsMeasureToolsOpen(true);
+            setActiveTool(lastUsedTool);
+        }
+    };
+
+    const handlePointerSelect = () => {
+        setActiveTool('pointer');
+        setIsMeasureToolsOpen(false);
+    }
+
 
     return (
         <div 
@@ -385,73 +455,9 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                         <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
                             {scene.shapes?.map(shape => renderShape(shape))}
                             {drawingShape && renderShape(drawingShape)}
-
-                            {drawingShape?.type === 'circle' && (
-                                <text
-                                    x={drawingShape.center.x}
-                                    y={drawingShape.center.y}
-                                    fill="white"
-                                    stroke="black"
-                                    strokeWidth={0.5 / zoom}
-                                    fontSize={14 / zoom}
-                                    textAnchor="middle"
-                                    dominantBaseline="middle"
-                                >
-                                    {`${(((drawingShape.radius / 100) * ((scene.width || 30) * 5)) * 2).toFixed(0)}`}
-                                </text>
-                            )}
-
-                             {drawingShape?.type === 'cone' && (() => {
-                                const {origin, endPoint} = drawingShape;
-                                const dx_pc = endPoint.x - origin.x;
-                                const dy_pc = endPoint.y - origin.y;
-                                const map_width_ft = (scene.width || 30) * 5;
-                                const map_height_ft = (scene.height || 20) * 5;
-                                const dx_ft = dx_pc / 100 * map_width_ft;
-                                const dy_ft = dy_pc / 100 * map_height_ft;
-                                const length_ft = Math.hypot(dx_ft, dy_ft);
-                                return (
-                                    <text
-                                        x={endPoint.x}
-                                        y={endPoint.y}
-                                        fill="white"
-                                        stroke="black"
-                                        strokeWidth={0.5 / zoom}
-                                        fontSize={14 / zoom}
-                                        textAnchor="middle"
-                                        dominantBaseline="text-after-edge"
-                                        dy={-5 / zoom}
-                                    >
-                                        {`${length_ft.toFixed(0)}`}
-                                    </text>
-                                )
-                             })()}
-
-                            {drawingShape?.type === 'line' && (() => {
-                                const {start, end} = drawingShape;
-                                const dx_pc = end.x - start.x;
-                                const dy_pc = end.y - start.y;
-                                const map_width_ft = (scene.width || 30) * 5;
-                                const map_height_ft = (scene.height || 20) * 5;
-                                const dx_ft = dx_pc / 100 * map_width_ft;
-                                const dy_ft = dy_pc / 100 * map_height_ft;
-                                const length_ft = Math.hypot(dx_ft, dy_ft);
-                                return (
-                                    <text
-                                        x={(start.x + end.x) / 2}
-                                        y={(start.y + end.y) / 2}
-                                        fill="white"
-                                        stroke="black"
-                                        strokeWidth={0.5 / zoom}
-                                        fontSize={14 / zoom}
-                                        textAnchor="middle"
-                                        dominantBaseline="text-after-edge"
-                                        dy={-5 / zoom}
-                                    >
-                                        {`${length_ft.toFixed(0)}`}
-                                    </text>
-                                )
-                             })()}
+                            {/* Labels are rendered separately to ensure they are on top */}
+                            {scene.shapes?.map(shape => renderShapeLabel(shape))}
+                            {drawingShape && renderShapeLabel(drawingShape)}
                         </svg>
                     </div>
 
@@ -477,42 +483,27 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                     ))}
                 </div>
             </div>
-             <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                <Button variant="secondary" size="icon" onClick={() => setZoom(z => z * 1.2)}><ZoomIn /></Button>
-                <Button variant="secondary" size="icon" onClick={() => setZoom(z => z / 1.2)}><ZoomOut /></Button>
-                <Button variant="secondary" size="icon" onClick={() => setShowGrid(g => !g)}><Grid /></Button>
-                <Button 
-                    variant="secondary" 
-                    size="icon" 
-                    onClick={() => setActiveTool('pointer')}
-                    className={cn(activeTool === 'pointer' && 'ring-2 ring-primary')}
-                >
-                    <Pointer />
-                </Button>
-                <Button 
-                    variant="secondary" 
-                    size="icon" 
-                    onClick={() => setActiveTool('circle')}
-                    className={cn(activeTool === 'circle' && 'ring-2 ring-primary')}
-                >
-                    <Circle />
-                </Button>
-                <Button 
-                    variant="secondary" 
-                    size="icon" 
-                    onClick={() => setActiveTool('cone')}
-                    className={cn(activeTool === 'cone' && 'ring-2 ring-primary')}
-                >
-                    <Triangle />
-                </Button>
-                 <Button 
-                    variant="secondary" 
-                    size="icon" 
-                    onClick={() => setActiveTool('line')}
-                    className={cn(activeTool === 'line' && 'ring-2 ring-primary')}
-                >
-                    <Minus />
-                </Button>
+             <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2">
+                {isMeasureToolsOpen && (
+                    <div className="flex items-center gap-2 p-1 bg-secondary rounded-md">
+                        <Button variant="ghost" size="icon" onClick={() => handleToolSelect('circle')} className={cn(activeTool === 'circle' && 'bg-primary/20 text-primary-foreground')}>
+                            <Circle />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleToolSelect('cone')} className={cn(activeTool === 'cone' && 'bg-primary/20 text-primary-foreground')}>
+                            <Triangle />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleToolSelect('line')} className={cn(activeTool === 'line' && 'bg-primary/20 text-primary-foreground')}>
+                            <Minus />
+                        </Button>
+                    </div>
+                )}
+                 <div className="flex items-center gap-2 p-1 bg-secondary rounded-md">
+                    <Button variant="ghost" size="icon" onClick={() => setZoom(z => z * 1.2)}><ZoomIn /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => setZoom(z => z / 1.2)}><ZoomOut /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => setShowGrid(g => !g)} className={cn(showGrid && 'bg-primary/20 text-primary-foreground')}><Grid /></Button>
+                    <Button variant="ghost" size="icon" onClick={handlePointerSelect} className={cn(activeTool === 'pointer' && 'bg-primary/20 text-primary-foreground')}><Pointer /></Button>
+                    <Button variant="ghost" size="icon" onClick={handleMeasureButtonClick} className={cn(isMeasureToolsOpen && 'bg-primary/20 text-primary-foreground')}><Ruler /></Button>
+                </div>
             </div>
         </div>
     );
