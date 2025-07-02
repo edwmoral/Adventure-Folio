@@ -5,6 +5,7 @@
 
 
 
+
 // --- Base & Container Types ---
 
 export type CircleShape = {
@@ -23,7 +24,15 @@ export type ConeShape = {
     color: string;
 };
 
-export type Shape = CircleShape | ConeShape;
+export type LineShape = {
+    id: string;
+    type: 'line';
+    start: { x: number; y: number };
+    end: { x: number; y: number };
+    color: string;
+};
+
+export type Shape = CircleShape | ConeShape | LineShape;
 
 export type Token = {
   id: string;

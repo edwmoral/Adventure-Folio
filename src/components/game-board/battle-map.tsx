@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import type { Scene, Token, Shape } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, Grid, Pointer, Circle, Triangle } from 'lucide-react';
+import { ZoomIn, ZoomOut, Grid, Pointer, Circle, Triangle, Minus } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +22,7 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
     const [showConfirm, setShowConfirm] = useState(false);
     const [pendingUpdate, setPendingUpdate] = useState<{ scene: Scene, description: string } | null>(null);
     
-    const [activeTool, setActiveTool] = useState<'pointer' | 'circle' | 'cone'>('pointer');
+    const [activeTool, setActiveTool] = useState<'pointer' | 'circle' | 'cone' | 'line'>('pointer');
     const [drawingShape, setDrawingShape] = useState<Shape | null>(null);
     
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -53,7 +53,7 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
         }
 
         if (e.button === 0 && mapContainerRef.current) {
-            if (activeTool === 'circle' || activeTool === 'cone') {
+            if (activeTool === 'circle' || activeTool === 'cone' || activeTool === 'line') {
                 e.preventDefault();
                 const containerRect = mapContainerRef.current.getBoundingClientRect();
                 const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
@@ -76,6 +76,14 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                         type: 'cone',
                         origin: { x: pointX, y: pointY },
                         endPoint: { x: pointX, y: pointY },
+                        color: '#ef4444'
+                    });
+                } else if (activeTool === 'line') {
+                    setDrawingShape({
+                        id: `shape-${Date.now()}`,
+                        type: 'line',
+                        start: { x: pointX, y: pointY },
+                        end: { x: pointX, y: pointY },
                         color: '#ef4444'
                     });
                 }
@@ -116,6 +124,8 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
 
             } else if (drawingShape.type === 'cone') {
                 setDrawingShape(prev => prev?.type === 'cone' ? { ...prev, endPoint: { x: currentX_pc, y: currentY_pc } } : null);
+            } else if (drawingShape.type === 'line') {
+                 setDrawingShape(prev => prev?.type === 'line' ? { ...prev, end: { x: currentX_pc, y: currentY_pc } } : null);
             }
         }
     };
@@ -148,6 +158,18 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                     const dy_ft = dy / 100 * mapHeightInFt;
                     const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
                     description = `Draw a cone with a ${lengthInFt}ft length.`;
+                }
+            } else if (finalShape.type === 'line') {
+                const dx = finalShape.end.x - finalShape.start.x;
+                const dy = finalShape.end.y - finalShape.start.y;
+                if (Math.hypot(dx, dy) < 1) { ignore = true; }
+                else {
+                    const mapWidthInFt = (scene.width || 30) * 5;
+                    const mapHeightInFt = (scene.height || 20) * 5;
+                    const dx_ft = dx / 100 * mapWidthInFt;
+                    const dy_ft = dy / 100 * mapHeightInFt;
+                    const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
+                    description = `Draw a line ${lengthInFt}ft long.`;
                 }
             }
 
@@ -288,6 +310,43 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
             
             return <path key={shape.id} d={pathData} fill={`${shape.color}4D`} stroke={shape.color} strokeWidth={2/zoom} />
         }
+        if (shape.type === 'line') {
+            const { start, end } = shape;
+            const dx_pc = end.x - start.x;
+            const dy_pc = end.y - start.y;
+            const map_width_ft = (scene.width || 30) * 5;
+            const map_height_ft = (scene.height || 20) * 5;
+            const dx_ft = dx_pc / 100 * map_width_ft;
+            const dy_ft = dy_pc / 100 * map_height_ft;
+            const length_ft = Math.hypot(dx_ft, dy_ft);
+
+            return (
+                <g key={shape.id}>
+                    <line
+                        x1={`${start.x}%`}
+                        y1={`${start.y}%`}
+                        x2={`${end.x}%`}
+                        y2={`${end.y}%`}
+                        stroke={shape.color}
+                        strokeWidth={2 / zoom}
+                        strokeLinecap="round"
+                    />
+                    <text
+                        x={(start.x + end.x) / 2}
+                        y={(start.y + end.y) / 2}
+                        fill="white"
+                        stroke="black"
+                        strokeWidth={0.5 / zoom}
+                        fontSize={14 / zoom}
+                        textAnchor="middle"
+                        dominantBaseline="text-after-edge"
+                        dy={-5 / zoom}
+                    >
+                        {`${length_ft.toFixed(0)}`}
+                    </text>
+                </g>
+            );
+        }
         return null;
     }
 
@@ -338,7 +397,7 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                                     textAnchor="middle"
                                     dominantBaseline="middle"
                                 >
-                                    {`D: ${(((drawingShape.radius / 100) * ((scene.width || 30) * 5)) * 2).toFixed(0)}ft`}
+                                    {`${(((drawingShape.radius / 100) * ((scene.width || 30) * 5)) * 2).toFixed(0)}`}
                                 </text>
                             )}
 
@@ -363,7 +422,33 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                                         dominantBaseline="text-after-edge"
                                         dy={-5 / zoom}
                                     >
-                                        {`${length_ft.toFixed(0)}ft`}
+                                        {`${length_ft.toFixed(0)}`}
+                                    </text>
+                                )
+                             })()}
+
+                            {drawingShape?.type === 'line' && (() => {
+                                const {start, end} = drawingShape;
+                                const dx_pc = end.x - start.x;
+                                const dy_pc = end.y - start.y;
+                                const map_width_ft = (scene.width || 30) * 5;
+                                const map_height_ft = (scene.height || 20) * 5;
+                                const dx_ft = dx_pc / 100 * map_width_ft;
+                                const dy_ft = dy_pc / 100 * map_height_ft;
+                                const length_ft = Math.hypot(dx_ft, dy_ft);
+                                return (
+                                    <text
+                                        x={(start.x + end.x) / 2}
+                                        y={(start.y + end.y) / 2}
+                                        fill="white"
+                                        stroke="black"
+                                        strokeWidth={0.5 / zoom}
+                                        fontSize={14 / zoom}
+                                        textAnchor="middle"
+                                        dominantBaseline="text-after-edge"
+                                        dy={-5 / zoom}
+                                    >
+                                        {`${length_ft.toFixed(0)}`}
                                     </text>
                                 )
                              })()}
@@ -419,6 +504,14 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                     className={cn(activeTool === 'cone' && 'ring-2 ring-primary')}
                 >
                     <Triangle />
+                </Button>
+                 <Button 
+                    variant="secondary" 
+                    size="icon" 
+                    onClick={() => setActiveTool('line')}
+                    className={cn(activeTool === 'line' && 'ring-2 ring-primary')}
+                >
+                    <Minus />
                 </Button>
             </div>
         </div>
