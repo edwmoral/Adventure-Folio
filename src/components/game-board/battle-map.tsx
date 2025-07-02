@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import type { Scene, Token, Shape } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, Grid, Pointer, Circle } from 'lucide-react';
+import { ZoomIn, ZoomOut, Grid, Pointer, Circle, Triangle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +22,7 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
     const [showConfirm, setShowConfirm] = useState(false);
     const [pendingUpdate, setPendingUpdate] = useState<{ scene: Scene, description: string } | null>(null);
     
-    const [activeTool, setActiveTool] = useState<'pointer' | 'circle'>('pointer');
+    const [activeTool, setActiveTool] = useState<'pointer' | 'circle' | 'cone'>('pointer');
     const [drawingShape, setDrawingShape] = useState<Shape | null>(null);
     
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -52,23 +52,34 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
             return;
         }
 
-        // Circle drawing logic (left mouse button)
-        if (e.button === 0 && activeTool === 'circle' && mapContainerRef.current) {
-            e.preventDefault();
-            const containerRect = mapContainerRef.current.getBoundingClientRect();
-            const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
-            const mapY = (e.clientY - containerRect.top - pan.y) / zoom;
-            
-            const centerX = (mapX / mapContainerRef.current.offsetWidth) * 100;
-            const centerY = (mapY / mapContainerRef.current.offsetHeight) * 100;
-            
-            setDrawingShape({
-                id: `shape-${Date.now()}`,
-                type: 'circle',
-                center: { x: centerX, y: centerY },
-                radius: 0,
-                color: '#ef4444' // A red color for the tool
-            });
+        if (e.button === 0 && mapContainerRef.current) {
+            if (activeTool === 'circle' || activeTool === 'cone') {
+                e.preventDefault();
+                const containerRect = mapContainerRef.current.getBoundingClientRect();
+                const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
+                const mapY = (e.clientY - containerRect.top - pan.y) / zoom;
+                
+                const pointX = (mapX / mapContainerRef.current.offsetWidth) * 100;
+                const pointY = (mapY / mapContainerRef.current.offsetHeight) * 100;
+
+                if (activeTool === 'circle') {
+                    setDrawingShape({
+                        id: `shape-${Date.now()}`,
+                        type: 'circle',
+                        center: { x: pointX, y: pointY },
+                        radius: 0,
+                        color: '#ef4444' // A red color for the tool
+                    });
+                } else if (activeTool === 'cone') {
+                     setDrawingShape({
+                        id: `shape-${Date.now()}`,
+                        type: 'cone',
+                        origin: { x: pointX, y: pointY },
+                        endPoint: { x: pointX, y: pointY },
+                        color: '#ef4444'
+                    });
+                }
+            }
         }
     };
 
@@ -91,16 +102,21 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
             const currentX_pc = (mapX / mapWidthPixels) * 100;
             const currentY_pc = (mapY / mapHeightPixels) * 100;
 
-            const dx_pc = currentX_pc - drawingShape.center.x;
-            const dy_pc = currentY_pc - drawingShape.center.y;
+            if (drawingShape.type === 'circle') {
+                const dx_pc = currentX_pc - drawingShape.center.x;
+                const dy_pc = currentY_pc - drawingShape.center.y;
 
-            const dx_px = dx_pc / 100 * mapWidthPixels;
-            const dy_px = dy_pc / 100 * mapHeightPixels;
+                const dx_px = dx_pc / 100 * mapWidthPixels;
+                const dy_px = dy_pc / 100 * mapHeightPixels;
 
-            const radius_px = Math.hypot(dx_px, dy_px);
-            const radius_pc = (radius_px / mapWidthPixels) * 100;
+                const radius_px = Math.hypot(dx_px, dy_px);
+                const radius_pc = (radius_px / mapWidthPixels) * 100;
+                
+                setDrawingShape(prev => prev?.type === 'circle' ? { ...prev, radius: radius_pc } : null);
 
-            setDrawingShape(prev => prev ? { ...prev, radius: radius_pc } : null);
+            } else if (drawingShape.type === 'cone') {
+                setDrawingShape(prev => prev?.type === 'cone' ? { ...prev, endPoint: { x: currentX_pc, y: currentY_pc } } : null);
+            }
         }
     };
 
@@ -111,23 +127,38 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
         
         if (drawingShape) {
             const finalShape = { ...drawingShape };
-            
-            if (finalShape.radius < 1) { // Ignore tiny accidental clicks
-                setDrawingShape(null);
-                return;
+            let description = '';
+            let ignore = false;
+
+            if (finalShape.type === 'circle') {
+                if (finalShape.radius < 1) { ignore = true; } // Ignore tiny accidental clicks
+                else {
+                    const mapWidthInFt = (scene.width || 30) * 5;
+                    const diameterInFt = ((finalShape.radius / 100) * mapWidthInFt * 2).toFixed(0);
+                    description = `Draw a circle with a ${diameterInFt}ft diameter.`;
+                }
+            } else if (finalShape.type === 'cone') {
+                const dx = finalShape.endPoint.x - finalShape.origin.x;
+                const dy = finalShape.endPoint.y - finalShape.origin.y;
+                if (Math.hypot(dx, dy) < 1) { ignore = true; }
+                else {
+                    const mapWidthInFt = (scene.width || 30) * 5;
+                    const mapHeightInFt = (scene.height || 20) * 5;
+                    const dx_ft = dx / 100 * mapWidthInFt;
+                    const dy_ft = dy / 100 * mapHeightInFt;
+                    const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
+                    description = `Draw a cone with a ${lengthInFt}ft length.`;
+                }
             }
-            
-            const mapWidthInFt = (scene.width || 30) * 5;
-            const radiusInFt = (finalShape.radius / 100) * mapWidthInFt;
 
-            const description = `Draw a circle with a ${radiusInFt.toFixed(0)}ft radius.`;
-            
-            setPendingUpdate({
-                scene: { ...scene, shapes: [...(scene.shapes || []), finalShape] },
-                description: description
-            });
+            if (!ignore) {
+                 setPendingUpdate({
+                    scene: { ...scene, shapes: [...(scene.shapes || []), finalShape] },
+                    description: description
+                });
+                setShowConfirm(true);
+            }
 
-            setShowConfirm(true);
             setDrawingShape(null);
             setActiveTool('pointer');
         }
@@ -213,9 +244,56 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
         toast({ title: 'Action Cancelled' });
     }
 
+    const renderShape = (shape: Shape) => {
+        if (shape.type === 'circle') {
+            const heightRadius = shape.radius * ((scene.width || 30) / (scene.height || 20));
+            return (
+                <ellipse
+                    key={shape.id}
+                    cx={`${shape.center.x}%`}
+                    cy={`${shape.center.y}%`}
+                    rx={`${shape.radius}%`}
+                    ry={`${heightRadius}%`}
+                    fill={`${shape.color}4D`}
+                    stroke={shape.color}
+                    strokeWidth={2 / zoom}
+                />
+            );
+        }
+        if (shape.type === 'cone') {
+            const { origin, endPoint } = shape;
+            const dx_pc = endPoint.x - origin.x;
+            const dy_pc = endPoint.y - origin.y;
+            const map_width_ft = (scene.width || 30) * 5;
+            const map_height_ft = (scene.height || 20) * 5;
+            const dx_ft = dx_pc / 100 * map_width_ft;
+            const dy_ft = dy_pc / 100 * map_height_ft;
+            const length_ft = Math.hypot(dx_ft, dy_ft);
+
+            if (length_ft === 0) return null;
+
+            const arc_radius_x_pc = (length_ft / map_width_ft) * 100;
+            const arc_radius_y_pc = (length_ft / map_height_ft) * 100;
+
+            const angle = Math.atan2(dy_pc, dx_pc);
+            const angle1 = angle - Math.PI / 4;
+            const angle2 = angle + Math.PI / 4;
+
+            const p1x = origin.x + arc_radius_x_pc * Math.cos(angle1);
+            const p1y = origin.y + arc_radius_y_pc * Math.sin(angle1);
+            const p2x = origin.x + arc_radius_x_pc * Math.cos(angle2);
+            const p2y = origin.y + arc_radius_y_pc * Math.sin(angle2);
+
+            const pathData = `M ${origin.x},${origin.y} L ${p1x},${p1y} A ${arc_radius_x_pc},${arc_radius_y_pc} 0 0 1 ${p2x},${p2y} Z`;
+            
+            return <path key={shape.id} d={pathData} fill={`${shape.color}4D`} stroke={shape.color} strokeWidth={2/zoom} />
+        }
+        return null;
+    }
+
     return (
         <div 
-            className={cn("w-full h-full relative overflow-hidden bg-muted", activeTool === 'circle' && 'cursor-crosshair')}
+            className={cn("w-full h-full relative overflow-hidden bg-muted", activeTool !== 'pointer' && 'cursor-crosshair')}
             ref={mapContainerRef} 
             onMouseDown={handleMouseDown} 
             onMouseMove={handleMouseMove} 
@@ -246,51 +324,49 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                     
                     <div className="absolute inset-0 pointer-events-none">
                         <svg width="100%" height="100%" style={{ overflow: 'visible' }}>
-                            {scene.shapes?.map(shape => {
-                                if (shape.type === 'circle') {
-                                    const heightRadius = shape.radius * ((scene.width || 30) / (scene.height || 20));
-                                    return (
-                                        <ellipse
-                                            key={shape.id}
-                                            cx={`${shape.center.x}%`}
-                                            cy={`${shape.center.y}%`}
-                                            rx={`${shape.radius}%`}
-                                            ry={`${heightRadius}%`}
-                                            fill={`${shape.color}4D`}
-                                            stroke={shape.color}
-                                            strokeWidth={2 / zoom}
-                                        />
-                                    );
-                                }
-                                return null;
-                            })}
-                            {drawingShape && (
-                                <>
-                                    <ellipse
-                                        cx={`${drawingShape.center.x}%`}
-                                        cy={`${drawingShape.center.y}%`}
-                                        rx={`${drawingShape.radius}%`}
-                                        ry={`${drawingShape.radius * ((scene.width || 30) / (scene.height || 20))}%`}
-                                        fill={`${drawingShape.color}4D`}
-                                        stroke={drawingShape.color}
-                                        strokeWidth={2 / zoom}
-                                        strokeDasharray={`${4 / zoom}`}
-                                    />
+                            {scene.shapes?.map(shape => renderShape(shape))}
+                            {drawingShape && renderShape(drawingShape)}
+
+                            {drawingShape?.type === 'circle' && (
+                                <text
+                                    x={`${drawingShape.center.x}%`}
+                                    y={`${drawingShape.center.y}%`}
+                                    fill="white"
+                                    stroke="black"
+                                    strokeWidth={0.5 / zoom}
+                                    fontSize={14 / zoom}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                >
+                                    {`D: ${(((drawingShape.radius / 100) * ((scene.width || 30) * 5)) * 2).toFixed(0)}ft`}
+                                </text>
+                            )}
+
+                             {drawingShape?.type === 'cone' && (() => {
+                                const {origin, endPoint} = drawingShape;
+                                const dx_pc = endPoint.x - origin.x;
+                                const dy_pc = endPoint.y - origin.y;
+                                const map_width_ft = (scene.width || 30) * 5;
+                                const map_height_ft = (scene.height || 20) * 5;
+                                const dx_ft = dx_pc / 100 * map_width_ft;
+                                const dy_ft = dy_pc / 100 * map_height_ft;
+                                const length_ft = Math.hypot(dx_ft, dy_ft);
+                                return (
                                     <text
-                                        x={`${drawingShape.center.x + drawingShape.radius}%`}
-                                        y={`${drawingShape.center.y}%`}
+                                        x={`${endPoint.x}%`}
+                                        y={`${endPoint.y}%`}
                                         fill="white"
                                         stroke="black"
                                         strokeWidth={0.5 / zoom}
                                         fontSize={14 / zoom}
-                                        textAnchor="start"
-                                        dominantBaseline="middle"
-                                        dx={5 / zoom}
+                                        textAnchor="middle"
+                                        dominantBaseline="text-after-edge"
+                                        dy={-5 / zoom}
                                     >
-                                        {`${(((drawingShape.radius / 100) * ((scene.width || 30) * 5)).toFixed(0))}ft`}
+                                        {`${length_ft.toFixed(0)}ft`}
                                     </text>
-                                </>
-                            )}
+                                )
+                             })()}
                         </svg>
                     </div>
 
@@ -335,6 +411,14 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                     className={cn(activeTool === 'circle' && 'ring-2 ring-primary')}
                 >
                     <Circle />
+                </Button>
+                <Button 
+                    variant="secondary" 
+                    size="icon" 
+                    onClick={() => setActiveTool('cone')}
+                    className={cn(activeTool === 'cone' && 'ring-2 ring-primary')}
+                >
+                    <Triangle />
                 </Button>
             </div>
         </div>

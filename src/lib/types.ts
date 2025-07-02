@@ -4,15 +4,26 @@
 
 
 
+
 // --- Base & Container Types ---
 
-export type Shape = {
+export type CircleShape = {
   id: string;
   type: 'circle';
   center: { x: number; y: number };
   radius: number; // in percentage of map width
   color: string;
 };
+
+export type ConeShape = {
+    id: string;
+    type: 'cone';
+    origin: { x: number; y: number };
+    endPoint: { x: number; y: number }; // Defines direction and length
+    color: string;
+};
+
+export type Shape = CircleShape | ConeShape;
 
 export type Token = {
   id: string;
