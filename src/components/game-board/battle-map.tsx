@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdate: (scene: Scene) => void }) {
+export function BattleMap({ scene, selectedTokenId, onTokenSelect, onSceneUpdate }: { scene: Scene, selectedTokenId: string | null, onTokenSelect: (tokenId: string | null) => void, onSceneUpdate: (scene: Scene) => void }) {
     const [resolvedMapUrl, setResolvedMapUrl] = useState('');
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -46,6 +46,8 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
     }, [scene.background_map_url]);
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (e.target !== mapContainerRef.current) return;
+        
         // Panning logic (middle mouse button)
         if (e.button === 1) {
             e.preventDefault();
@@ -55,6 +57,9 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
         }
 
         if (e.button === 0 && mapContainerRef.current) {
+            if (activeTool === 'pointer') {
+                onTokenSelect(null);
+            }
             if (activeTool === 'circle' || activeTool === 'cone' || activeTool === 'line') {
                 e.preventDefault();
                 const containerRect = mapContainerRef.current.getBoundingClientRect();
@@ -209,6 +214,7 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
 
     const handleTokenMouseDown = (e: React.MouseEvent, tokenId: string) => {
         if (e.button !== 0 || activeTool !== 'pointer') return;
+        e.stopPropagation();
         const token = scene.tokens.find(t => t.id === tokenId);
         if (token) {
             setDraggedToken({ id: tokenId, startPos: token.position });
@@ -231,6 +237,12 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                 : token
         );
         onSceneUpdate({ ...scene, tokens: updatedTokens });
+    }
+
+    const handleTokenClick = (e: React.MouseEvent, tokenId: string) => {
+        e.stopPropagation();
+        if (draggedToken) return;
+        onTokenSelect(tokenId);
     }
 
     const handleTokenMouseUp = (e: React.MouseEvent, tokenId: string) => {
@@ -461,10 +473,18 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                         </svg>
                     </div>
 
-                    {scene.tokens.map(token => (
+                    {scene.tokens.map(token => {
+                        const isPlayer = token.type === 'character';
+                        const borderColor = isPlayer ? (token.color || 'hsl(var(--primary))') : 'hsl(var(--destructive))';
+
+                        return (
                          <div
                             key={token.id}
-                            className={cn("absolute", activeTool === 'pointer' ? "cursor-grab active:cursor-grabbing" : "cursor-default")}
+                            className={cn(
+                                "absolute",
+                                activeTool === 'pointer' ? "cursor-grab active:cursor-grabbing" : "cursor-default",
+                                selectedTokenId === token.id && "ring-4 ring-yellow-400 rounded-full z-10"
+                            )}
                             style={{
                                 left: `${token.position.x}%`,
                                 top: `${token.position.y}%`,
@@ -474,13 +494,15 @@ export function BattleMap({ scene, onSceneUpdate }: { scene: Scene, onSceneUpdat
                             }}
                             onMouseDown={(e) => handleTokenMouseDown(e, token.id)}
                             onMouseUp={(e) => handleTokenMouseUp(e, token.id)}
+                            onClick={(e) => handleTokenClick(e, token.id)}
                          >
-                            <Avatar className="h-full w-full border-2 border-red-500 shadow-lg">
+                            <Avatar className="h-full w-full border-4 shadow-lg" style={{ borderColor }}>
                                 <AvatarImage src={token.imageUrl} className="object-cover" />
                                 <AvatarFallback>{token.name.substring(0,1)}</AvatarFallback>
                             </Avatar>
                          </div>
-                    ))}
+                        )
+                    })}
                 </div>
             </div>
              <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2">

@@ -1,19 +1,26 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import type { Campaign, Scene } from '@/lib/types';
+import { useState, useEffect, useMemo } from 'react';
+import type { Campaign, Scene, Token, PlayerCharacter, Enemy } from '@/lib/types';
 import { BattleMap } from './battle-map';
 import { ModulePanel } from './module-panel';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
+const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
+const STORAGE_KEY_ENEMIES = 'dnd_enemies';
+
 
 export function GameBoard({ campaignId }: { campaignId: string }) {
     const [campaign, setCampaign] = useState<Campaign | null>(null);
     const [activeScene, setActiveScene] = useState<Scene | null>(null);
     const [loading, setLoading] = useState(true);
     const [panelPosition, setPanelPosition] = useState<'left' | 'right'>('right');
+
+    const [allPlayerCharacters, setAllPlayerCharacters] = useState<PlayerCharacter[]>([]);
+    const [allEnemies, setAllEnemies] = useState<Enemy[]>([]);
+    const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
 
     useEffect(() => {
         try {
@@ -27,8 +34,15 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     setActiveScene(scene || null);
                 }
             }
+            
+            const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
+            if (storedCharacters) setAllPlayerCharacters(JSON.parse(storedCharacters));
+
+            const storedEnemies = localStorage.getItem(STORAGE_KEY_ENEMIES);
+            if (storedEnemies) setAllEnemies(JSON.parse(storedEnemies));
+
         } catch (error) {
-            console.error("Failed to load campaign from localStorage", error);
+            console.error("Failed to load data from localStorage", error);
         }
         setLoading(false);
     }, [campaignId]);
@@ -53,6 +67,23 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
             console.error("Failed to save campaign:", error);
         }
     }
+    
+    const selectedTokenData = useMemo(() => {
+        if (!selectedTokenId || !activeScene) return { token: null, character: null, enemy: null };
+
+        const token = activeScene.tokens.find(t => t.id === selectedTokenId);
+        if (!token) return { token: null, character: null, enemy: null };
+
+        if (token.type === 'character') {
+            const character = allPlayerCharacters.find(c => c.id === token.linked_character_id);
+            return { token, character, enemy: null };
+        } else if (token.type === 'monster') {
+            const enemy = allEnemies.find(e => e.id === token.linked_enemy_id);
+            return { token, character: null, enemy };
+        }
+        return { token, character: null, enemy: null };
+    }, [selectedTokenId, activeScene, allPlayerCharacters, allEnemies]);
+
 
     if (loading) {
         return (
@@ -82,12 +113,18 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     return (
         <div className={`fixed inset-0 bg-muted flex ${panelPosition === 'right' ? 'flex-row' : 'flex-row-reverse'}`}>
             <main className="flex-1 h-full bg-black">
-                <BattleMap scene={activeScene} onSceneUpdate={handleUpdateScene} />
+                <BattleMap 
+                    scene={activeScene} 
+                    onSceneUpdate={handleUpdateScene}
+                    selectedTokenId={selectedTokenId}
+                    onTokenSelect={setSelectedTokenId}
+                />
             </main>
             <aside className={`${panelClasses} ${borderClass} border-border`}>
                 <ModulePanel 
                     currentPosition={panelPosition}
                     onTogglePosition={() => setPanelPosition(p => p === 'left' ? 'right' : 'left')} 
+                    {...selectedTokenData}
                 />
             </aside>
         </div>
