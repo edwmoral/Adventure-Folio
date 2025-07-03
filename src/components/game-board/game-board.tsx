@@ -275,6 +275,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         setTargetingMode(null);
     }, []);
 
+
     if (loading) {
         return (
             <div className="fixed inset-0 bg-background flex items-center justify-center">
@@ -370,7 +371,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     allSpells={allSpells}
                     selectedTokenId={selectedTokenId}
                     onTokenSelect={handleTokenSelect}
-                    onActionActivate={onActionActivate}
+                    onActionActivate={handleActionActivate}
                 />
             </aside>
             <InitiativeDialog 
