@@ -70,13 +70,22 @@ const generateNarrationFlow = ai.defineFlow(
   },
   async ({ plotSummary, voice }) => {
 
-    const { text: epicNarration } = await ai.generate({
+    const EpicNarrationSchema = z.object({
+      narration: z.string().describe('The rewritten, epic narration text, ready for text-to-speech.'),
+    });
+
+    const { output: epicNarrationOutput } = await ai.generate({
         prompt: `You are a world-class dungeon master and storyteller. Your task is to transform a simple plot summary into a vivid, epic, and dramatic narration suitable for a Dungeons & Dragons session. Use evocative language, build suspense, and describe scenes with rich detail.
 
         Plot Summary: "${plotSummary}"
         
-        Rewrite this summary into an epic narration. Return only the narration text.`,
+        Rewrite this summary into an epic narration.`,
+        output: {
+          schema: EpicNarrationSchema,
+        },
     });
+    
+    const epicNarration = epicNarrationOutput?.narration;
 
     if (!epicNarration?.trim()) {
       throw new Error('Failed to generate narration text from the summary.');
@@ -95,7 +104,7 @@ const generateNarrationFlow = ai.defineFlow(
       prompt: epicNarration,
     });
     
-    if (!media) {
+    if (!media || !media.url) {
       throw new Error('Text-to-speech generation failed to return audio.');
     }
     

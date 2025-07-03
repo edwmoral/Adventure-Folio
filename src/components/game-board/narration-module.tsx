@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -77,7 +78,7 @@ export function NarrationModule() {
             </Button>
             {audioUrl && (
                 <div className="mt-4">
-                     <audio controls autoPlay className="w-full">
+                     <audio controls autoPlay className="w-full" key={audioUrl}>
                         <source src={audioUrl} type="audio/wav" />
                         Your browser does not support the audio element.
                     </audio>
