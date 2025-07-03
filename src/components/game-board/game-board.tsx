@@ -94,13 +94,13 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         setTurnIndex(0);
         setIsInCombat(true);
         setIsInitiativeDialogOpen(false);
-        onTokenSelect(finalCombatants[0]?.tokenId);
+        setSelectedTokenId(finalCombatants[0]?.tokenId);
     };
     
     const handleNextTurn = () => {
         const newTurnIndex = (turnIndex + 1) % combatants.length;
         setTurnIndex(newTurnIndex);
-        onTokenSelect(combatants[newTurnIndex]?.tokenId);
+        setSelectedTokenId(combatants[newTurnIndex]?.tokenId);
     };
 
     const handleEndCombat = () => {
@@ -174,7 +174,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     allClasses={allClasses}
                     allSpells={allSpells}
                     selectedTokenId={selectedTokenId}
-                    onTokenSelect={onTokenSelect}
+                    onTokenSelect={setSelectedTokenId}
                 />
             </aside>
             <InitiativeDialog 
