@@ -177,8 +177,33 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     };
     
     const handleNextTurn = () => {
+        if (!activeScene) return;
+
+        const endingTurnTokenId = combatants[turnIndex]?.tokenId;
         const newTurnIndex = (turnIndex + 1) % combatants.length;
-        
+        const startingTurnTokenId = combatants[newTurnIndex]?.tokenId;
+
+        // Remove temporary status effects based on turn timing
+        const updatedTokens = activeScene.tokens.map(token => {
+            let newStatusEffects = [...(token.statusEffects || [])];
+            
+            // Effects that end at the END of the current character's turn
+            if (token.id === endingTurnTokenId) {
+                newStatusEffects = newStatusEffects.filter(e => e !== 'disengaged');
+            }
+            
+            // Effects that end at the START of the current character's turn
+            if (token.id === startingTurnTokenId) {
+                newStatusEffects = newStatusEffects.filter(e => e !== 'dodging' && e !== 'helping');
+            }
+            
+            return { ...token, statusEffects: newStatusEffects };
+        });
+
+        // Update the scene with the new token states
+        const updatedScene = { ...activeScene, tokens: updatedTokens };
+        handleUpdateScene(updatedScene);
+
         // Reset actions for the combatant whose turn is now starting
         const updatedCombatants = combatants.map((c, index) => {
             if (index === newTurnIndex) {
@@ -186,7 +211,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     ...c,
                     hasAction: true,
                     hasBonusAction: true,
-                    hasReaction: true, // Reaction resets at start of turn (common rule)
+                    hasReaction: true, // Reaction resets at start of turn
                 };
             }
             return c;
@@ -469,3 +494,5 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         </div>
     );
 }
+
+    
