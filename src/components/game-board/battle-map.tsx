@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { parseRangeFromAction } from '@/lib/action-utils';
 
+const MEASUREMENT_COLOR = '#FFFFFF'; // Bright white for high contrast
 
 export function BattleMap({ 
     scene, 
@@ -141,7 +142,7 @@ export function BattleMap({
                         type: 'circle',
                         center: { x: pointX, y: pointY },
                         radius: 0,
-                        color: '#ef4444' // A red color for the tool
+                        color: MEASUREMENT_COLOR
                     });
                 } else if (activeTool === 'cone') {
                      setDrawingShape({
@@ -149,7 +150,7 @@ export function BattleMap({
                         type: 'cone',
                         origin: { x: pointX, y: pointY },
                         endPoint: { x: pointX, y: pointY },
-                        color: '#ef4444'
+                        color: MEASUREMENT_COLOR
                     });
                 } else if (activeTool === 'line') {
                     setDrawingShape({
@@ -157,7 +158,7 @@ export function BattleMap({
                         type: 'line',
                         start: { x: pointX, y: pointY },
                         end: { x: pointX, y: pointY },
-                        color: '#ef4444'
+                        color: MEASUREMENT_COLOR
                     });
                 } else if (activeTool === 'square') {
                     setDrawingShape({
@@ -165,7 +166,7 @@ export function BattleMap({
                         type: 'square',
                         start: { x: pointX, y: pointY },
                         end: { x: pointX, y: pointY },
-                        color: '#ef4444'
+                        color: MEASUREMENT_COLOR
                     });
                 }
             }
@@ -386,7 +387,7 @@ export function BattleMap({
 
     const renderShape = (shape: Shape) => {
         const borderStrokeWidth = 2.5 / zoom;
-        const mainStrokeWidth = 1 / zoom;
+        const mainStrokeWidth = 1.5 / zoom;
 
         if (shape.type === 'circle') {
             const heightRadius = shape.radius * ((scene.width || 30) / (scene.height || 20));
@@ -397,7 +398,7 @@ export function BattleMap({
                         cy={`${shape.center.y}%`}
                         rx={`${shape.radius}%`}
                         ry={`${heightRadius}%`}
-                        fill={`${shape.color}4D`}
+                        fill="rgba(0, 0, 0, 0.4)"
                         stroke="black"
                         strokeWidth={borderStrokeWidth}
                         style={{ vectorEffect: 'non-scaling-stroke' }}
@@ -443,7 +444,7 @@ export function BattleMap({
             
             return (
                 <g key={shape.id}>
-                    <path d={pathData} fill={`${shape.color}4D`} stroke="black" strokeWidth={borderStrokeWidth} style={{ vectorEffect: 'non-scaling-stroke' }} />
+                    <path d={pathData} fill="rgba(0, 0, 0, 0.4)" stroke="black" strokeWidth={borderStrokeWidth} style={{ vectorEffect: 'non-scaling-stroke' }} />
                     <path d={pathData} fill="none" stroke={shape.color} strokeWidth={mainStrokeWidth} style={{ vectorEffect: 'non-scaling-stroke' }} />
                 </g>
             )
@@ -488,7 +489,7 @@ export function BattleMap({
                         y={`${y}%`}
                         width={`${width}%`}
                         height={`${height}%`}
-                        fill={`${shape.color}4D`}
+                        fill="rgba(0, 0, 0, 0.4)"
                         stroke="black"
                         strokeWidth={borderStrokeWidth}
                         style={{ vectorEffect: 'non-scaling-stroke' }}
@@ -662,7 +663,7 @@ export function BattleMap({
                                         x2={`${mousePosition.x}%`}
                                         y2={`${mousePosition.y}%`}
                                         stroke="white"
-                                        strokeWidth={1 / zoom}
+                                        strokeWidth={2 / zoom}
                                         strokeDasharray={`${0.8 / zoom} ${0.5 / zoom}`}
                                         style={{ pointerEvents: 'none', vectorEffect: 'non-scaling-stroke' }}
                                     />
