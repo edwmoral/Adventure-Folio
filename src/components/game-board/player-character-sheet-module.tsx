@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Shield, Footprints, Users, Swords, Sparkles, BookOpen } from 'lucide-react';
-import type { PlayerCharacter, Scene, Token, Class, Spell, Action as ActionType, Combatant } from '@/lib/types';
+import type { PlayerCharacter, Scene, Token, Class, Spell, Action as ActionType, Combatant, Item } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -19,6 +19,7 @@ interface PlayerCharacterSheetModuleProps {
   allPlayerCharacters: PlayerCharacter[];
   allClasses: Class[];
   allSpells: Spell[];
+  allItems: Item[];
   selectedTokenId: string | null;
   onTokenSelect: (id: string | null) => void;
   onActionActivate: (action: ActionType) => void;
@@ -33,16 +34,23 @@ const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: str
     </div>
 );
 
-const basicActions: ActionType[] = [
-    { name: 'Attack', type: 'Action', action_type: 'Standard', description: 'Make a weapon attack (melee or ranged). Range 5ft for melee.', effects: 'Melee range 5ft', usage: {type: 'At Will'} },
-    { name: 'Dash', type: 'Action', action_type: 'Standard', description: 'Double your movement speed for the turn. Range: Self.', usage: {type: 'At Will'} },
-    { name: 'Disengage', type: 'Action', action_type: 'Standard', description: 'Your movement doesn\'t provoke opportunity attacks. Range: Self.', usage: {type: 'At Will'} },
-    { name: 'Dodge', type: 'Action', action_type: 'Standard', description: 'Attack rolls against you have disadvantage until your next turn. Range: Self.', usage: {type: 'At Will'} },
-    { name: 'Help', type: 'Action', action_type: 'Standard', description: 'Grant an ally advantage on an ability check or their next attack. Range: Touch.', usage: {type: 'At Will'} },
-    { name: 'Hide', type: 'Action', action_type: 'Standard', description: 'Make a Dexterity (Stealth) check to become unseen. Range: Self.', usage: {type: 'At Will'} },
-];
+const getModifier = (score: number) => Math.floor((score - 10) / 2);
+const getModifierString = (score: number) => {
+    const mod = getModifier(score);
+    return mod >= 0 ? `+${mod}` : `${mod}`;
+};
 
-export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClasses, allSpells, selectedTokenId, onTokenSelect, onActionActivate, activeCombatant }: PlayerCharacterSheetModuleProps) {
+export function PlayerCharacterSheetModule({ 
+    scene, 
+    allPlayerCharacters, 
+    allClasses, 
+    allSpells, 
+    allItems, 
+    selectedTokenId, 
+    onTokenSelect, 
+    onActionActivate, 
+    activeCombatant 
+}: PlayerCharacterSheetModuleProps) {
   
   const playerTokens = useMemo(() => {
     if (!scene) return [];
@@ -59,9 +67,9 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClas
     return { token, character };
   }, [selectedTokenId, scene, allPlayerCharacters]);
   
-  const { characterFeatures, knownSpells } = useMemo(() => {
-    if (!character || !allClasses.length || !allSpells.length) {
-        return { characterFeatures: [], knownSpells: [] };
+  const { characterFeatures, knownSpells, availableActions } = useMemo(() => {
+    if (!character || !allClasses.length || !allSpells.length || !allItems.length) {
+        return { characterFeatures: [], knownSpells: [], availableActions: [] };
     }
     
     const characterClass = allClasses.find(
@@ -74,18 +82,65 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClas
       .map(f => ({ name: f.name, description: f.text })) || [];
       
     const spells = allSpells.filter(spell => character.spells?.includes(spell.name));
+    
+    // --- Dynamic Action Generation ---
+    const baseActions: ActionType[] = [
+        { name: 'Dash', type: 'Action', action_type: 'Standard', description: 'Double your movement speed for the turn. Range: Self.', usage: {type: 'At Will'} },
+        { name: 'Disengage', type: 'Action', action_type: 'Standard', description: 'Your movement doesn\'t provoke opportunity attacks. Range: Self.', usage: {type: 'At Will'} },
+        { name: 'Dodge', type: 'Action', action_type: 'Standard', description: 'Attack rolls against you have disadvantage until your next turn. Range: Self.', usage: {type: 'At Will'} },
+        { name: 'Help', type: 'Action', action_type: 'Standard', description: 'Grant an ally advantage on an ability check or their next attack. Range: Touch.', usage: {type: 'At Will'} },
+        { name: 'Hide', type: 'Action', action_type: 'Standard', description: 'Make a Dexterity (Stealth) check to become unseen. Range: Self.', usage: {type: 'At Will'} },
+    ];
+    
+    const proficiencyBonus = Math.ceil(1 + (character.level || 1) / 4);
+    const strMod = getModifier(character.stats.str);
+    const dexMod = getModifier(character.stats.dex);
+    
+    const weapon = character.inventory?.map(id => allItems.find(i => i.id === id)).find(i => i?.type === 'Weapon');
+    let attackAction: ActionType;
 
-    return { characterFeatures: features, knownSpells: spells };
+    if (weapon) {
+        const isFinesse = weapon.property?.includes('Finesse');
+        const abilityMod = isFinesse ? Math.max(strMod, dexMod) : strMod;
+        const abilityModString = abilityMod >= 0 ? `+${abilityMod}` : `${abilityMod}`;
+        
+        const toHit = proficiencyBonus + abilityMod;
+        const damageString = `${weapon.dmg1}${abilityModString} ${weapon.dmgType}`;
+        
+        attackAction = {
+            name: `Attack (${weapon.name})`,
+            type: 'Action',
+            action_type: 'Standard',
+            description: `Make a melee attack with your ${weapon.name}.`,
+            effects: `To Hit: +${toHit}, Damage: ${damageString}`,
+            usage: { type: 'At Will' }
+        };
+    } else {
+        // Unarmed strike
+        attackAction = {
+            name: 'Unarmed Strike',
+            type: 'Action',
+            action_type: 'Standard',
+            description: 'Make an unarmed strike.',
+            effects: `To Hit: +${proficiencyBonus + strMod}, Damage: ${1 + strMod} bludgeoning`,
+            usage: { type: 'At Will' }
+        };
+    }
+    
+    const allActions = [attackAction, ...baseActions];
 
-  }, [character, allClasses, allSpells]);
+    return { characterFeatures: features, knownSpells: spells, availableActions: allActions };
+
+  }, [character, allClasses, allSpells, allItems]);
 
   const isMyTurn = activeCombatant?.tokenId === selectedTokenId;
   
   const getActionDisabledState = (actionType: string) => {
-    if (!isMyTurn || !activeCombatant) return true;
-    if (actionType === 'Action') return !activeCombatant.hasAction;
-    if (actionType === 'Bonus Action') return !activeCombatant.hasBonusAction;
-    if (actionType === 'Reaction') return !activeCombatant.hasReaction;
+    if (!activeCombatant) return false; // Not in combat, actions are enabled
+    if (!isMyTurn) return true; // Not my turn
+    if (actionType === 'Action' && !activeCombatant.hasAction) return true;
+    if (actionType === 'Bonus Action' && !activeCombatant.hasBonusAction) return true;
+    if (actionType === 'Reaction' && !activeCombatant.hasReaction) return true;
     return false;
   };
 
@@ -119,7 +174,7 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClas
                         </div>
                     </div>
 
-                    {isMyTurn && activeCombatant && (
+                    {activeCombatant && isMyTurn && (
                         <div className="flex gap-2 p-2 bg-muted rounded-md justify-center">
                             <Badge variant={activeCombatant.hasAction ? "default" : "secondary"}>Action</Badge>
                             <Badge variant={activeCombatant.hasBonusAction ? "default" : "secondary"}>Bonus Action</Badge>
@@ -162,12 +217,12 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClas
                             </AccordionTrigger>
                             <AccordionContent className="pt-2">
                                 <div className="space-y-3 pt-2 border-t text-sm">
-                                    {basicActions.map((action) => (
+                                    {availableActions.map((action) => (
                                         <div key={action.name}>
                                             <Button variant="link" className="p-0 h-auto text-sm text-left" disabled={getActionDisabledState(action.type)} onClick={() => onActionActivate(action)}>
                                                 <h4 className="font-semibold">{action.name} <Badge variant="secondary">{action.type}</Badge></h4>
                                             </Button>
-                                            <p className="text-muted-foreground mt-1">{action.description}</p>
+                                            <p className="text-muted-foreground mt-1">{action.effects || action.description}</p>
                                         </div>
                                     ))}
                                 </div>

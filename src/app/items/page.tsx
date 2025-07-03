@@ -23,6 +23,26 @@ const initialItems: Item[] = [
     dmgType: "Slashing"
   },
   {
+    id: 'item-dagger',
+    name: "Dagger",
+    type: "Weapon",
+    weight: 1,
+    property: ["Finesse", "Light", "Thrown"],
+    text: "A simple dagger.",
+    dmg1: "1d4",
+    dmgType: "Piercing"
+  },
+  {
+    id: 'item-staff',
+    name: "Quarterstaff",
+    type: "Weapon",
+    weight: 4,
+    property: ["Versatile (1d8)"],
+    text: "A simple wooden staff.",
+    dmg1: "1d6",
+    dmgType: "Bludgeoning"
+  },
+  {
     id: 'item-2',
     name: "Potion of Healing",
     type: "Consumable",

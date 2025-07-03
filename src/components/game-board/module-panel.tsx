@@ -6,7 +6,7 @@ import { ChatModule } from './chat-module';
 import { MenuModule } from './menu-module';
 import { PlayerCharacterSheetModule } from './player-character-sheet-module';
 import { NpcSheetModule } from './npc-sheet-module';
-import type { PlayerCharacter, Enemy, Scene, Class, Spell, Action as ActionType, MonsterAction, Combatant } from '@/lib/types';
+import type { PlayerCharacter, Enemy, Scene, Class, Spell, Action as ActionType, MonsterAction, Combatant, Item } from '@/lib/types';
 import { Users, Shield, Settings, MessageSquare, ScrollText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,7 @@ interface ModulePanelProps {
     allEnemies: Enemy[];
     allClasses: Class[];
     allSpells: Spell[];
+    allItems: Item[];
     selectedTokenId: string | null;
     onTokenSelect: (id: string | null) => void;
     onActionActivate: (action: ActionType | MonsterAction) => void;
@@ -38,6 +39,7 @@ export function ModulePanel({
     allEnemies,
     allClasses,
     allSpells,
+    allItems,
     selectedTokenId,
     onTokenSelect,
     onActionActivate,
@@ -119,6 +121,7 @@ export function ModulePanel({
                         allPlayerCharacters={allPlayerCharacters}
                         allClasses={allClasses}
                         allSpells={allSpells}
+                        allItems={allItems}
                         selectedTokenId={selectedTokenId}
                         onTokenSelect={onTokenSelect}
                         onActionActivate={onActionActivate}

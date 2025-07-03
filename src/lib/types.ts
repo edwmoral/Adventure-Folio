@@ -1,4 +1,5 @@
 
+
 // --- Base & Container Types ---
 
 export type CircleShape = {
@@ -101,6 +102,7 @@ export type PlayerCharacter = {
   maxMp?: number;
   spell_slots?: Record<string, { current: number; max: number }>;
   spells?: string[];
+  inventory?: string[];
 };
 
 export type Skill = {

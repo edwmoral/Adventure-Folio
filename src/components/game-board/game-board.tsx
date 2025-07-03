@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell, Combatant, Action as ActionType, MonsterAction, Token } from '@/lib/types';
+import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell, Combatant, Action as ActionType, MonsterAction, Token, Item } from '@/lib/types';
 import { BattleMap } from './battle-map';
 import { ModulePanel } from './module-panel';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,6 +19,7 @@ const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 const STORAGE_KEY_ENEMIES = 'dnd_enemies';
 const STORAGE_KEY_CLASSES = 'dnd_classes';
 const STORAGE_KEY_SPELLS = 'dnd_spells';
+const STORAGE_KEY_ITEMS = 'dnd_items';
 
 
 export function GameBoard({ campaignId }: { campaignId: string }) {
@@ -35,11 +36,13 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     const [allEnemies, setAllEnemies] = useState<Enemy[]>([]);
     const [allClasses, setAllClasses] = useState<Class[]>([]);
     const [allSpells, setAllSpells] = useState<Spell[]>([]);
+    const [allItems, setAllItems] = useState<Item[]>([]);
     const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
 
     // Combat State
     const [isInCombat, setIsInCombat] = useState(false);
     const [isInitiativeDialogOpen, setIsInitiativeDialogOpen] = useState(false);
+    const [isInitiatingCombat, setIsInitiatingCombat] = useState(false);
     const [combatants, setCombatants] = useState<Combatant[]>([]);
     const [turnIndex, setTurnIndex] = useState(0);
     const [recentRolls, setRecentRolls] = useState<string[]>([]);
@@ -110,6 +113,9 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
 
             const storedSpells = localStorage.getItem(STORAGE_KEY_SPELLS);
             if (storedSpells) setAllSpells(JSON.parse(storedSpells));
+            
+            const storedItems = localStorage.getItem(STORAGE_KEY_ITEMS);
+            if (storedItems) setAllItems(JSON.parse(storedItems));
 
 
         } catch (error) {
@@ -198,7 +204,8 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         setRecentRolls([]);
     };
     
-    const handleUseAction = (actionType: 'Action' | 'Bonus Action' | 'Reaction') => {
+    const handleUseAction = (actionType: string) => {
+        if (!isInCombat) return; // Don't track action economy outside of combat
         setCombatants(prev => prev.map((c, index) => {
             if (index === turnIndex) {
                 const updatedCombatant = { ...c };
@@ -218,14 +225,16 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }
         
         const activeCombatant = combatants[turnIndex];
-        if (isInCombat && (!activeCombatant || activeCombatant.tokenId !== selectedTokenId)) {
-            toast({ variant: 'destructive', title: 'Not Your Turn', description: 'This action can only be taken on your turn.' });
+        const isPlayerTurn = isInCombat && activeCombatant && activeCombatant.tokenId === selectedTokenId;
+        
+        if (isInCombat && !isPlayerTurn) {
+             toast({ variant: 'destructive', title: 'Not Your Turn', description: 'This action can only be taken on your turn.' });
             return;
         }
 
         const actionType = 'type' in action ? action.type : 'Action'; // Monster Actions default to 'Action'
 
-        if (isInCombat && activeCombatant) {
+        if (isPlayerTurn) {
             if (actionType === 'Action' && !activeCombatant.hasAction) {
                 toast({ variant: 'destructive', title: 'No Action', description: 'You have already used your action this turn.' });
                 return;
@@ -236,10 +245,10 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
             }
         }
         
-        if (actionType === 'Action' || actionType === 'Bonus Action' || actionType === 'Reaction') {
-            handleUseAction(actionType as 'Action' | 'Bonus Action' | 'Reaction');
+        // If not in combat, this action will start it
+        if (!isInCombat) {
+            setIsInitiatingCombat(true);
         }
-
 
         const selfCastActions: Record<string, 'dodging' | 'disengaged' | 'hidden'> = {
             'Dodge': 'dodging',
@@ -249,6 +258,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         const selfCastEffect = selfCastActions[action.name];
 
         if (selfCastEffect && activeScene) {
+            handleUseAction('Action');
             const updatedTokens = activeScene.tokens.map(token => {
                 if (token.id === selectedTokenId) {
                     const newStatusEffects = [...(token.statusEffects || [])];
@@ -262,18 +272,26 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
 
             handleUpdateScene({ ...activeScene, tokens: updatedTokens });
             toast({ title: 'Status Applied!', description: `${action.name} is now active.` });
+            
+            if (!isInCombat) {
+                setIsInitiativeDialogOpen(true);
+            }
             return;
         }
 
         const rangeInfo = parseRangeFromAction(action);
         
         if (!rangeInfo || (rangeInfo.type !== 'self' && rangeInfo.value === 0)) {
+            handleUseAction(actionType);
             toast({ title: "Action Used", description: `You used ${action.name}.` });
+            if (!isInCombat) setIsInitiativeDialogOpen(true);
             return;
         }
         
         if (rangeInfo.type === 'self') {
+            handleUseAction(actionType);
             toast({ title: "Action Used", description: `You used ${action.name} on yourself.` });
+            if (!isInCombat) setIsInitiativeDialogOpen(true);
             return;
         }
 
@@ -283,6 +301,9 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
 
     const handleTargetSelect = useCallback((targetId: string) => {
         if (!targetingMode || !activeScene) return;
+
+        const actionType = 'type' in targetingMode.action ? targetingMode.action.type : 'Action';
+        handleUseAction(actionType);
         
         const casterToken = activeScene.tokens.find(t => t.id === targetingMode.casterId);
         
@@ -291,10 +312,12 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
             
             if (targetId === targetingMode.casterId) {
                  toast({ variant: 'destructive', title: 'Invalid Target', description: 'You cannot help yourself.' });
+                 setTargetingMode(null);
                  return;
             }
             if (targetToken?.type !== 'character') {
                  toast({ variant: 'destructive', title: 'Invalid Target', description: 'You can only help allied characters.' });
+                 setTargetingMode(null);
                  return;
             }
             
@@ -311,21 +334,28 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
             
             handleUpdateScene({ ...activeScene, tokens: updatedTokens });
             toast({ title: 'Action Used!', description: `${casterToken?.name} is helping ${targetToken?.name}.` });
-            setTargetingMode(null);
-            return;
+            
+        } else {
+            const targetToken = activeScene.tokens.find(t => t.id === targetId);
+            if (casterToken && targetToken) {
+                toast({ title: 'Action Targeted!', description: `${casterToken.name} used ${targetingMode.action.name} on ${targetToken.name}. ${targetingMode.action.effects || ''}` });
+            }
+        }
+        
+        if (isInitiatingCombat) {
+            setIsInitiatingCombat(false);
+            setIsInitiativeDialogOpen(true);
         }
 
-        const targetToken = activeScene.tokens.find(t => t.id === targetId);
-
-        if (casterToken && targetToken) {
-            toast({ title: 'Action Targeted!', description: `${casterToken.name} used ${targetingMode.action.name} on ${targetToken.name}.` });
-        }
         setTargetingMode(null);
-    }, [targetingMode, activeScene, toast, handleUpdateScene]);
+    }, [targetingMode, activeScene, toast, handleUpdateScene, isInitiatingCombat]);
 
     const handleCancelTargeting = useCallback(() => {
         setTargetingMode(null);
-    }, []);
+        if (isInitiatingCombat) {
+             setIsInitiatingCombat(false);
+        }
+    }, [isInitiatingCombat]);
 
 
     if (loading) {
@@ -421,6 +451,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     allEnemies={allEnemies}
                     allClasses={allClasses}
                     allSpells={allSpells}
+                    allItems={allItems}
                     selectedTokenId={selectedTokenId}
                     onTokenSelect={handleTokenSelect}
                     onActionActivate={handleActionActivate}

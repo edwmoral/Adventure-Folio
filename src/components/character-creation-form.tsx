@@ -269,6 +269,7 @@ export function CharacterCreationForm() {
             mp: 0,
             maxMp: 0,
             spells: [],
+            inventory: ['item-1'],
         };
         
         const isCaster = selectedClass && selectedClass.spellcasting_type && selectedClass.spellcasting_type !== 'none';

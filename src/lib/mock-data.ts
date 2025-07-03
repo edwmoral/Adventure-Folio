@@ -23,6 +23,7 @@ export const initialPlayerCharacters: PlayerCharacter[] = [
       '3': { current: 2, max: 2 },
     },
     spells: ["Magic Missile", "Shield", "Fireball"],
+    inventory: ['item-dagger'],
   },
   {
     id: 'char2',
@@ -40,6 +41,7 @@ export const initialPlayerCharacters: PlayerCharacter[] = [
     mp: 0,
     maxMp: 0,
     spells: [],
+    inventory: ['item-dagger'],
   },
   {
     id: 'char3',
@@ -57,6 +59,7 @@ export const initialPlayerCharacters: PlayerCharacter[] = [
     mp: 0,
     maxMp: 0,
     spells: [],
+    inventory: ['item-1'],
   },
   {
     id: 'char4',
@@ -81,6 +84,7 @@ export const initialPlayerCharacters: PlayerCharacter[] = [
       '5': { current: 2, max: 2 },
     },
     spells: [],
+    inventory: ['item-staff'],
   },
   {
     id: 'char-test-1',
@@ -98,6 +102,7 @@ export const initialPlayerCharacters: PlayerCharacter[] = [
     mp: 0,
     maxMp: 0,
     spells: [],
+    inventory: ['item-1'],
   },
 ];
 
