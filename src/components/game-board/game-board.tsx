@@ -20,6 +20,7 @@ const STORAGE_KEY_ENEMIES = 'dnd_enemies';
 const STORAGE_KEY_CLASSES = 'dnd_classes';
 const STORAGE_KEY_SPELLS = 'dnd_spells';
 const STORAGE_KEY_ITEMS = 'dnd_items';
+const STORAGE_KEY_COMBAT_STATE_PREFIX = 'dnd_combat_state_';
 
 
 export function GameBoard({ campaignId }: { campaignId: string }) {
@@ -117,12 +118,51 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
             const storedItems = localStorage.getItem(STORAGE_KEY_ITEMS);
             if (storedItems) setAllItems(JSON.parse(storedItems));
 
+            // Load combat state from localStorage
+            const combatStateKey = `${STORAGE_KEY_COMBAT_STATE_PREFIX}${campaignId}`;
+            const savedCombatStateJSON = localStorage.getItem(combatStateKey);
+            if (savedCombatStateJSON) {
+                const savedState = JSON.parse(savedCombatStateJSON);
+                if (savedState && savedState.isInCombat) {
+                    setCombatants(savedState.combatants || []);
+                    setTurnIndex(savedState.turnIndex || 0);
+                    setRecentRolls(savedState.recentRolls || []);
+                    setIsInCombat(true);
+                }
+            }
 
         } catch (error) {
             console.error("Failed to load data from localStorage", error);
         }
         setLoading(false);
     }, [campaignId]);
+
+    // Persist combat state to localStorage
+    useEffect(() => {
+        if (loading) return; // Don't save during initial load
+
+        try {
+            const combatStateKey = `${STORAGE_KEY_COMBAT_STATE_PREFIX}${campaignId}`;
+            if (isInCombat) {
+                const combatState = {
+                    isInCombat,
+                    combatants,
+                    turnIndex,
+                    recentRolls,
+                };
+                localStorage.setItem(combatStateKey, JSON.stringify(combatState));
+            } else {
+                localStorage.removeItem(combatStateKey);
+            }
+        } catch (error) {
+            console.error("Failed to persist combat state:", error);
+            toast({
+                variant: "destructive",
+                title: "Save Error",
+                description: "Could not save the current combat state.",
+            });
+        }
+    }, [isInCombat, combatants, turnIndex, recentRolls, campaignId, loading, toast]);
     
     const handleTokenSelect = (id: string | null) => {
         setSelectedTokenId(id);
@@ -494,5 +534,3 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         </div>
     );
 }
-
-    
