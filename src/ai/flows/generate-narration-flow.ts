@@ -10,6 +10,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import {googleAI} from '@genkit-ai/googleai';
 import {z} from 'genkit';
 import wav from 'wav';
 
@@ -77,8 +78,12 @@ const generateNarrationFlow = ai.defineFlow(
         Rewrite this summary into an epic narration. Return only the narration text.`,
     });
 
+    if (!epicNarration?.trim()) {
+      throw new Error('Failed to generate narration text from the summary.');
+    }
+
     const { media } = await ai.generate({
-      model: 'googleai/gemini-2.5-flash-preview-tts',
+      model: googleAI.model('gemini-2.5-flash-preview-tts'),
       config: {
         responseModalities: ['AUDIO'],
         speechConfig: {
