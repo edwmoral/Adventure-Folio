@@ -165,37 +165,51 @@ export function BattleMap({
     };
 
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        // Panning has highest priority
         if (isPanning && mapContainerRef.current) {
             e.preventDefault();
             setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
             return;
         }
-        
-        if (mapContainerRef.current) {
+
+        // Then token dragging
+        if (draggedToken && mapContainerRef.current) {
             const containerRect = mapContainerRef.current.getBoundingClientRect();
             const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
             const mapY = (e.clientY - containerRect.top - pan.y) / zoom;
-            const currentX_pc = (mapX / mapContainerRef.current.offsetWidth) * 100;
-            const currentY_pc = (mapY / mapContainerRef.current.offsetHeight) * 100;
-            setMousePosition({ x: currentX_pc, y: currentY_pc });
+            
+            const newXPercent = (mapX / mapContainerRef.current.offsetWidth) * 100;
+            const newYPercent = (mapY / mapContainerRef.current.offsetHeight) * 100;
+
+            const updatedTokens = scene.tokens.map(token => 
+                token.id === draggedToken.id 
+                    ? { ...token, position: { x: newXPercent, y: newYPercent } } 
+                    : token
+            );
+            onSceneUpdate({ ...scene, tokens: updatedTokens });
         }
-
-
-        if (drawingShape && mapContainerRef.current) {
-            e.preventDefault();
+        
+        // Calculate mouse position for other tools (targeting line, drawing)
+        const currentMousePosition = mapContainerRef.current ? (() => {
             const containerRect = mapContainerRef.current.getBoundingClientRect();
-            const mapWidthPixels = containerRect.width;
-            const mapHeightPixels = containerRect.height;
-
             const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
             const mapY = (e.clientY - containerRect.top - pan.y) / zoom;
+            const x = (mapX / mapContainerRef.current.offsetWidth) * 100;
+            const y = (mapY / mapContainerRef.current.offsetHeight) * 100;
+            return { x, y };
+        })() : null;
+        
+        setMousePosition(currentMousePosition);
 
-            const currentX_pc = (mapX / mapWidthPixels) * 100;
-            const currentY_pc = (mapY / mapHeightPixels) * 100;
+        // Then handle shape drawing
+        if (drawingShape && currentMousePosition && mapContainerRef.current) {
+            e.preventDefault();
+            const mapWidthPixels = mapContainerRef.current.offsetWidth;
+            const mapHeightPixels = mapContainerRef.current.offsetHeight;
 
             if (drawingShape.type === 'circle') {
-                const dx_pc = currentX_pc - drawingShape.center.x;
-                const dy_pc = currentY_pc - drawingShape.center.y;
+                const dx_pc = currentMousePosition.x - drawingShape.center.x;
+                const dy_pc = currentMousePosition.y - drawingShape.center.y;
 
                 const dx_px = dx_pc / 100 * mapWidthPixels;
                 const dy_px = dy_pc / 100 * mapHeightPixels;
@@ -206,16 +220,20 @@ export function BattleMap({
                 setDrawingShape(prev => prev?.type === 'circle' ? { ...prev, radius: radius_pc } : null);
 
             } else if (drawingShape.type === 'cone') {
-                setDrawingShape(prev => prev?.type === 'cone' ? { ...prev, endPoint: { x: currentX_pc, y: currentY_pc } } : null);
+                setDrawingShape(prev => prev?.type === 'cone' ? { ...prev, endPoint: currentMousePosition } : null);
             } else if (drawingShape.type === 'line') {
-                 setDrawingShape(prev => prev?.type === 'line' ? { ...prev, end: { x: currentX_pc, y: currentY_pc } } : null);
+                 setDrawingShape(prev => prev?.type === 'line' ? { ...prev, end: currentMousePosition } : null);
             }
         }
     };
-
-    const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    
+    const handleMouseUp = () => {
         if (isPanning) {
             setIsPanning(false);
+        }
+        
+        if (draggedToken) {
+            setDraggedToken(null);
         }
         
         if (drawingShape) {
@@ -302,24 +320,6 @@ export function BattleMap({
         }
     }
     
-    const handleMapMouseMoveForDrag = (e: React.MouseEvent) => {
-        if (!draggedToken || !mapContainerRef.current) return;
-        
-        const containerRect = mapContainerRef.current.getBoundingClientRect();
-        const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
-        const mapY = (e.clientY - containerRect.top - pan.y) / zoom;
-        
-        const newXPercent = (mapX / mapContainerRef.current.offsetWidth) * 100;
-        const newYPercent = (mapY / mapContainerRef.current.offsetHeight) * 100;
-
-        const updatedTokens = scene.tokens.map(token => 
-            token.id === draggedToken.id 
-                ? { ...token, position: { x: newXPercent, y: newYPercent } } 
-                : token
-        );
-        onSceneUpdate({ ...scene, tokens: updatedTokens });
-    }
-
     const handleTokenClick = (e: React.MouseEvent, tokenId: string) => {
         e.stopPropagation();
         if (draggedToken) return;
@@ -356,11 +356,6 @@ export function BattleMap({
         }
 
         onTokenSelect(tokenId);
-    }
-
-    const handleTokenMouseUp = (e: React.MouseEvent, tokenId: string) => {
-        if (!draggedToken) return;
-        setDraggedToken(null);
     }
     
     const confirmAction = () => {
@@ -550,10 +545,9 @@ export function BattleMap({
             onMouseMove={handleMouseMove} 
             onMouseUp={handleMouseUp} 
             onMouseLeave={() => {
-                handleMouseUp;
+                handleMouseUp();
                 setMousePosition(null);
             }}
-            onMouseMoveCapture={handleMapMouseMoveForDrag}
             onWheel={handleWheel}
             onContextMenu={(e) => {
                 if (targetingMode) {
@@ -607,7 +601,7 @@ export function BattleMap({
                                         x2={`${mousePosition.x}%`}
                                         y2={`${mousePosition.y}%`}
                                         stroke="white"
-                                        strokeWidth={0.5 / zoom}
+                                        strokeWidth={1 / zoom}
                                         strokeDasharray={`${0.8 / zoom} ${0.5 / zoom}`}
                                         style={{ pointerEvents: 'none', vectorEffect: 'non-scaling-stroke' }}
                                     />
@@ -710,7 +704,7 @@ export function BattleMap({
                                             transform: 'translate(-50%, -50%)',
                                         }}
                                         onMouseDown={(e) => handleTokenMouseDown(e, token.id)}
-                                        onMouseUp={(e) => handleTokenMouseUp(e, token.id)}
+                                        onMouseUp={handleMouseUp}
                                         onClick={(e) => handleTokenClick(e, token.id)}
                                     >
                                         <div className="relative h-full w-full">
@@ -790,3 +784,4 @@ export function BattleMap({
         </div>
     );
 }
+
