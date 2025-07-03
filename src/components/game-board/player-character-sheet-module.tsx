@@ -6,12 +6,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Shield, Footprints, Users, Swords, Sparkles, BookOpen } from 'lucide-react';
-import type { PlayerCharacter, Scene, Token, Class, Spell, Action as ActionType } from '@/lib/types';
+import type { PlayerCharacter, Scene, Token, Class, Spell, Action as ActionType, MonsterAction } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
 
 interface PlayerCharacterSheetModuleProps {
   scene: Scene | null;
@@ -20,6 +21,7 @@ interface PlayerCharacterSheetModuleProps {
   allSpells: Spell[];
   selectedTokenId: string | null;
   onTokenSelect: (id: string | null) => void;
+  onActionActivate: (action: ActionType) => void;
 }
 
 const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string | number }) => (
@@ -31,15 +33,15 @@ const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: str
 );
 
 const basicActions: ActionType[] = [
-    { name: 'Attack', type: 'Action', action_type: 'Standard', description: 'Make a weapon attack.', usage: {type: 'At Will'} },
-    { name: 'Dash', type: 'Action', action_type: 'Standard', description: 'Double your movement speed for the turn.', usage: {type: 'At Will'} },
-    { name: 'Disengage', type: 'Action', action_type: 'Standard', description: 'Your movement doesn\'t provoke opportunity attacks.', usage: {type: 'At Will'} },
-    { name: 'Dodge', type: 'Action', action_type: 'Standard', description: 'Attack rolls against you have disadvantage until your next turn.', usage: {type: 'At Will'} },
-    { name: 'Help', type: 'Action', action_type: 'Standard', description: 'Grant an ally advantage on an ability check or their next attack.', usage: {type: 'At Will'} },
-    { name: 'Hide', type: 'Action', action_type: 'Standard', description: 'Make a Dexterity (Stealth) check to become unseen.', usage: {type: 'At Will'} },
+    { name: 'Attack', type: 'Action', action_type: 'Standard', description: 'Make a weapon attack (melee or ranged). Range 5ft for melee.', effects: 'Melee range 5ft', usage: {type: 'At Will'} },
+    { name: 'Dash', type: 'Action', action_type: 'Standard', description: 'Double your movement speed for the turn. Range: Self.', usage: {type: 'At Will'} },
+    { name: 'Disengage', type: 'Action', action_type: 'Standard', description: 'Your movement doesn\'t provoke opportunity attacks. Range: Self.', usage: {type: 'At Will'} },
+    { name: 'Dodge', type: 'Action', action_type: 'Standard', description: 'Attack rolls against you have disadvantage until your next turn. Range: Self.', usage: {type: 'At Will'} },
+    { name: 'Help', type: 'Action', action_type: 'Standard', description: 'Grant an ally advantage on an ability check or their next attack. Range: Touch.', usage: {type: 'At Will'} },
+    { name: 'Hide', type: 'Action', action_type: 'Standard', description: 'Make a Dexterity (Stealth) check to become unseen. Range: Self.', usage: {type: 'At Will'} },
 ];
 
-export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClasses, allSpells, selectedTokenId, onTokenSelect }: PlayerCharacterSheetModuleProps) {
+export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClasses, allSpells, selectedTokenId, onTokenSelect, onActionActivate }: PlayerCharacterSheetModuleProps) {
   
   const playerTokens = useMemo(() => {
     if (!scene) return [];
@@ -143,7 +145,9 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClas
                                 <div className="space-y-3 pt-2 border-t text-sm">
                                     {basicActions.map((action) => (
                                         <div key={action.name}>
-                                            <h4 className="font-semibold">{action.name} <Badge variant="secondary">{action.type}</Badge></h4>
+                                            <Button variant="link" className="p-0 h-auto text-sm text-left" onClick={() => onActionActivate(action)}>
+                                                <h4 className="font-semibold">{action.name} <Badge variant="secondary">{action.type}</Badge></h4>
+                                            </Button>
                                             <p className="text-muted-foreground mt-1">{action.description}</p>
                                         </div>
                                     ))}

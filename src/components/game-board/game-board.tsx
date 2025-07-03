@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell, Combatant } from '@/lib/types';
+import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell, Combatant, Action as ActionType, MonsterAction } from '@/lib/types';
 import { BattleMap } from './battle-map';
 import { ModulePanel } from './module-panel';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,6 +11,8 @@ import { Swords, LocateFixed } from 'lucide-react';
 import { InitiativeDialog } from './initiative-dialog';
 import { InitiativeTracker } from './initiative-tracker';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { parseRangeFromAction } from '@/lib/action-utils';
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
@@ -40,6 +42,10 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     const [isInitiativeDialogOpen, setIsInitiativeDialogOpen] = useState(false);
     const [combatants, setCombatants] = useState<Combatant[]>([]);
     const [turnIndex, setTurnIndex] = useState(0);
+
+    // Targeting State
+    const [targetingMode, setTargetingMode] = useState<{ action: ActionType | MonsterAction, casterId: string } | null>(null);
+    const { toast } = useToast();
 
     // Resizing Logic
     const minPanelWidth = 300;
@@ -116,6 +122,9 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         if (id && isPanelCollapsed) {
             setIsPanelCollapsed(false);
         }
+        if (!id) {
+            setTargetingMode(null);
+        }
     };
 
     const handleUpdateScene = (updatedScene: Scene) => {
@@ -167,6 +176,45 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         setCombatants([]);
         setTurnIndex(0);
     };
+
+    const handleActionActivate = useCallback((action: ActionType | MonsterAction) => {
+        if (!selectedTokenId) {
+            toast({ variant: 'destructive', title: 'No Caster', description: 'Select a token before activating an action.' });
+            return;
+        }
+
+        const rangeInfo = parseRangeFromAction(action);
+        
+        // Handle actions with no range or self-range immediately
+        if (!rangeInfo || (rangeInfo.type !== 'self' && rangeInfo.value === 0)) {
+            toast({ title: "Action Used", description: `You used ${action.name}.` });
+            return;
+        }
+        
+        if (rangeInfo.type === 'self') {
+            toast({ title: "Action Used", description: `You used ${action.name} on yourself.` });
+            return;
+        }
+
+        setTargetingMode({ action, casterId: selectedTokenId });
+        toast({ title: "Targeting...", description: `Select a target for ${action.name}.` });
+    }, [selectedTokenId, toast]);
+
+    const handleTargetSelect = useCallback((targetId: string) => {
+        if (!targetingMode) return;
+
+        const casterToken = activeScene?.tokens.find(t => t.id === targetingMode.casterId);
+        const targetToken = activeScene?.tokens.find(t => t.id === targetId);
+
+        if (casterToken && targetToken) {
+            toast({ title: 'Action Targeted!', description: `${casterToken.name} used ${targetingMode.action.name} on ${targetToken.name}.` });
+        }
+        setTargetingMode(null);
+    }, [targetingMode, activeScene?.tokens, toast]);
+
+    const handleCancelTargeting = useCallback(() => {
+        setTargetingMode(null);
+    }, []);
 
     if (loading) {
         return (
@@ -225,6 +273,9 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     allEnemies={allEnemies}
                     isInCombat={isInCombat}
                     activeCombatantId={activeCombatantId}
+                    targetingMode={targetingMode}
+                    onTargetSelect={handleTargetSelect}
+                    onCancelTargeting={handleCancelTargeting}
                 />
             </main>
             
@@ -254,6 +305,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     allSpells={allSpells}
                     selectedTokenId={selectedTokenId}
                     onTokenSelect={handleTokenSelect}
+                    onActionActivate={handleActionActivate}
                 />
             </aside>
             <InitiativeDialog 

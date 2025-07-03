@@ -6,17 +6,19 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Shield, Footprints, Swords, Star, MessageSquare } from 'lucide-react';
-import type { Enemy, Scene } from '@/lib/types';
+import type { Enemy, Scene, MonsterAction } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
+import { Button } from '../ui/button';
 
 interface NpcSheetModuleProps {
   scene: Scene | null;
   allEnemies: Enemy[];
   selectedTokenId: string | null;
   onTokenSelect: (id: string | null) => void;
+  onActionActivate: (action: MonsterAction) => void;
 }
 
 const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string | number }) => (
@@ -27,7 +29,7 @@ const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: str
     </div>
 );
 
-const ActionSection = ({ title, actions, icon }: { title: string, actions: Enemy['action'], icon: React.ReactNode }) => {
+const ActionSection = ({ title, actions, icon, onActionActivate }: { title: string, actions: Enemy['action'], icon: React.ReactNode, onActionActivate?: (action: MonsterAction) => void }) => {
     if (!actions || actions.length === 0) return null;
     return (
         <AccordionItem value={title.toLowerCase()}>
@@ -38,7 +40,12 @@ const ActionSection = ({ title, actions, icon }: { title: string, actions: Enemy
                  <div className="space-y-3 pt-2 border-t text-sm">
                     {actions.map((action) => (
                         <div key={action.name}>
-                            <p><span className="font-bold text-foreground">{action.name}.</span> {action.text}</p>
+                            <p>
+                                <Button variant="link" className="p-0 h-auto font-bold text-foreground hover:underline" onClick={() => onActionActivate && onActionActivate(action)}>
+                                    {action.name}.
+                                </Button>
+                                {' '}{action.text}
+                            </p>
                         </div>
                     ))}
                 </div>
@@ -47,7 +54,7 @@ const ActionSection = ({ title, actions, icon }: { title: string, actions: Enemy
     );
 };
 
-export function NpcSheetModule({ scene, allEnemies, selectedTokenId, onTokenSelect }: NpcSheetModuleProps) {
+export function NpcSheetModule({ scene, allEnemies, selectedTokenId, onTokenSelect, onActionActivate }: NpcSheetModuleProps) {
   
   const npcTokens = useMemo(() => {
     if (!scene) return [];
@@ -123,10 +130,10 @@ export function NpcSheetModule({ scene, allEnemies, selectedTokenId, onTokenSele
                 <Separator />
 
                 <Accordion type="multiple" defaultValue={['traits', 'actions']} className="w-full space-y-1">
-                    <ActionSection title="Traits" actions={enemy.trait} icon={<Star className="h-5 w-5" />} />
-                    <ActionSection title="Actions" actions={enemy.action} icon={<Swords className="h-5 w-5" />} />
-                    <ActionSection title="Reactions" actions={enemy.reaction} icon={<MessageSquare className="h-5 w-5 rotate-90" />} />
-                    <ActionSection title="Legendary Actions" actions={enemy.legendary} icon={<Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />} />
+                    <ActionSection title="Traits" actions={enemy.trait} icon={<Star className="h-5 w-5" />} onActionActivate={onActionActivate} />
+                    <ActionSection title="Actions" actions={enemy.action} icon={<Swords className="h-5 w-5" />} onActionActivate={onActionActivate} />
+                    <ActionSection title="Reactions" actions={enemy.reaction} icon={<MessageSquare className="h-5 w-5 rotate-90" />} onActionActivate={onActionActivate} />
+                    <ActionSection title="Legendary Actions" actions={enemy.legendary} icon={<Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />} onActionActivate={onActionActivate} />
                 </Accordion>
             </div>
         ) : (

@@ -6,7 +6,7 @@ import { ChatModule } from './chat-module';
 import { MenuModule } from './menu-module';
 import { PlayerCharacterSheetModule } from './player-character-sheet-module';
 import { NpcSheetModule } from './npc-sheet-module';
-import type { PlayerCharacter, Enemy, Scene, Class, Spell } from '@/lib/types';
+import type { PlayerCharacter, Enemy, Scene, Class, Spell, Action as ActionType, MonsterAction } from '@/lib/types';
 import { Users, Shield, Settings, MessageSquare, ScrollText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,7 @@ interface ModulePanelProps {
     allSpells: Spell[];
     selectedTokenId: string | null;
     onTokenSelect: (id: string | null) => void;
+    onActionActivate: (action: ActionType | MonsterAction) => void;
 }
 
 export function ModulePanel({ 
@@ -38,6 +39,7 @@ export function ModulePanel({
     allSpells,
     selectedTokenId,
     onTokenSelect,
+    onActionActivate,
 }: ModulePanelProps) {
     const [activeTab, setActiveTab] = useState('chat');
 
@@ -117,6 +119,7 @@ export function ModulePanel({
                         allSpells={allSpells}
                         selectedTokenId={selectedTokenId}
                         onTokenSelect={onTokenSelect}
+                        onActionActivate={onActionActivate}
                     />
                 </TabsContent>
                  <TabsContent value="npcs" className="flex-1 min-h-0 mt-0">
@@ -125,6 +128,7 @@ export function ModulePanel({
                         allEnemies={allEnemies}
                         selectedTokenId={selectedTokenId}
                         onTokenSelect={onTokenSelect}
+                        onActionActivate={onActionActivate}
                     />
                 </TabsContent>
                 <TabsContent value="menu" className="flex-1 min-h-0 mt-0 p-4">

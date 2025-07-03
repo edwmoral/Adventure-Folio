@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import type { Scene, Token, Shape, PlayerCharacter, Enemy } from '@/lib/types';
+import type { Scene, Token, Shape, PlayerCharacter, Enemy, Action as ActionType, MonsterAction } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, Grid, Pointer, Circle, Triangle, Minus, Ruler } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { parseRangeFromAction } from '@/lib/action-utils';
 
 
 export function BattleMap({ 
@@ -22,6 +23,9 @@ export function BattleMap({
     allEnemies,
     isInCombat,
     activeCombatantId,
+    targetingMode,
+    onTargetSelect,
+    onCancelTargeting,
 }: { 
     scene: Scene, 
     selectedTokenId: string | null, 
@@ -30,7 +34,10 @@ export function BattleMap({
     allPlayerCharacters: PlayerCharacter[],
     allEnemies: Enemy[],
     isInCombat: boolean,
-    activeCombatantId: string | null
+    activeCombatantId: string | null,
+    targetingMode: { action: ActionType | MonsterAction, casterId: string } | null,
+    onTargetSelect: (targetId: string) => void,
+    onCancelTargeting: () => void,
 }) {
     const [resolvedMapUrl, setResolvedMapUrl] = useState('');
     const [zoom, setZoom] = useState(1);
@@ -46,6 +53,7 @@ export function BattleMap({
     const [lastUsedTool, setLastUsedTool] = useState<'circle' | 'cone' | 'line'>('circle');
     const [isMeasureToolsOpen, setIsMeasureToolsOpen] = useState(false);
     const [drawingShape, setDrawingShape] = useState<Shape | null>(null);
+    const [targetingRange, setTargetingRange] = useState<{ origin: { x: number; y: number }, radius: number, rx: number, ry: number } | null>(null);
     
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
@@ -65,9 +73,42 @@ export function BattleMap({
         }
     }, [scene.background_map_url]);
 
+    useEffect(() => {
+        if (targetingMode && scene) {
+            const caster = scene.tokens.find(t => t.id === targetingMode.casterId);
+            const rangeInfo = parseRangeFromAction(targetingMode.action);
+
+            if (caster && rangeInfo && mapContainerRef.current) {
+                const mapWidthPx = mapContainerRef.current.offsetWidth;
+                const mapHeightPx = mapContainerRef.current.offsetHeight;
+
+                const radiusPx_x = (rangeInfo.value / ((scene.width || 30) * 5)) * mapWidthPx;
+                const radiusPct_x = (radiusPx_x / mapWidthPx) * 100;
+
+                const radiusPx_y = (rangeInfo.value / ((scene.height || 20) * 5)) * mapHeightPx;
+                const radiusPct_y = (radiusPx_y / mapHeightPx) * 100;
+
+                setTargetingRange({ 
+                    origin: caster.position, 
+                    radius: rangeInfo.value,
+                    rx: radiusPct_x,
+                    ry: radiusPct_y
+                });
+            }
+        } else {
+            setTargetingRange(null);
+        }
+    }, [targetingMode, scene]);
+
+
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
         if (e.target !== mapContainerRef.current) return;
         
+        if (targetingMode) {
+            onCancelTargeting();
+            return;
+        }
+
         // Panning logic (middle mouse button)
         if (e.button === 1) {
             e.preventDefault();
@@ -233,7 +274,7 @@ export function BattleMap({
     };
 
     const handleTokenMouseDown = (e: React.MouseEvent, tokenId: string) => {
-        if (e.button !== 0 || activeTool !== 'pointer') return;
+        if (e.button !== 0 || activeTool !== 'pointer' || targetingMode) return;
         if (isInCombat && tokenId !== activeCombatantId) {
             toast({ variant: 'destructive', title: 'Not Your Turn', description: 'You can only move the active character.' });
             return;
@@ -267,6 +308,37 @@ export function BattleMap({
     const handleTokenClick = (e: React.MouseEvent, tokenId: string) => {
         e.stopPropagation();
         if (draggedToken) return;
+
+        if (targetingMode) {
+            const caster = scene.tokens.find(t => t.id === targetingMode.casterId);
+            const target = scene.tokens.find(t => t.id === tokenId);
+            const rangeInfo = parseRangeFromAction(targetingMode.action);
+
+            if (caster && target && rangeInfo && mapContainerRef.current) {
+                const mapWidthPx = mapContainerRef.current.offsetWidth;
+                const mapHeightPx = mapContainerRef.current.offsetHeight;
+
+                const dx_pct = target.position.x - caster.position.x;
+                const dy_pct = target.position.y - caster.position.y;
+                
+                const dx_px = dx_pct / 100 * mapWidthPx;
+                const dy_px = dy_pct / 100 * mapHeightPx;
+
+                const dist_px = Math.hypot(dx_px, dy_px);
+                
+                const gridSquareSizePx = mapWidthPx / (scene.width || 30);
+                const dist_squares = dist_px / gridSquareSizePx;
+                const dist_feet = dist_squares * 5;
+
+                if (dist_feet <= rangeInfo.value) {
+                    onTargetSelect(tokenId);
+                } else {
+                    toast({ variant: 'destructive', title: 'Out of Range', description: `Target is ${dist_feet.toFixed(0)} ft. away. Range is ${rangeInfo.value} ft.` });
+                }
+            }
+            return;
+        }
+
         onTokenSelect(tokenId);
     }
 
@@ -449,7 +521,7 @@ export function BattleMap({
 
     return (
         <div 
-            className={cn("w-full h-full relative overflow-hidden bg-muted", activeTool !== 'pointer' && 'cursor-crosshair')}
+            className={cn("w-full h-full relative overflow-hidden bg-muted", (activeTool !== 'pointer' || targetingMode) && 'cursor-crosshair')}
             ref={mapContainerRef} 
             onMouseDown={handleMouseDown} 
             onMouseMove={handleMouseMove} 
@@ -482,6 +554,19 @@ export function BattleMap({
                         <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
                             {scene.shapes?.map(shape => renderShape(shape))}
                             {drawingShape && renderShape(drawingShape)}
+                             {targetingRange && (
+                                <ellipse
+                                    cx={`${targetingRange.origin.x}%`}
+                                    cy={`${targetingRange.origin.y}%`}
+                                    rx={`${targetingRange.rx}%`}
+                                    ry={`${targetingRange.ry}%`}
+                                    fill="rgba(59, 130, 246, 0.2)"
+                                    stroke="rgba(59, 130, 246, 0.8)"
+                                    strokeWidth={0.2 / zoom}
+                                    strokeDasharray={`${0.5 / zoom} ${0.5 / zoom}`}
+                                    style={{ vectorEffect: 'non-scaling-stroke' }}
+                                />
+                            )}
                             <g>
                                 {scene.shapes?.map(shape => renderShapeLabel(shape))}
                                 {drawingShape && renderShapeLabel(drawingShape)}
@@ -526,7 +611,8 @@ export function BattleMap({
                                     <div
                                         className={cn(
                                             "absolute",
-                                            activeTool === 'pointer' ? "cursor-grab active:cursor-grabbing" : "cursor-default",
+                                            activeTool === 'pointer' && !targetingMode ? "cursor-grab active:cursor-grabbing" : "cursor-default",
+                                            targetingMode && 'cursor-crosshair',
                                             (isSelected || isActive) && "z-10"
                                         )}
                                         style={{
