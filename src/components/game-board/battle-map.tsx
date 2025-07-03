@@ -27,6 +27,8 @@ export function BattleMap({
     targetingMode,
     onTargetSelect,
     onCancelTargeting,
+    tokenToCenter,
+    onCenterTokenComplete,
 }: { 
     scene: Scene, 
     selectedTokenId: string | null, 
@@ -39,6 +41,8 @@ export function BattleMap({
     targetingMode: { action: ActionType | MonsterAction | Spell, casterId: string } | null,
     onTargetSelect: (targetId: string) => void,
     onCancelTargeting: () => void,
+    tokenToCenter: string | null,
+    onCenterTokenComplete: () => void,
 }) {
     const [resolvedMapUrl, setResolvedMapUrl] = useState('');
     const [zoom, setZoom] = useState(1);
@@ -76,6 +80,30 @@ export function BattleMap({
             setResolvedMapUrl(mapUrl);
         }
     }, [scene.background_map_url]);
+    
+    useEffect(() => {
+        if (tokenToCenter && mapContainerRef.current) {
+            const token = scene.tokens.find(t => t.id === tokenToCenter);
+            if (token) {
+                onTokenSelect(tokenToCenter);
+
+                const mapWidth = mapContainerRef.current.offsetWidth;
+                const mapHeight = mapContainerRef.current.offsetHeight;
+                const viewportCenterX = mapContainerRef.current.clientWidth / 2;
+                const viewportCenterY = mapContainerRef.current.clientHeight / 2;
+                
+                const tokenX = (token.position.x / 100) * mapWidth;
+                const tokenY = (token.position.y / 100) * mapHeight;
+
+                const newPanX = viewportCenterX - tokenX * zoom;
+                const newPanY = viewportCenterY - tokenY * zoom;
+
+                setPan({ x: newPanX, y: newPanY });
+                
+                onCenterTokenComplete();
+            }
+        }
+    }, [tokenToCenter, scene.tokens, onCenterTokenComplete, onTokenSelect, zoom]);
 
     useEffect(() => {
         if (targetingMode && scene && mapContainerRef.current) {
@@ -110,16 +138,16 @@ export function BattleMap({
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
         if (e.target !== mapContainerRef.current) return;
         
-        if (targetingMode) {
-            onCancelTargeting();
-            return;
-        }
-
-        // Panning logic (middle mouse button)
-        if (e.button === 1) {
+        // Panning logic (right mouse button)
+        if (e.button === 2 && !targetingMode) {
             e.preventDefault();
             setIsPanning(true);
             setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+            return;
+        }
+        
+        if (targetingMode) {
+            onCancelTargeting();
             return;
         }
 
@@ -174,7 +202,7 @@ export function BattleMap({
     };
 
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (isPanning && mapContainerRef.current) {
+        if (isPanning) {
             e.preventDefault();
             setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
             return;
@@ -226,7 +254,7 @@ export function BattleMap({
         }
     };
     
-    const handleMouseUp = () => {
+    const handleMouseUp = (e: React.MouseEvent) => {
         if (isPanning) {
             setIsPanning(false);
         }
@@ -261,6 +289,16 @@ export function BattleMap({
             }
 
             setDrawingShape(null);
+        }
+    };
+    
+    const handleContextMenu = (e: React.MouseEvent) => {
+        // Prevent default context menu always on the map
+        e.preventDefault();
+        
+        // But still allow right click to cancel targeting
+        if (targetingMode) {
+            onCancelTargeting();
         }
     };
 
@@ -602,16 +640,11 @@ export function BattleMap({
             onMouseMove={handleMouseMove} 
             onMouseUp={handleMouseUp} 
             onMouseLeave={() => {
-                handleMouseUp();
+                setIsPanning(false);
                 setMousePosition(null);
             }}
             onWheel={handleWheel}
-            onContextMenu={(e) => {
-                if (targetingMode) {
-                    e.preventDefault();
-                    onCancelTargeting();
-                }
-            }}
+            onContextMenu={handleContextMenu}
         >
              <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
                 <AlertDialogContent>

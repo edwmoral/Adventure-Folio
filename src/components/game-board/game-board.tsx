@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -38,6 +39,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     const [allSpells, setAllSpells] = useState<Spell[]>([]);
     const [allItems, setAllItems] = useState<Item[]>([]);
     const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
+    const [tokenToCenter, setTokenToCenter] = useState<string | null>(null);
 
     // Combat State
     const [isInCombat, setIsInCombat] = useState(false);
@@ -198,7 +200,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         if (isInCombat && combatants.length > 0) {
             const activeTokenId = combatants[turnIndex]?.tokenId;
             if (activeTokenId) {
-                handleTokenSelect(activeTokenId);
+                setTokenToCenter(activeTokenId);
             }
         }
     };
@@ -258,7 +260,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
 
         setCombatants(updatedCombatants);
         setTurnIndex(newTurnIndex);
-        handleTokenSelect(updatedCombatants[newTurnIndex]?.tokenId);
+        setTokenToCenter(updatedCombatants[newTurnIndex]?.tokenId);
     };
 
     const handleEndCombat = () => {
@@ -502,6 +504,8 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     targetingMode={targetingMode}
                     onTargetSelect={handleTargetSelect}
                     onCancelTargeting={handleCancelTargeting}
+                    tokenToCenter={tokenToCenter}
+                    onCenterTokenComplete={() => setTokenToCenter(null)}
                 />
             </main>
             
