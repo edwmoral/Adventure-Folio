@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import type { Scene, Token, Shape, PlayerCharacter, Enemy, Action as ActionType, MonsterAction, Spell } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, Grid, Pointer, Circle, Triangle, Minus, Ruler, ShieldAlert, Footprints, EyeOff, Handshake } from 'lucide-react';
+import { ZoomIn, ZoomOut, Grid, Pointer, Circle, Triangle, Minus, Ruler, ShieldAlert, Footprints, EyeOff, Handshake, Square } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useToast } from '@/hooks/use-toast';
@@ -49,8 +49,8 @@ export function BattleMap({
     const [showConfirm, setShowConfirm] = useState(false);
     const [pendingUpdate, setPendingUpdate] = useState<{ scene: Scene, description: string } | null>(null);
     
-    const [activeTool, setActiveTool] = useState<'pointer' | 'circle' | 'cone' | 'line'>('pointer');
-    const [lastUsedTool, setLastUsedTool] = useState<'circle' | 'cone' | 'line'>('circle');
+    const [activeTool, setActiveTool] = useState<'pointer' | 'circle' | 'cone' | 'line' | 'square'>('pointer');
+    const [lastUsedTool, setLastUsedTool] = useState<'circle' | 'cone' | 'line' | 'square'>('circle');
     const [isMeasureToolsOpen, setIsMeasureToolsOpen] = useState(false);
     const [drawingShape, setDrawingShape] = useState<Shape | null>(null);
     const [targetingRange, setTargetingRange] = useState<{ origin: { x: number; y: number }, radius: number, rx: number, ry: number } | null>(null);
@@ -126,7 +126,7 @@ export function BattleMap({
             if (activeTool === 'pointer') {
                 onTokenSelect(null);
             }
-            if (activeTool === 'circle' || activeTool === 'cone' || activeTool === 'line') {
+            if (activeTool === 'circle' || activeTool === 'cone' || activeTool === 'line' || activeTool === 'square') {
                 e.preventDefault();
                 const containerRect = mapContainerRef.current.getBoundingClientRect();
                 const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
@@ -159,37 +159,26 @@ export function BattleMap({
                         end: { x: pointX, y: pointY },
                         color: '#ef4444'
                     });
+                } else if (activeTool === 'square') {
+                    setDrawingShape({
+                        id: `shape-${Date.now()}`,
+                        type: 'square',
+                        start: { x: pointX, y: pointY },
+                        end: { x: pointX, y: pointY },
+                        color: '#ef4444'
+                    });
                 }
             }
         }
     };
 
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-        // Panning has highest priority
         if (isPanning && mapContainerRef.current) {
             e.preventDefault();
             setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
             return;
         }
 
-        // Then token dragging
-        if (draggedToken && mapContainerRef.current) {
-            const containerRect = mapContainerRef.current.getBoundingClientRect();
-            const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
-            const mapY = (e.clientY - containerRect.top - pan.y) / zoom;
-            
-            const newXPercent = (mapX / mapContainerRef.current.offsetWidth) * 100;
-            const newYPercent = (mapY / mapContainerRef.current.offsetHeight) * 100;
-
-            const updatedTokens = scene.tokens.map(token => 
-                token.id === draggedToken.id 
-                    ? { ...token, position: { x: newXPercent, y: newYPercent } } 
-                    : token
-            );
-            onSceneUpdate({ ...scene, tokens: updatedTokens });
-        }
-        
-        // Calculate mouse position for other tools (targeting line, drawing)
         const currentMousePosition = mapContainerRef.current ? (() => {
             const containerRect = mapContainerRef.current.getBoundingClientRect();
             const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
@@ -201,7 +190,18 @@ export function BattleMap({
         
         setMousePosition(currentMousePosition);
 
-        // Then handle shape drawing
+        if (draggedToken && mapContainerRef.current) {
+            if (currentMousePosition) {
+                const { x: newXPercent, y: newYPercent } = currentMousePosition;
+                const updatedTokens = scene.tokens.map(token => 
+                    token.id === draggedToken.id 
+                        ? { ...token, position: { x: newXPercent, y: newYPercent } } 
+                        : token
+                );
+                onSceneUpdate({ ...scene, tokens: updatedTokens });
+            }
+        }
+        
         if (drawingShape && currentMousePosition && mapContainerRef.current) {
             e.preventDefault();
             const mapWidthPixels = mapContainerRef.current.offsetWidth;
@@ -210,19 +210,17 @@ export function BattleMap({
             if (drawingShape.type === 'circle') {
                 const dx_pc = currentMousePosition.x - drawingShape.center.x;
                 const dy_pc = currentMousePosition.y - drawingShape.center.y;
-
                 const dx_px = dx_pc / 100 * mapWidthPixels;
                 const dy_px = dy_pc / 100 * mapHeightPixels;
-
                 const radius_px = Math.hypot(dx_px, dy_px);
                 const radius_pc = (radius_px / mapWidthPixels) * 100;
-                
                 setDrawingShape(prev => prev?.type === 'circle' ? { ...prev, radius: radius_pc } : null);
-
             } else if (drawingShape.type === 'cone') {
                 setDrawingShape(prev => prev?.type === 'cone' ? { ...prev, endPoint: currentMousePosition } : null);
             } else if (drawingShape.type === 'line') {
                  setDrawingShape(prev => prev?.type === 'line' ? { ...prev, end: currentMousePosition } : null);
+            } else if (drawingShape.type === 'square') {
+                 setDrawingShape(prev => prev?.type === 'square' ? { ...prev, end: currentMousePosition } : null);
             }
         }
     };
@@ -271,6 +269,19 @@ export function BattleMap({
                     const dy_ft = dy / 100 * mapHeightInFt;
                     const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
                     description = `Draw a line ${lengthInFt} ft. long.`;
+                }
+            } else if (finalShape.type === 'square') {
+                const dx = finalShape.end.x - finalShape.start.x;
+                const dy = finalShape.end.y - finalShape.start.y;
+                if (Math.hypot(dx, dy) < 1) { ignore = true; }
+                else {
+                    const mapWidthInFt = (scene.width || 30) * 5;
+                    const mapHeightInFt = (scene.height || 20) * 5;
+                    const width_pc = Math.abs(dx);
+                    const height_pc = Math.abs(dy);
+                    const width_ft = (width_pc / 100 * mapWidthInFt).toFixed(0);
+                    const height_ft = (height_pc / 100 * mapHeightInFt).toFixed(0);
+                    description = `Draw a rectangle ${width_ft} ft. by ${height_ft} ft.`;
                 }
             }
 
@@ -464,6 +475,37 @@ export function BattleMap({
                 </g>
             );
         }
+        if (shape.type === 'square') {
+            const x = Math.min(shape.start.x, shape.end.x);
+            const y = Math.min(shape.start.y, shape.end.y);
+            const width = Math.abs(shape.start.x - shape.end.x);
+            const height = Math.abs(shape.start.y - shape.end.y);
+
+            return (
+                <g key={shape.id}>
+                    <rect
+                        x={`${x}%`}
+                        y={`${y}%`}
+                        width={`${width}%`}
+                        height={`${height}%`}
+                        fill={`${shape.color}4D`}
+                        stroke="black"
+                        strokeWidth={borderStrokeWidth}
+                        style={{ vectorEffect: 'non-scaling-stroke' }}
+                    />
+                    <rect
+                        x={`${x}%`}
+                        y={`${y}%`}
+                        width={`${width}%`}
+                        height={`${height}%`}
+                        fill="none"
+                        stroke={shape.color}
+                        strokeWidth={mainStrokeWidth}
+                        style={{ vectorEffect: 'non-scaling-stroke' }}
+                    />
+                </g>
+            );
+        }
         return null;
     }
 
@@ -505,10 +547,29 @@ export function BattleMap({
                 </text>
             );
         }
+        if (shape.type === 'square') {
+            const mapWidthInFt = (scene.width || 30) * 5;
+            const mapHeightInFt = (scene.height || 20) * 5;
+            
+            const width_pc = Math.abs(shape.start.x - shape.end.x);
+            const height_pc = Math.abs(shape.start.y - shape.end.y);
+            
+            const width_ft = (width_pc / 100 * mapWidthInFt).toFixed(0);
+            const height_ft = (height_pc / 100 * mapHeightInFt).toFixed(0);
+
+            const labelX = Math.min(shape.start.x, shape.end.x) + width_pc / 2;
+            const labelY = Math.min(shape.start.y, shape.end.y) + height_pc / 2;
+            
+            return (
+                <text key={`${shape.id}-label`} x={`${labelX}%`} y={`${labelY}%`} dominantBaseline="middle" {...textStyle}>
+                   {`${width_ft}ft x ${height_ft}ft`}
+                </text>
+            );
+        }
         return null;
     }
     
-    const handleToolSelect = (tool: 'circle' | 'cone' | 'line') => {
+    const handleToolSelect = (tool: 'circle' | 'cone' | 'line' | 'square') => {
         setActiveTool(tool);
         setLastUsedTool(tool);
         setIsMeasureToolsOpen(false);
@@ -771,6 +832,9 @@ export function BattleMap({
                         <Button variant="ghost" size="icon" onClick={() => handleToolSelect('line')} className={cn(activeTool === 'line' && 'bg-primary/20 text-primary-foreground')}>
                             <Minus />
                         </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleToolSelect('square')} className={cn(activeTool === 'square' && 'bg-primary/20 text-primary-foreground')}>
+                            <Square />
+                        </Button>
                     </div>
                 )}
                  <div className="flex items-center gap-2 p-1 bg-secondary rounded-md">
@@ -784,4 +848,3 @@ export function BattleMap({
         </div>
     );
 }
-

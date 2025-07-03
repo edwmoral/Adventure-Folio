@@ -26,7 +26,15 @@ export type LineShape = {
     color: string;
 };
 
-export type Shape = CircleShape | ConeShape | LineShape;
+export type SquareShape = {
+    id: string;
+    type: 'square';
+    start: { x: number; y: number };
+    end: { x: number; y: number };
+    color: string;
+};
+
+export type Shape = CircleShape | ConeShape | LineShape | SquareShape;
 
 export type Token = {
   id: string;
