@@ -172,8 +172,23 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     
     const handleNextTurn = () => {
         const newTurnIndex = (turnIndex + 1) % combatants.length;
+        
+        // Reset actions for the combatant whose turn is now starting
+        const updatedCombatants = combatants.map((c, index) => {
+            if (index === newTurnIndex) {
+                return {
+                    ...c,
+                    hasAction: true,
+                    hasBonusAction: true,
+                    hasReaction: true, // Reaction resets at start of turn (common rule)
+                };
+            }
+            return c;
+        });
+
+        setCombatants(updatedCombatants);
         setTurnIndex(newTurnIndex);
-        handleTokenSelect(combatants[newTurnIndex]?.tokenId);
+        handleTokenSelect(updatedCombatants[newTurnIndex]?.tokenId);
     };
 
     const handleEndCombat = () => {
@@ -182,12 +197,49 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         setTurnIndex(0);
         setRecentRolls([]);
     };
+    
+    const handleUseAction = (actionType: 'Action' | 'Bonus Action' | 'Reaction') => {
+        setCombatants(prev => prev.map((c, index) => {
+            if (index === turnIndex) {
+                const updatedCombatant = { ...c };
+                if (actionType === 'Action') updatedCombatant.hasAction = false;
+                if (actionType === 'Bonus Action') updatedCombatant.hasBonusAction = false;
+                if (actionType === 'Reaction') updatedCombatant.hasReaction = false;
+                return updatedCombatant;
+            }
+            return c;
+        }));
+    };
 
     const handleActionActivate = useCallback((action: ActionType | MonsterAction) => {
         if (!selectedTokenId) {
             toast({ variant: 'destructive', title: 'No Caster', description: 'Select a token before activating an action.' });
             return;
         }
+        
+        const activeCombatant = combatants[turnIndex];
+        if (isInCombat && (!activeCombatant || activeCombatant.tokenId !== selectedTokenId)) {
+            toast({ variant: 'destructive', title: 'Not Your Turn', description: 'This action can only be taken on your turn.' });
+            return;
+        }
+
+        const actionType = 'type' in action ? action.type : 'Action'; // Monster Actions default to 'Action'
+
+        if (isInCombat && activeCombatant) {
+            if (actionType === 'Action' && !activeCombatant.hasAction) {
+                toast({ variant: 'destructive', title: 'No Action', description: 'You have already used your action this turn.' });
+                return;
+            }
+            if (actionType === 'Bonus Action' && !activeCombatant.hasBonusAction) {
+                toast({ variant: 'destructive', title: 'No Bonus Action', description: 'You have already used your bonus action this turn.' });
+                return;
+            }
+        }
+        
+        if (actionType === 'Action' || actionType === 'Bonus Action' || actionType === 'Reaction') {
+            handleUseAction(actionType as 'Action' | 'Bonus Action' | 'Reaction');
+        }
+
 
         const selfCastActions: Record<string, 'dodging' | 'disengaged' | 'hidden'> = {
             'Dodge': 'dodging',
@@ -227,7 +279,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
 
         setTargetingMode({ action, casterId: selectedTokenId });
         toast({ title: "Targeting...", description: `Select a target for ${action.name}.` });
-    }, [selectedTokenId, toast, activeScene, handleUpdateScene]);
+    }, [selectedTokenId, toast, activeScene, handleUpdateScene, combatants, turnIndex, isInCombat]);
 
     const handleTargetSelect = useCallback((targetId: string) => {
         if (!targetingMode || !activeScene) return;
@@ -300,7 +352,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     
     const panelContainerClasses = "flex-shrink-0 bg-background transition-all duration-200 ease-in-out";
     const borderClass = panelPosition === 'right' ? 'border-l' : 'border-r';
-    const activeCombatantId = isInCombat ? combatants[turnIndex]?.tokenId : null;
+    const activeCombatant = isInCombat ? combatants[turnIndex] : null;
 
     return (
         <div className={cn("fixed inset-0 bg-muted flex", panelPosition === 'right' ? 'flex-row' : 'flex-row-reverse')}>
@@ -338,7 +390,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     allPlayerCharacters={allPlayerCharacters}
                     allEnemies={allEnemies}
                     isInCombat={isInCombat}
-                    activeCombatantId={activeCombatantId}
+                    activeCombatantId={activeCombatant?.tokenId ?? null}
                     targetingMode={targetingMode}
                     onTargetSelect={handleTargetSelect}
                     onCancelTargeting={handleCancelTargeting}
@@ -372,6 +424,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     selectedTokenId={selectedTokenId}
                     onTokenSelect={handleTokenSelect}
                     onActionActivate={handleActionActivate}
+                    activeCombatant={activeCombatant}
                 />
             </aside>
             <InitiativeDialog 

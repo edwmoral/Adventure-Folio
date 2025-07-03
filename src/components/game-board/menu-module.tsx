@@ -4,7 +4,8 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { MoveHorizontal } from "lucide-react";
+import { MoveHorizontal, LogOut } from "lucide-react";
+import Link from "next/link";
 
 interface MenuModuleProps {
     onTogglePosition: () => void;
@@ -39,6 +40,15 @@ export function MenuModule({ onTogglePosition, currentPosition }: MenuModuleProp
                         <span>Right</span>
                     </div>
                 </div>
+            </div>
+            <div className="space-y-2">
+                <h3 className="font-semibold">Exit Session</h3>
+                 <Button asChild variant="outline" className="w-full">
+                    <Link href="/play">
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Exit to Campaigns
+                    </Link>
+                </Button>
             </div>
         </div>
     )

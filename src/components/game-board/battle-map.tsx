@@ -77,25 +77,28 @@ export function BattleMap({
     }, [scene.background_map_url]);
 
     useEffect(() => {
-        if (targetingMode && scene) {
+        if (targetingMode && scene && mapContainerRef.current) {
             const caster = scene.tokens.find(t => t.id === targetingMode.casterId);
             const rangeInfo = parseRangeFromAction(targetingMode.action);
+            
+            if (caster && rangeInfo) {
+                const mapWidthFt = (scene.width || 30) * 5;
+                const mapHeightFt = (scene.height || 20) * 5;
 
-            if (caster && rangeInfo && mapContainerRef.current) {
-                const mapWidthPx = mapContainerRef.current.offsetWidth;
-                const mapHeightPx = mapContainerRef.current.offsetHeight;
+                const tokenWidthFt = mapWidthFt / (scene.width || 30);
+                // Assuming square grid for token radius, which is a reasonable simplification.
+                const tokenRadiusFt = tokenWidthFt / 2;
+                
+                const totalRangeFt = rangeInfo.type === 'self' ? 0 : rangeInfo.value + tokenRadiusFt;
 
-                const radiusPx_x = (rangeInfo.value / ((scene.width || 30) * 5)) * mapWidthPx;
-                const radiusPct_x = (radiusPx_x / mapWidthPx) * 100;
-
-                const radiusPx_y = (rangeInfo.value / ((scene.height || 20) * 5)) * mapHeightPx;
-                const radiusPct_y = (radiusPx_y / mapHeightPx) * 100;
+                const rx = (totalRangeFt / mapWidthFt) * 100;
+                const ry = (totalRangeFt / mapHeightFt) * 100;
 
                 setTargetingRange({ 
                     origin: caster.position, 
                     radius: rangeInfo.value,
-                    rx: radiusPct_x,
-                    ry: radiusPct_y
+                    rx: rx,
+                    ry: ry
                 });
             }
         } else {

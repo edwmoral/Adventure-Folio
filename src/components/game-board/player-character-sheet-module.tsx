@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Shield, Footprints, Users, Swords, Sparkles, BookOpen } from 'lucide-react';
-import type { PlayerCharacter, Scene, Token, Class, Spell, Action as ActionType, MonsterAction } from '@/lib/types';
+import type { PlayerCharacter, Scene, Token, Class, Spell, Action as ActionType, Combatant } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,7 @@ interface PlayerCharacterSheetModuleProps {
   selectedTokenId: string | null;
   onTokenSelect: (id: string | null) => void;
   onActionActivate: (action: ActionType) => void;
+  activeCombatant: Combatant | null;
 }
 
 const StatDisplay = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string | number }) => (
@@ -41,7 +42,7 @@ const basicActions: ActionType[] = [
     { name: 'Hide', type: 'Action', action_type: 'Standard', description: 'Make a Dexterity (Stealth) check to become unseen. Range: Self.', usage: {type: 'At Will'} },
 ];
 
-export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClasses, allSpells, selectedTokenId, onTokenSelect, onActionActivate }: PlayerCharacterSheetModuleProps) {
+export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClasses, allSpells, selectedTokenId, onTokenSelect, onActionActivate, activeCombatant }: PlayerCharacterSheetModuleProps) {
   
   const playerTokens = useMemo(() => {
     if (!scene) return [];
@@ -78,6 +79,16 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClas
 
   }, [character, allClasses, allSpells]);
 
+  const isMyTurn = activeCombatant?.tokenId === selectedTokenId;
+  
+  const getActionDisabledState = (actionType: string) => {
+    if (!isMyTurn || !activeCombatant) return true;
+    if (actionType === 'Action') return !activeCombatant.hasAction;
+    if (actionType === 'Bonus Action') return !activeCombatant.hasBonusAction;
+    if (actionType === 'Reaction') return !activeCombatant.hasReaction;
+    return false;
+  };
+
 
   return (
     <div className="h-full flex flex-col">
@@ -107,6 +118,14 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClas
                             </p>
                         </div>
                     </div>
+
+                    {isMyTurn && activeCombatant && (
+                        <div className="flex gap-2 p-2 bg-muted rounded-md justify-center">
+                            <Badge variant={activeCombatant.hasAction ? "default" : "secondary"}>Action</Badge>
+                            <Badge variant={activeCombatant.hasBonusAction ? "default" : "secondary"}>Bonus Action</Badge>
+                            <Badge variant={activeCombatant.hasReaction ? "default" : "secondary"}>Reaction</Badge>
+                        </div>
+                    )}
 
                     <Separator />
 
@@ -145,7 +164,7 @@ export function PlayerCharacterSheetModule({ scene, allPlayerCharacters, allClas
                                 <div className="space-y-3 pt-2 border-t text-sm">
                                     {basicActions.map((action) => (
                                         <div key={action.name}>
-                                            <Button variant="link" className="p-0 h-auto text-sm text-left" onClick={() => onActionActivate(action)}>
+                                            <Button variant="link" className="p-0 h-auto text-sm text-left" disabled={getActionDisabledState(action.type)} onClick={() => onActionActivate(action)}>
                                                 <h4 className="font-semibold">{action.name} <Badge variant="secondary">{action.type}</Badge></h4>
                                             </Button>
                                             <p className="text-muted-foreground mt-1">{action.description}</p>

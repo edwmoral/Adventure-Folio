@@ -1,15 +1,4 @@
 
-
-
-
-
-
-
-
-
-
-
-
 // --- Base & Container Types ---
 
 export type CircleShape = {
@@ -289,4 +278,7 @@ export type Combatant = {
   initiativeRoll?: number;
   dexterityModifier: number;
   avatarUrl: string;
+  hasAction: boolean;
+  hasBonusAction: boolean;
+  hasReaction: boolean;
 };
