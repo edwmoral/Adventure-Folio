@@ -5,8 +5,9 @@ import { ChatModule } from './chat-module';
 import { MenuModule } from './menu-module';
 import { PlayerCharacterSheetModule } from './player-character-sheet-module';
 import { NpcSheetModule } from './npc-sheet-module';
+import { NarrationModule } from './narration-module';
 import type { PlayerCharacter, Enemy, Scene, Class, Spell, Action as ActionType, MonsterAction, Combatant, Item } from '@/lib/types';
-import { Users, Shield, Settings, MessageSquare, ScrollText, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, Shield, Settings, MessageSquare, BookText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
 
@@ -93,10 +94,14 @@ export function ModulePanel({
                 <span className="sr-only">Collapse Panel</span>
             </Button>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-                <TabsList className="grid w-full grid-cols-4 rounded-none border-b">
+                <TabsList className="grid w-full grid-cols-5 rounded-none border-b">
                     <TabsTrigger value="chat" className="rounded-none flex items-center gap-2">
                         <MessageSquare className="h-4 w-4"/>
                         <span>Chat</span>
+                    </TabsTrigger>
+                     <TabsTrigger value="narration" className="rounded-none flex items-center gap-2">
+                        <BookText className="h-4 w-4"/>
+                        <span>Narration</span>
                     </TabsTrigger>
                     <TabsTrigger value="characters" className="rounded-none flex items-center gap-2">
                         <Users className="h-4 w-4"/>
@@ -113,6 +118,9 @@ export function ModulePanel({
                 </TabsList>
                 <TabsContent value="chat" className="flex-1 min-h-0 mt-0">
                    <ChatModule />
+                </TabsContent>
+                <TabsContent value="narration" className="flex-1 min-h-0 mt-0">
+                    <NarrationModule />
                 </TabsContent>
                 <TabsContent value="characters" className="flex-1 min-h-0 mt-0">
                     <PlayerCharacterSheetModule 
