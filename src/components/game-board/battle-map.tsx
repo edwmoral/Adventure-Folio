@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import type { Scene, Token, Shape, PlayerCharacter, Enemy, Action as ActionType, MonsterAction } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, Grid, Pointer, Circle, Triangle, Minus, Ruler } from 'lucide-react';
+import { ZoomIn, ZoomOut, Grid, Pointer, Circle, Triangle, Minus, Ruler, ShieldAlert, Footprints, EyeOff, Handshake } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useToast } from '@/hooks/use-toast';
@@ -530,6 +530,13 @@ export function BattleMap({
         setActiveTool('pointer');
         setIsMeasureToolsOpen(false);
     }
+    
+    const statusIcons: Record<string, React.ReactElement> = {
+        dodging: <ShieldAlert className="h-4 w-4 text-blue-400" />,
+        disengaged: <Footprints className="h-4 w-4 text-yellow-400" />,
+        hidden: <EyeOff className="h-4 w-4 text-gray-400" />,
+        helping: <Handshake className="h-4 w-4 text-green-400" />,
+    };
 
 
     return (
@@ -669,6 +676,22 @@ export function BattleMap({
                                                 <AvatarImage src={token.imageUrl} className="object-cover" />
                                                 <AvatarFallback>{token.name.substring(0,1)}</AvatarFallback>
                                             </Avatar>
+                                            {token.statusEffects && token.statusEffects.length > 0 && (
+                                                <div className="absolute -top-1 -right-1 flex gap-0.5" style={{ transform: `scale(${1 / zoom})`, transformOrigin: 'top right' }}>
+                                                    {token.statusEffects.map(effect => (
+                                                        <TooltipProvider key={effect}>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <div className="bg-background/80 rounded-full p-0.5 shadow-lg">
+                                                                        {statusIcons[effect]}
+                                                                    </div>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent><p>{effect.charAt(0).toUpperCase() + effect.slice(1)}</p></TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    ))}
+                                                </div>
+                                            )}
                                             {healthPercent !== undefined && (
                                                 <div className="absolute -bottom-1.5 left-0 w-full h-1.5 bg-gray-600 rounded-full overflow-hidden border border-black/50" style={{ transform: `scale(${1/zoom})`, transformOrigin: 'bottom' }}>
                                                     <div 

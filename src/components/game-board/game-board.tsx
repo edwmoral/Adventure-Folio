@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell, Combatant, Action as ActionType, MonsterAction } from '@/lib/types';
+import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell, Combatant, Action as ActionType, MonsterAction, Token } from '@/lib/types';
 import { BattleMap } from './battle-map';
 import { ModulePanel } from './module-panel';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -128,7 +128,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }
     };
 
-    const handleUpdateScene = (updatedScene: Scene) => {
+    const handleUpdateScene = useCallback((updatedScene: Scene) => {
         if(!campaign) return;
 
         const updatedCampaign = {
@@ -147,7 +147,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         } catch (error) {
             console.error("Failed to save campaign:", error);
         }
-    }
+    }, [campaign]);
 
     const handleFocusActiveCombatant = () => {
         if (isInCombat && combatants.length > 0) {
@@ -189,9 +189,32 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
             return;
         }
 
+        const selfCastActions: Record<string, 'dodging' | 'disengaged' | 'hidden'> = {
+            'Dodge': 'dodging',
+            'Disengage': 'disengaged',
+            'Hide': 'hidden',
+        };
+        const selfCastEffect = selfCastActions[action.name];
+
+        if (selfCastEffect && activeScene) {
+            const updatedTokens = activeScene.tokens.map(token => {
+                if (token.id === selectedTokenId) {
+                    const newStatusEffects = [...(token.statusEffects || [])];
+                    if (!newStatusEffects.includes(selfCastEffect)) {
+                        newStatusEffects.push(selfCastEffect);
+                    }
+                    return { ...token, statusEffects: newStatusEffects };
+                }
+                return token;
+            });
+
+            handleUpdateScene({ ...activeScene, tokens: updatedTokens });
+            toast({ title: 'Status Applied!', description: `${action.name} is now active.` });
+            return;
+        }
+
         const rangeInfo = parseRangeFromAction(action);
         
-        // Handle actions with no range or self-range immediately
         if (!rangeInfo || (rangeInfo.type !== 'self' && rangeInfo.value === 0)) {
             toast({ title: "Action Used", description: `You used ${action.name}.` });
             return;
@@ -204,19 +227,49 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
 
         setTargetingMode({ action, casterId: selectedTokenId });
         toast({ title: "Targeting...", description: `Select a target for ${action.name}.` });
-    }, [selectedTokenId, toast]);
+    }, [selectedTokenId, toast, activeScene, handleUpdateScene]);
 
     const handleTargetSelect = useCallback((targetId: string) => {
-        if (!targetingMode) return;
+        if (!targetingMode || !activeScene) return;
+        
+        const casterToken = activeScene.tokens.find(t => t.id === targetingMode.casterId);
+        
+        if (targetingMode.action.name === 'Help') {
+            const targetToken = activeScene.tokens.find(t => t.id === targetId);
+            
+            if (targetId === targetingMode.casterId) {
+                 toast({ variant: 'destructive', title: 'Invalid Target', description: 'You cannot help yourself.' });
+                 return;
+            }
+            if (targetToken?.type !== 'character') {
+                 toast({ variant: 'destructive', title: 'Invalid Target', description: 'You can only help allied characters.' });
+                 return;
+            }
+            
+            const updatedTokens = activeScene.tokens.map(token => {
+                if (token.id === targetId) {
+                    const newStatusEffects: Token['statusEffects'] = [...(token.statusEffects || [])];
+                    if (!newStatusEffects.includes('helping')) {
+                        newStatusEffects.push('helping');
+                    }
+                    return { ...token, statusEffects: newStatusEffects };
+                }
+                return token;
+            });
+            
+            handleUpdateScene({ ...activeScene, tokens: updatedTokens });
+            toast({ title: 'Action Used!', description: `${casterToken?.name} is helping ${targetToken?.name}.` });
+            setTargetingMode(null);
+            return;
+        }
 
-        const casterToken = activeScene?.tokens.find(t => t.id === targetingMode.casterId);
-        const targetToken = activeScene?.tokens.find(t => t.id === targetId);
+        const targetToken = activeScene.tokens.find(t => t.id === targetId);
 
         if (casterToken && targetToken) {
             toast({ title: 'Action Targeted!', description: `${casterToken.name} used ${targetingMode.action.name} on ${targetToken.name}.` });
         }
         setTargetingMode(null);
-    }, [targetingMode, activeScene?.tokens, toast]);
+    }, [targetingMode, activeScene, toast, handleUpdateScene]);
 
     const handleCancelTargeting = useCallback(() => {
         setTargetingMode(null);
@@ -317,7 +370,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     allSpells={allSpells}
                     selectedTokenId={selectedTokenId}
                     onTokenSelect={handleTokenSelect}
-                    onActionActivate={handleActionActivate}
+                    onActionActivate={onActionActivate}
                 />
             </aside>
             <InitiativeDialog 

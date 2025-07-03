@@ -9,6 +9,7 @@
 
 
 
+
 // --- Base & Container Types ---
 
 export type CircleShape = {
@@ -49,7 +50,7 @@ export type Token = {
   maxHp?: number;
   mp?: number;
   maxMp?: number;
-  statusEffects?: ('dodging')[];
+  statusEffects?: ('dodging' | 'disengaged' | 'hidden' | 'helping')[];
   color?: string; // Player-chosen token color
 };
 
