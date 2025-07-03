@@ -172,7 +172,7 @@ export function BattleMap({
                 else {
                     const mapWidthInFt = (scene.width || 30) * 5;
                     const diameterInFt = ((finalShape.radius / 100) * mapWidthInFt * 2).toFixed(0);
-                    description = `Draw a circle with a ${diameterInFt} ft diameter.`;
+                    description = `Draw a circle with a ${diameterInFt} diameter.`;
                 }
             } else if (finalShape.type === 'cone') {
                 const dx = finalShape.endPoint.x - finalShape.origin.x;
@@ -184,7 +184,7 @@ export function BattleMap({
                     const dx_ft = dx / 100 * mapWidthInFt;
                     const dy_ft = dy / 100 * mapHeightInFt;
                     const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
-                    description = `Draw a cone with a ${lengthInFt} ft length.`;
+                    description = `Draw a cone with a ${lengthInFt} length.`;
                 }
             } else if (finalShape.type === 'line') {
                 const dx = finalShape.end.x - finalShape.start.x;
@@ -196,7 +196,7 @@ export function BattleMap({
                     const dx_ft = dx / 100 * mapWidthInFt;
                     const dy_ft = dy / 100 * mapHeightInFt;
                     const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
-                    description = `Draw a line ${lengthInFt} ft long.`;
+                    description = `Draw a line ${lengthInFt} long.`;
                 }
             }
 
@@ -576,7 +576,7 @@ export function BattleMap({
                     })}
                 </div>
             </div>
-             <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2">
+             <div className="absolute top-4 left-4 flex flex-col items-start gap-2">
                 {isMeasureToolsOpen && (
                     <div className="flex items-center gap-2 p-1 bg-secondary rounded-md">
                         <Button variant="ghost" size="icon" onClick={() => handleToolSelect('circle')} className={cn(activeTool === 'circle' && 'bg-primary/20 text-primary-foreground')}>

@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useMemo } from 'react';
 import type { Combatant } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -12,17 +13,23 @@ interface InitiativeTrackerProps {
 }
 
 export function InitiativeTracker({ combatants, activeTurnIndex }: InitiativeTrackerProps) {
+  const reorderedCombatants = useMemo(() => {
+    return [...combatants.slice(activeTurnIndex), ...combatants.slice(0, activeTurnIndex)];
+  }, [combatants, activeTurnIndex]);
+
   return (
-    <div className="absolute top-0 left-0 right-0 z-10 p-2 bg-gradient-to-b from-black/70 to-transparent pointer-events-none">
-        <div className="flex justify-center items-center gap-2 bg-background/50 backdrop-blur-sm p-2 rounded-lg max-w-max mx-auto pointer-events-auto">
+    <div className="absolute top-1/2 left-4 -translate-y-1/2 z-10 p-2 bg-transparent pointer-events-none">
+        <div className="flex flex-col items-center gap-3 bg-background/50 backdrop-blur-sm p-2 rounded-lg pointer-events-auto">
             <TooltipProvider>
-                {combatants.map((c, index) => (
+                {reorderedCombatants.map((c, index) => {
+                    const isActive = index === 0;
+                    return (
                     <Tooltip key={c.tokenId}>
                         <TooltipTrigger asChild>
                             <div className="relative">
                                 <Avatar className={cn(
-                                    'h-12 w-12 border-2 transition-all duration-300',
-                                    index === activeTurnIndex ? 'border-green-400 scale-110' : 'border-muted'
+                                    'h-14 w-14 border-4 transition-all duration-300',
+                                    isActive ? 'border-green-400 scale-110' : 'border-muted scale-90 opacity-70'
                                 )}>
                                     <AvatarImage src={c.avatarUrl} />
                                     <AvatarFallback>{c.name.substring(0, 2)}</AvatarFallback>
@@ -32,12 +39,12 @@ export function InitiativeTracker({ combatants, activeTurnIndex }: InitiativeTra
                                 </div>
                             </div>
                         </TooltipTrigger>
-                        <TooltipContent>
+                        <TooltipContent side="right">
                             <p className="font-bold">{c.name}</p>
                             <p>Initiative: {c.initiative}</p>
                         </TooltipContent>
                     </Tooltip>
-                ))}
+                )})}
             </TooltipProvider>
         </div>
     </div>

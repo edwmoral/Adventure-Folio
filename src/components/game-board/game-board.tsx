@@ -7,7 +7,7 @@ import { BattleMap } from './battle-map';
 import { ModulePanel } from './module-panel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Swords, Shield } from 'lucide-react';
+import { Swords, LocateFixed } from 'lucide-react';
 import { InitiativeDialog } from './initiative-dialog';
 import { InitiativeTracker } from './initiative-tracker';
 
@@ -89,6 +89,15 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }
     }
 
+    const handleFocusActiveCombatant = () => {
+        if (isInCombat && combatants.length > 0) {
+            const activeTokenId = combatants[turnIndex]?.tokenId;
+            if (activeTokenId) {
+                setSelectedTokenId(activeTokenId);
+            }
+        }
+    };
+
     const handleCombatStart = (finalCombatants: Combatant[]) => {
         setCombatants(finalCombatants);
         setTurnIndex(0);
@@ -141,13 +150,17 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                 {isInCombat && (
                     <InitiativeTracker combatants={combatants} activeTurnIndex={turnIndex} />
                 )}
-                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-background/80 backdrop-blur-sm p-1 rounded-md shadow-lg">
+                 <div className="absolute bottom-4 right-4 z-10">
                     {!isInCombat ? (
                         <Button onClick={() => setIsInitiativeDialogOpen(true)}>
                             <Swords className="mr-2 h-4 w-4" /> Start Combat
                         </Button>
                     ) : (
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm p-2 rounded-md shadow-lg">
+                             <Button variant="outline" size="icon" onClick={handleFocusActiveCombatant}>
+                                <LocateFixed className="h-5 w-5" />
+                                <span className="sr-only">Focus Active Combatant</span>
+                            </Button>
                             <Button onClick={handleNextTurn}>Next Turn</Button>
                             <Button onClick={handleEndCombat} variant="destructive">End Combat</Button>
                         </div>
