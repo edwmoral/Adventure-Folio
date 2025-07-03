@@ -10,7 +10,7 @@
  * - GenerateNarrationOutput - The return type for the generateNarration function.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai, googleAIPlugin} from '@/ai/genkit';
 import {z} from 'genkit';
 import wav from 'wav';
 
@@ -83,7 +83,7 @@ const generateNarrationFlow = ai.defineFlow(
     }
 
     const { media } = await ai.generate({
-      model: 'googleai/gemini-2.5-flash-preview-tts',
+      model: googleAIPlugin.model('gemini-2.5-flash-preview-tts'),
       config: {
         responseModalities: ['AUDIO'],
         speechConfig: {
