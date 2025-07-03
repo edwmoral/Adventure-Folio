@@ -26,6 +26,7 @@ type InitiativeEntry = {
   avatarUrl: string;
   dexterityModifier: number;
   initiative: number | '';
+  initiativeRoll?: number;
 };
 
 const getDexModifier = (score: number) => Math.floor((score - 10) / 2);
@@ -69,30 +70,42 @@ export function InitiativeDialog({ isOpen, onOpenChange, scene, allPlayerCharact
     const roll = Math.floor(Math.random() * 20) + 1;
     const totalInitiative = roll + entry.dexterityModifier;
     
-    setInitiativeEntries(prev => prev.map(e => e.tokenId === tokenId ? { ...e, initiative: totalInitiative } : e));
+    setInitiativeEntries(prev => prev.map(e => e.tokenId === tokenId ? { ...e, initiative: totalInitiative, initiativeRoll: roll } : e));
   };
   
   const handleInitiativeChange = (tokenId: string, value: string) => {
     const numericValue = value === '' ? '' : parseInt(value);
     if (value === '' || (!isNaN(numericValue) && numericValue >= -10 && numericValue <= 40)) {
-        setInitiativeEntries(prev => prev.map(e => e.tokenId === tokenId ? { ...e, initiative: numericValue } : e));
+        setInitiativeEntries(prev => prev.map(e => e.tokenId === tokenId ? { ...e, initiative: numericValue, initiativeRoll: undefined } : e));
     }
   };
   
   const handleBeginCombat = () => {
-    const allSet = initiativeEntries.every(e => e.initiative !== '');
-    if (!allSet) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please set initiative for all combatants.' });
+    const updatedEntries = initiativeEntries.map(entry => {
+        if (entry.initiative === '') {
+            const roll = Math.floor(Math.random() * 20) + 1;
+            return {
+                ...entry,
+                initiative: roll + entry.dexterityModifier,
+                initiativeRoll: roll
+            };
+        }
+        return entry;
+    });
+
+    if (updatedEntries.some(e => e.initiative === '')) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to set initiative for all combatants.' });
         return;
     }
     
-    const finalCombatants: Combatant[] = initiativeEntries
+    const finalCombatants: Combatant[] = updatedEntries
       .map(e => ({
         tokenId: e.tokenId,
         name: e.name,
         avatarUrl: e.avatarUrl,
         dexterityModifier: e.dexterityModifier,
         initiative: e.initiative as number,
+        initiativeRoll: e.initiativeRoll !== undefined ? e.initiativeRoll : (e.initiative as number) - e.dexterityModifier,
       }))
       .sort((a, b) => {
         if (b.initiative === a.initiative) {
@@ -111,7 +124,7 @@ export function InitiativeDialog({ isOpen, onOpenChange, scene, allPlayerCharact
         <DialogHeader>
           <DialogTitle>Roll for Initiative!</DialogTitle>
           <DialogDescription>
-            Enter or roll initiative for each combatant to begin the battle.
+            Enter or roll initiative for each combatant to begin the battle. Blank fields will be auto-rolled.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh] pr-4">

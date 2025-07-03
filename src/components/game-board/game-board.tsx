@@ -42,6 +42,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     const [isInitiativeDialogOpen, setIsInitiativeDialogOpen] = useState(false);
     const [combatants, setCombatants] = useState<Combatant[]>([]);
     const [turnIndex, setTurnIndex] = useState(0);
+    const [recentRolls, setRecentRolls] = useState<string[]>([]);
 
     // Targeting State
     const [targetingMode, setTargetingMode] = useState<{ action: ActionType | MonsterAction, casterId: string } | null>(null);
@@ -159,6 +160,10 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
 
     const handleCombatStart = (finalCombatants: Combatant[]) => {
         setCombatants(finalCombatants);
+        const rolls = finalCombatants.map(c => 
+            `${c.name}: ${c.initiative} (d20: ${c.initiativeRoll} + ${c.dexterityModifier})`
+        );
+        setRecentRolls(rolls);
         setTurnIndex(0);
         setIsInCombat(true);
         setIsInitiativeDialogOpen(false);
@@ -175,6 +180,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         setIsInCombat(false);
         setCombatants([]);
         setTurnIndex(0);
+        setRecentRolls([]);
     };
 
     const handleActionActivate = useCallback((action: ActionType | MonsterAction) => {
@@ -248,7 +254,13 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                 {isInCombat && (
                     <InitiativeTracker combatants={combatants} activeTurnIndex={turnIndex} />
                 )}
-                 <div className="absolute bottom-4 right-4 z-10">
+                 <div className="absolute bottom-4 right-4 z-10 flex flex-col items-end gap-2">
+                    {isInCombat && recentRolls.length > 0 && (
+                        <div className="text-xs text-white bg-black/50 p-2 rounded-md max-w-xs text-right shadow-lg">
+                        <h4 className="font-bold mb-1">Initiative Rolls</h4>
+                        {recentRolls.map((roll, i) => <p key={i}>{roll}</p>)}
+                        </div>
+                    )}
                     {!isInCombat ? (
                         <Button onClick={() => setIsInitiativeDialogOpen(true)}>
                             <Swords className="mr-2 h-4 w-4" /> Start Combat

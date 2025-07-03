@@ -54,9 +54,12 @@ export function BattleMap({
     const [isMeasureToolsOpen, setIsMeasureToolsOpen] = useState(false);
     const [drawingShape, setDrawingShape] = useState<Shape | null>(null);
     const [targetingRange, setTargetingRange] = useState<{ origin: { x: number; y: number }, radius: number, rx: number, ry: number } | null>(null);
+    const [mousePosition, setMousePosition] = useState<{x: number, y: number} | null>(null);
     
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
+    
+    const casterToken = targetingMode ? scene.tokens.find(t => t.id === targetingMode.casterId) : null;
 
     useEffect(() => {
         let mapUrl = scene.background_map_url;
@@ -165,6 +168,16 @@ export function BattleMap({
             setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
             return;
         }
+        
+        if (mapContainerRef.current) {
+            const containerRect = mapContainerRef.current.getBoundingClientRect();
+            const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
+            const mapY = (e.clientY - containerRect.top - pan.y) / zoom;
+            const currentX_pc = (mapX / containerRect.width) * 100 * zoom;
+            const currentY_pc = (mapY / containerRect.height) * 100 * zoom;
+            setMousePosition({ x: currentX_pc, y: currentY_pc });
+        }
+
 
         if (drawingShape && mapContainerRef.current) {
             e.preventDefault();
@@ -213,7 +226,7 @@ export function BattleMap({
                 else {
                     const mapWidthInFt = (scene.width || 30) * 5;
                     const diameterInFt = ((finalShape.radius / 100) * mapWidthInFt * 2).toFixed(0);
-                    description = `Draw a circle with a ${diameterInFt} diameter.`;
+                    description = `Draw a circle with a ${diameterInFt} ft. diameter.`;
                 }
             } else if (finalShape.type === 'cone') {
                 const dx = finalShape.endPoint.x - finalShape.origin.x;
@@ -225,7 +238,7 @@ export function BattleMap({
                     const dx_ft = dx / 100 * mapWidthInFt;
                     const dy_ft = dy / 100 * mapHeightInFt;
                     const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
-                    description = `Draw a cone with a ${lengthInFt} length.`;
+                    description = `Draw a cone ${lengthInFt} ft. long.`;
                 }
             } else if (finalShape.type === 'line') {
                 const dx = finalShape.end.x - finalShape.start.x;
@@ -237,7 +250,7 @@ export function BattleMap({
                     const dx_ft = dx / 100 * mapWidthInFt;
                     const dy_ft = dy / 100 * mapHeightInFt;
                     const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
-                    description = `Draw a line ${lengthInFt} long.`;
+                    description = `Draw a line ${lengthInFt} ft. long.`;
                 }
             }
 
@@ -473,7 +486,7 @@ export function BattleMap({
              const diameter = ((shape.radius / 100) * mapWidthInFt * 2).toFixed(0);
             return (
                 <text key={`${shape.id}-label`} x={`${shape.center.x}%`} y={`${shape.center.y}%`} dominantBaseline="middle" {...textStyle}>
-                   {diameter}
+                   {diameter}ft
                 </text>
             );
         }
@@ -490,7 +503,7 @@ export function BattleMap({
 
             return (
                 <text key={`${shape.id}-label`} x={`${(start.x + end.x) / 2}%`} y={`${(start.y + end.y) / 2}%`} dominantBaseline="text-after-edge" dy={-5 / zoom} {...textStyle}>
-                   {`${length_ft.toFixed(0)}`}
+                   {`${length_ft.toFixed(0)}ft`}
                 </text>
             );
         }
@@ -526,9 +539,18 @@ export function BattleMap({
             onMouseDown={handleMouseDown} 
             onMouseMove={handleMouseMove} 
             onMouseUp={handleMouseUp} 
-            onMouseLeave={handleMouseUp} 
+            onMouseLeave={() => {
+                handleMouseUp;
+                setMousePosition(null);
+            }}
             onMouseMoveCapture={handleMapMouseMoveForDrag}
             onWheel={handleWheel}
+            onContextMenu={(e) => {
+                if (targetingMode) {
+                    e.preventDefault();
+                    onCancelTargeting();
+                }
+            }}
         >
              <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
                 <AlertDialogContent>
@@ -565,6 +587,18 @@ export function BattleMap({
                                     strokeWidth={0.2 / zoom}
                                     strokeDasharray={`${0.5 / zoom} ${0.5 / zoom}`}
                                     style={{ vectorEffect: 'non-scaling-stroke' }}
+                                />
+                            )}
+                            {targetingMode && casterToken && mousePosition && (
+                                <line
+                                    x1={`${casterToken.position.x}%`}
+                                    y1={`${casterToken.position.y}%`}
+                                    x2={`${mousePosition.x}%`}
+                                    y2={`${mousePosition.y}%`}
+                                    stroke="white"
+                                    strokeWidth={0.2 / zoom}
+                                    strokeDasharray={`${0.5 / zoom} ${0.5 / zoom}`}
+                                    style={{ pointerEvents: 'none', vectorEffect: 'non-scaling-stroke' }}
                                 />
                             )}
                             <g>

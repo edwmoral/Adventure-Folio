@@ -8,6 +8,7 @@
 
 
 
+
 // --- Base & Container Types ---
 
 export type CircleShape = {
@@ -284,6 +285,7 @@ export type Combatant = {
   tokenId: string;
   name: string;
   initiative: number;
+  initiativeRoll?: number;
   dexterityModifier: number;
   avatarUrl: string;
 };
