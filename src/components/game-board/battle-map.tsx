@@ -48,12 +48,12 @@ export function BattleMap({
     const [showGrid, setShowGrid] = useState(true);
     const [draggedToken, setDraggedToken] = useState<{ id: string; startPos: { x: number; y: number } } | null>(null);
     const [showConfirm, setShowConfirm] = useState(false);
-    const [pendingUpdate, setPendingUpdate] = useState<{ scene: Scene, description: string } | null>(null);
     
     const [activeTool, setActiveTool] = useState<'pointer' | 'circle' | 'cone' | 'line' | 'square'>('pointer');
     const [lastUsedTool, setLastUsedTool] = useState<'circle' | 'cone' | 'line' | 'square'>('circle');
     const [isMeasureToolsOpen, setIsMeasureToolsOpen] = useState(false);
     const [drawingShape, setDrawingShape] = useState<Shape | null>(null);
+    const [shapeToConfirm, setShapeToConfirm] = useState<Shape | null>(null);
     const [targetingRange, setTargetingRange] = useState<{ origin: { x: number; y: number }, radius: number, rx: number, ry: number } | null>(null);
     const [mousePosition, setMousePosition] = useState<{x: number, y: number} | null>(null);
     
@@ -237,65 +237,30 @@ export function BattleMap({
         
         if (drawingShape) {
             const finalShape = { ...drawingShape };
-            let description = '';
             let ignore = false;
 
             if (finalShape.type === 'circle') {
                 if (finalShape.radius < 1) { ignore = true; } // Ignore tiny accidental clicks
-                else {
-                    const mapWidthInFt = (scene.width || 30) * 5;
-                    const diameterInFt = ((finalShape.radius / 100) * mapWidthInFt * 2).toFixed(0);
-                    description = `Draw a circle with a ${diameterInFt} ft. diameter.`;
-                }
             } else if (finalShape.type === 'cone') {
                 const dx = finalShape.endPoint.x - finalShape.origin.x;
                 const dy = finalShape.endPoint.y - finalShape.origin.y;
                 if (Math.hypot(dx, dy) < 1) { ignore = true; }
-                else {
-                    const mapWidthInFt = (scene.width || 30) * 5;
-                    const mapHeightInFt = (scene.height || 20) * 5;
-                    const dx_ft = dx / 100 * mapWidthInFt;
-                    const dy_ft = dy / 100 * mapHeightInFt;
-                    const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
-                    description = `Draw a cone ${lengthInFt} ft. long.`;
-                }
             } else if (finalShape.type === 'line') {
                 const dx = finalShape.end.x - finalShape.start.x;
                 const dy = finalShape.end.y - finalShape.start.y;
                 if (Math.hypot(dx, dy) < 1) { ignore = true; }
-                else {
-                    const mapWidthInFt = (scene.width || 30) * 5;
-                    const mapHeightInFt = (scene.height || 20) * 5;
-                    const dx_ft = dx / 100 * mapWidthInFt;
-                    const dy_ft = dy / 100 * mapHeightInFt;
-                    const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
-                    description = `Draw a line ${lengthInFt} ft. long.`;
-                }
             } else if (finalShape.type === 'square') {
                 const dx = finalShape.end.x - finalShape.start.x;
                 const dy = finalShape.end.y - finalShape.start.y;
                 if (Math.hypot(dx, dy) < 1) { ignore = true; }
-                else {
-                    const mapWidthInFt = (scene.width || 30) * 5;
-                    const mapHeightInFt = (scene.height || 20) * 5;
-                    const width_pc = Math.abs(dx);
-                    const height_pc = Math.abs(dy);
-                    const width_ft = (width_pc / 100 * mapWidthInFt).toFixed(0);
-                    const height_ft = (height_pc / 100 * mapHeightInFt).toFixed(0);
-                    description = `Draw a rectangle ${width_ft} ft. by ${height_ft} ft.`;
-                }
             }
 
             if (!ignore) {
-                 setPendingUpdate({
-                    scene: { ...scene, shapes: [...(scene.shapes || []), finalShape] },
-                    description: description
-                });
-                setShowConfirm(true);
+                 setShapeToConfirm(finalShape);
+                 setShowConfirm(true);
             }
 
             setDrawingShape(null);
-            setActiveTool('pointer');
         }
     };
 
@@ -371,17 +336,48 @@ export function BattleMap({
     }
     
     const confirmAction = () => {
-        if (pendingUpdate) {
-            onSceneUpdate(pendingUpdate.scene);
-            toast({ title: 'Action Confirmed', description: pendingUpdate.description });
+        if (shapeToConfirm) {
+            const mapWidthInFt = (scene.width || 30) * 5;
+            const mapHeightInFt = (scene.height || 20) * 5;
+            let description = '';
+
+            if (shapeToConfirm.type === 'circle') {
+                const diameterInFt = ((shapeToConfirm.radius / 100) * mapWidthInFt * 2).toFixed(0);
+                description = `Draw a circle with a ${diameterInFt} ft. diameter.`;
+            } else if (shapeToConfirm.type === 'cone') {
+                const dx = shapeToConfirm.endPoint.x - shapeToConfirm.origin.x;
+                const dy = shapeToConfirm.endPoint.y - shapeToConfirm.origin.y;
+                const dx_ft = dx / 100 * mapWidthInFt;
+                const dy_ft = dy / 100 * mapHeightInFt;
+                const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
+                description = `Draw a cone ${lengthInFt} ft. long.`;
+            } else if (shapeToConfirm.type === 'line') {
+                const dx = shapeToConfirm.end.x - shapeToConfirm.start.x;
+                const dy = shapeToConfirm.end.y - shapeToConfirm.start.y;
+                const dx_ft = dx / 100 * mapWidthInFt;
+                const dy_ft = dy / 100 * mapHeightInFt;
+                const lengthInFt = Math.hypot(dx_ft, dy_ft).toFixed(0);
+                description = `Draw a line ${lengthInFt} ft. long.`;
+            } else if (shapeToConfirm.type === 'square') {
+                const dx = shapeToConfirm.end.x - shapeToConfirm.start.x;
+                const dy = shapeToConfirm.end.y - shapeToConfirm.start.y;
+                const width_pc = Math.abs(dx);
+                const height_pc = Math.abs(dy);
+                const width_ft = (width_pc / 100 * mapWidthInFt).toFixed(0);
+                const height_ft = (height_pc / 100 * mapHeightInFt).toFixed(0);
+                description = `Draw a rectangle ${width_ft} ft. by ${height_ft} ft.`;
+            }
+
+            onSceneUpdate({ ...scene, shapes: [...(scene.shapes || []), shapeToConfirm] });
+            toast({ title: 'Action Confirmed', description: description });
         }
         setShowConfirm(false);
-        setPendingUpdate(null);
+        setShapeToConfirm(null);
     }
 
     const cancelAction = () => {
         setShowConfirm(false);
-        setPendingUpdate(null);
+        setShapeToConfirm(null);
         toast({ title: 'Action Cancelled' });
     }
 
@@ -573,7 +569,6 @@ export function BattleMap({
     const handleToolSelect = (tool: 'circle' | 'cone' | 'line' | 'square') => {
         setActiveTool(tool);
         setLastUsedTool(tool);
-        setIsMeasureToolsOpen(false);
     };
 
     const handleMeasureButtonClick = () => {
@@ -624,7 +619,6 @@ export function BattleMap({
                         <AlertDialogTitle>Confirm Action</AlertDialogTitle>
                         <AlertDialogDescription>
                             Are you sure you want to perform this action? This will be synced to all players.
-                            <p className="font-bold mt-2">{pendingUpdate?.description}</p>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -642,6 +636,7 @@ export function BattleMap({
                         <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
                             {scene.shapes?.map(shape => renderShape(shape))}
                             {drawingShape && renderShape(drawingShape)}
+                            {shapeToConfirm && renderShape(shapeToConfirm)}
                              {targetingRange && (
                                 <ellipse
                                     cx={`${targetingRange.origin.x}%`}
@@ -713,6 +708,7 @@ export function BattleMap({
                             <g>
                                 {scene.shapes?.map(shape => renderShapeLabel(shape))}
                                 {drawingShape && renderShapeLabel(drawingShape)}
+                                {shapeToConfirm && renderShapeLabel(shapeToConfirm)}
                             </g>
                         </svg>
                     </div>
