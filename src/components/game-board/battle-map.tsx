@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -174,8 +175,8 @@ export function BattleMap({
             const containerRect = mapContainerRef.current.getBoundingClientRect();
             const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
             const mapY = (e.clientY - containerRect.top - pan.y) / zoom;
-            const currentX_pc = (mapX / containerRect.width) * 100 * zoom;
-            const currentY_pc = (mapY / containerRect.height) * 100 * zoom;
+            const currentX_pc = (mapX / containerRect.width) * 100;
+            const currentY_pc = (mapY / containerRect.height) * 100;
             setMousePosition({ x: currentX_pc, y: currentY_pc });
         }
 
