@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell, Combatant } from '@/lib/types';
 import { BattleMap } from './battle-map';
 import { ModulePanel } from './module-panel';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Swords, LocateFixed } from 'lucide-react';
 import { InitiativeDialog } from './initiative-dialog';
 import { InitiativeTracker } from './initiative-tracker';
+import { cn } from '@/lib/utils';
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
@@ -22,7 +23,11 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     const [campaign, setCampaign] = useState<Campaign | null>(null);
     const [activeScene, setActiveScene] = useState<Scene | null>(null);
     const [loading, setLoading] = useState(true);
+    
     const [panelPosition, setPanelPosition] = useState<'left' | 'right'>('right');
+    const [panelWidth, setPanelWidth] = useState(350);
+    const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+    const isResizing = useRef(false);
 
     const [allPlayerCharacters, setAllPlayerCharacters] = useState<PlayerCharacter[]>([]);
     const [allEnemies, setAllEnemies] = useState<Enemy[]>([]);
@@ -35,6 +40,44 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     const [isInitiativeDialogOpen, setIsInitiativeDialogOpen] = useState(false);
     const [combatants, setCombatants] = useState<Combatant[]>([]);
     const [turnIndex, setTurnIndex] = useState(0);
+
+    // Resizing Logic
+    const minPanelWidth = 300;
+    const maxPanelWidth = typeof window !== 'undefined' ? window.innerWidth / 2 : 600;
+
+    const startResizing = useCallback(() => {
+        isResizing.current = true;
+    }, []);
+
+    const stopResizing = useCallback(() => {
+        isResizing.current = false;
+        document.body.style.cursor = 'default';
+    }, []);
+
+    const resizePanel = useCallback((mouseMoveEvent: MouseEvent) => {
+        if (isResizing.current) {
+            document.body.style.cursor = 'col-resize';
+            let newWidth;
+            if (panelPosition === 'right') {
+                newWidth = window.innerWidth - mouseMoveEvent.clientX;
+            } else {
+                newWidth = mouseMoveEvent.clientX;
+            }
+
+            if (newWidth > minPanelWidth && newWidth < maxPanelWidth) {
+                setPanelWidth(newWidth);
+            }
+        }
+    }, [panelPosition, maxPanelWidth]);
+
+    useEffect(() => {
+        window.addEventListener('mousemove', resizePanel);
+        window.addEventListener('mouseup', stopResizing);
+        return () => {
+            window.removeEventListener('mousemove', resizePanel);
+            window.removeEventListener('mouseup', stopResizing);
+        };
+    }, [resizePanel, stopResizing]);
 
     useEffect(() => {
         try {
@@ -67,6 +110,13 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }
         setLoading(false);
     }, [campaignId]);
+    
+    const handleTokenSelect = (id: string | null) => {
+        setSelectedTokenId(id);
+        if (id && isPanelCollapsed) {
+            setIsPanelCollapsed(false);
+        }
+    };
 
     const handleUpdateScene = (updatedScene: Scene) => {
         if(!campaign) return;
@@ -93,7 +143,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         if (isInCombat && combatants.length > 0) {
             const activeTokenId = combatants[turnIndex]?.tokenId;
             if (activeTokenId) {
-                setSelectedTokenId(activeTokenId);
+                handleTokenSelect(activeTokenId);
             }
         }
     };
@@ -103,13 +153,13 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         setTurnIndex(0);
         setIsInCombat(true);
         setIsInitiativeDialogOpen(false);
-        setSelectedTokenId(finalCombatants[0]?.tokenId);
+        handleTokenSelect(finalCombatants[0]?.tokenId);
     };
     
     const handleNextTurn = () => {
         const newTurnIndex = (turnIndex + 1) % combatants.length;
         setTurnIndex(newTurnIndex);
-        setSelectedTokenId(combatants[newTurnIndex]?.tokenId);
+        handleTokenSelect(combatants[newTurnIndex]?.tokenId);
     };
 
     const handleEndCombat = () => {
@@ -140,12 +190,12 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         );
     }
     
-    const panelClasses = "w-[350px] h-full flex-shrink-0 bg-background";
+    const panelContainerClasses = "flex-shrink-0 bg-background transition-all duration-200 ease-in-out";
     const borderClass = panelPosition === 'right' ? 'border-l' : 'border-r';
     const activeCombatantId = isInCombat ? combatants[turnIndex]?.tokenId : null;
 
     return (
-        <div className={`fixed inset-0 bg-muted flex ${panelPosition === 'right' ? 'flex-row' : 'flex-row-reverse'}`}>
+        <div className={cn("fixed inset-0 bg-muted flex", panelPosition === 'right' ? 'flex-row' : 'flex-row-reverse')}>
             <main className="flex-1 h-full bg-black relative">
                 {isInCombat && (
                     <InitiativeTracker combatants={combatants} activeTurnIndex={turnIndex} />
@@ -170,24 +220,40 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     scene={activeScene} 
                     onSceneUpdate={handleUpdateScene}
                     selectedTokenId={selectedTokenId}
-                    onTokenSelect={setSelectedTokenId}
+                    onTokenSelect={handleTokenSelect}
                     allPlayerCharacters={allPlayerCharacters}
                     allEnemies={allEnemies}
                     isInCombat={isInCombat}
                     activeCombatantId={activeCombatantId}
                 />
             </main>
-            <aside className={`${panelClasses} ${borderClass} border-border`}>
+            
+            {!isPanelCollapsed && (
+                <div 
+                    className={cn(
+                        "w-1.5 h-full cursor-col-resize bg-border hover:bg-primary transition-colors",
+                         panelPosition === 'left' && 'order-first'
+                    )}
+                    onMouseDown={startResizing}
+                />
+            )}
+            
+            <aside 
+                className={cn(panelContainerClasses, borderClass, isPanelCollapsed && "w-12")}
+                style={{ width: isPanelCollapsed ? undefined : panelWidth }}
+            >
                 <ModulePanel 
                     currentPosition={panelPosition}
                     onTogglePosition={() => setPanelPosition(p => p === 'left' ? 'right' : 'left')} 
+                    isPanelCollapsed={isPanelCollapsed}
+                    onToggleCollapse={() => setIsPanelCollapsed(c => !c)}
                     scene={activeScene}
                     allPlayerCharacters={allPlayerCharacters}
                     allEnemies={allEnemies}
                     allClasses={allClasses}
                     allSpells={allSpells}
                     selectedTokenId={selectedTokenId}
-                    onTokenSelect={setSelectedTokenId}
+                    onTokenSelect={handleTokenSelect}
                 />
             </aside>
             <InitiativeDialog 

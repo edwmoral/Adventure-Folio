@@ -7,12 +7,16 @@ import { MenuModule } from './menu-module';
 import { PlayerCharacterSheetModule } from './player-character-sheet-module';
 import { NpcSheetModule } from './npc-sheet-module';
 import type { PlayerCharacter, Enemy, Scene, Class, Spell } from '@/lib/types';
-import { Users, Shield, Settings, MessageSquare, ScrollText } from "lucide-react";
+import { Users, Shield, Settings, MessageSquare, ScrollText, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "../ui/button";
+import { cn } from "@/lib/utils";
 
 
 interface ModulePanelProps {
     onTogglePosition: () => void;
     currentPosition: 'left' | 'right';
+    isPanelCollapsed: boolean;
+    onToggleCollapse: () => void;
     scene: Scene | null;
     allPlayerCharacters: PlayerCharacter[];
     allEnemies: Enemy[];
@@ -25,6 +29,8 @@ interface ModulePanelProps {
 export function ModulePanel({ 
     onTogglePosition, 
     currentPosition, 
+    isPanelCollapsed,
+    onToggleCollapse,
     scene,
     allPlayerCharacters,
     allEnemies,
@@ -47,9 +53,40 @@ export function ModulePanel({
             }
         }
     }, [selectedTokenId, scene]);
+    
+    const CollapseIcon = currentPosition === 'right' ? ChevronRight : ChevronLeft;
+    const ExpandIcon = currentPosition === 'right' ? ChevronLeft : ChevronRight;
+    
+    if (isPanelCollapsed) {
+        return (
+             <div className="h-full w-full flex items-center justify-center">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onToggleCollapse}
+                    className="h-full w-full rounded-none hover:bg-accent"
+                >
+                    <ExpandIcon className="h-5 w-5" />
+                    <span className="sr-only">Open Panel</span>
+                </Button>
+            </div>
+        )
+    }
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col relative">
+            <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggleCollapse}
+                className={cn(
+                    "absolute top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-background border",
+                    currentPosition === 'right' ? ' -left-4' : '-right-4'
+                )}
+            >
+                <CollapseIcon className="h-5 w-5" />
+                <span className="sr-only">Collapse Panel</span>
+            </Button>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
                 <TabsList className="grid w-full grid-cols-4 rounded-none border-b">
                     <TabsTrigger value="chat" className="rounded-none flex items-center gap-2">
