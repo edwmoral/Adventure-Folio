@@ -136,8 +136,6 @@ export function BattleMap({
 
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (e.target !== mapContainerRef.current) return;
-        
         // Panning logic (right mouse button)
         if (e.button === 2 && !targetingMode) {
             e.preventDefault();
@@ -293,10 +291,12 @@ export function BattleMap({
     };
     
     const handleContextMenu = (e: React.MouseEvent) => {
-        // Prevent default context menu always on the map
         e.preventDefault();
         
-        // But still allow right click to cancel targeting
+        if (isPanning) {
+            setIsPanning(false);
+        }
+        
         if (targetingMode) {
             onCancelTargeting();
         }
@@ -850,7 +850,10 @@ export function BattleMap({
                     })}
                 </div>
             </div>
-             <div className="absolute top-4 left-4 flex flex-col items-start gap-2">
+             <div 
+                className="absolute top-4 left-4 flex flex-col items-start gap-2"
+                onMouseDown={(e) => e.stopPropagation()}
+            >
                 {isMeasureToolsOpen && (
                     <div className="flex items-center gap-2 p-1 bg-secondary rounded-md">
                         <Button variant="ghost" size="icon" onClick={() => handleToolSelect('circle')} className={cn(activeTool === 'circle' && 'bg-primary/20 text-primary-foreground')}>
