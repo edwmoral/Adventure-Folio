@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import type { Scene, Token, Shape, PlayerCharacter, Enemy, Action as ActionType, MonsterAction } from '@/lib/types';
+import type { Scene, Token, Shape, PlayerCharacter, Enemy, Action as ActionType, MonsterAction, Spell } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, Grid, Pointer, Circle, Triangle, Minus, Ruler, ShieldAlert, Footprints, EyeOff, Handshake } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -35,7 +34,7 @@ export function BattleMap({
     allEnemies: Enemy[],
     isInCombat: boolean,
     activeCombatantId: string | null,
-    targetingMode: { action: ActionType | MonsterAction, casterId: string } | null,
+    targetingMode: { action: ActionType | MonsterAction | Spell, casterId: string } | null,
     onTargetSelect: (targetId: string) => void,
     onCancelTargeting: () => void,
 }) {
@@ -81,15 +80,12 @@ export function BattleMap({
             const caster = scene.tokens.find(t => t.id === targetingMode.casterId);
             const rangeInfo = parseRangeFromAction(targetingMode.action);
             
-            if (caster && rangeInfo) {
+            if (caster && rangeInfo && rangeInfo.type === 'ranged') {
                 const mapWidthFt = (scene.width || 30) * 5;
                 const mapHeightFt = (scene.height || 20) * 5;
-
-                const tokenWidthFt = mapWidthFt / (scene.width || 30);
-                // Assuming square grid for token radius, which is a reasonable simplification.
-                const tokenRadiusFt = tokenWidthFt / 2;
                 
-                const totalRangeFt = rangeInfo.type === 'self' ? 0 : rangeInfo.value + tokenRadiusFt;
+                // Add half a token's width (2.5ft) to the range for a more generous visual representation from token edge
+                const totalRangeFt = rangeInfo.value + 2.5;
 
                 const rx = (totalRangeFt / mapWidthFt) * 100;
                 const ry = (totalRangeFt / mapHeightFt) * 100;
@@ -100,6 +96,8 @@ export function BattleMap({
                     rx: rx,
                     ry: ry
                 });
+            } else {
+                setTargetingRange(null);
             }
         } else {
             setTargetingRange(null);

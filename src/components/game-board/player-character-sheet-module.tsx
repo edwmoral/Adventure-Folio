@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -22,7 +21,7 @@ interface PlayerCharacterSheetModuleProps {
   allItems: Item[];
   selectedTokenId: string | null;
   onTokenSelect: (id: string | null) => void;
-  onActionActivate: (action: ActionType) => void;
+  onActionActivate: (action: ActionType | Spell) => void;
   activeCombatant: Combatant | null;
 }
 
@@ -67,9 +66,9 @@ export function PlayerCharacterSheetModule({
     return { token, character };
   }, [selectedTokenId, scene, allPlayerCharacters]);
   
-  const { characterFeatures, knownSpells, availableActions } = useMemo(() => {
+  const { characterFeatures, knownSpells, availableActions, spellcastingInfo } = useMemo(() => {
     if (!character || !allClasses.length || !allSpells.length || !allItems.length) {
-        return { characterFeatures: [], knownSpells: [], availableActions: [] };
+        return { characterFeatures: [], knownSpells: [], availableActions: [], spellcastingInfo: null };
     }
     
     const characterClass = allClasses.find(
@@ -81,16 +80,7 @@ export function PlayerCharacterSheetModule({
       .flatMap(l => l.feature || [])
       .map(f => ({ name: f.name, description: f.text })) || [];
       
-    const spells = allSpells.filter(spell => character.spells?.includes(spell.name));
-    
-    // --- Dynamic Action Generation ---
-    const baseActions: ActionType[] = [
-        { name: 'Dash', type: 'Action', action_type: 'Standard', description: 'Double your movement speed for the turn. Range: Self.', usage: {type: 'At Will'} },
-        { name: 'Disengage', type: 'Action', action_type: 'Standard', description: 'Your movement doesn\'t provoke opportunity attacks. Range: Self.', usage: {type: 'At Will'} },
-        { name: 'Dodge', type: 'Action', action_type: 'Standard', description: 'Attack rolls against you have disadvantage until your next turn. Range: Self.', usage: {type: 'At Will'} },
-        { name: 'Help', type: 'Action', action_type: 'Standard', description: 'Grant an ally advantage on an ability check or their next attack. Range: Touch.', usage: {type: 'At Will'} },
-        { name: 'Hide', type: 'Action', action_type: 'Standard', description: 'Make a Dexterity (Stealth) check to become unseen. Range: Self.', usage: {type: 'At Will'} },
-    ];
+    const spells = allSpells.filter(spell => character.spells?.includes(spell.name)).sort((a,b) => a.level - b.level || a.name.localeCompare(b.name));
     
     const proficiencyBonus = Math.ceil(1 + (character.level || 1) / 4);
     const strMod = getModifier(character.stats.str);
@@ -101,22 +91,23 @@ export function PlayerCharacterSheetModule({
 
     if (weapon) {
         const isFinesse = weapon.property?.includes('Finesse');
-        const abilityMod = isFinesse ? Math.max(strMod, dexMod) : strMod;
+        const isRanged = weapon.property?.includes('Ammunition') || weapon.property?.includes('Thrown');
+        
+        const abilityMod = isRanged ? dexMod : (isFinesse ? Math.max(strMod, dexMod) : strMod);
         const abilityModString = abilityMod >= 0 ? `+${abilityMod}` : `${abilityMod}`;
         
         const toHit = proficiencyBonus + abilityMod;
-        const damageString = `${weapon.dmg1}${abilityModString} ${weapon.dmgType}`;
+        const damageString = `${weapon.dmg1 || ''}${abilityModString} ${weapon.dmgType || ''}`;
         
         attackAction = {
             name: `Attack (${weapon.name})`,
             type: 'Action',
             action_type: 'Standard',
-            description: `Make a melee attack with your ${weapon.name}.`,
+            description: `Make an attack with your ${weapon.name}.`,
             effects: `To Hit: +${toHit}, Damage: ${damageString}`,
             usage: { type: 'At Will' }
         };
     } else {
-        // Unarmed strike
         attackAction = {
             name: 'Unarmed Strike',
             type: 'Action',
@@ -127,9 +118,28 @@ export function PlayerCharacterSheetModule({
         };
     }
     
+    const baseActions: ActionType[] = [
+        { name: 'Dash', type: 'Action', action_type: 'Standard', description: 'Double your movement speed for the turn. Range: Self.', usage: {type: 'At Will'} },
+        { name: 'Disengage', type: 'Action', action_type: 'Standard', description: 'Your movement doesn\'t provoke opportunity attacks. Range: Self.', usage: {type: 'At Will'} },
+        { name: 'Dodge', type: 'Action', action_type: 'Standard', description: 'Attack rolls against you have disadvantage until your next turn. Range: Self.', usage: {type: 'At Will'} },
+        { name: 'Help', type: 'Action', action_type: 'Standard', description: 'Grant an ally advantage on an ability check or their next attack. Range: Touch.', usage: {type: 'At Will'} },
+        { name: 'Hide', type: 'Action', action_type: 'Standard', description: 'Make a Dexterity (Stealth) check to become unseen. Range: Self.', usage: {type: 'At Will'} },
+    ];
+
     const allActions = [attackAction, ...baseActions];
 
-    return { characterFeatures: features, knownSpells: spells, availableActions: allActions };
+    let spellcastingInfo: { spellAttackBonus: number; spellSaveDc: number; } | null = null;
+    if (characterClass && characterClass.spellcasting_type !== 'none') {
+        const spellcastingAbilityKey = characterClass.primary_ability.toLowerCase().substring(0, 3) as keyof PlayerCharacter['stats'];
+        const spellcastingAbilityModifier = getModifier(character.stats[spellcastingAbilityKey]);
+
+        spellcastingInfo = {
+            spellAttackBonus: proficiencyBonus + spellcastingAbilityModifier,
+            spellSaveDc: 8 + proficiencyBonus + spellcastingAbilityModifier,
+        };
+    }
+    
+    return { characterFeatures: features, knownSpells: spells, availableActions: allActions, spellcastingInfo };
 
   }, [character, allClasses, allSpells, allItems]);
 
@@ -265,12 +275,29 @@ export function PlayerCharacterSheetModule({
                                         </div>
                                     )}
                                     <div className="space-y-3 text-sm">
-                                        {knownSpells.length > 0 ? knownSpells.map(spell => (
-                                          <div key={spell.name} className="group relative">
-                                              <h4 className="font-semibold">{spell.name} <span className="text-xs text-muted-foreground">({spell.level === 0 ? "Cantrip" : `Lvl ${spell.level}`}, {spell.school})</span></h4>
-                                              <p className="text-sm text-muted-foreground mt-1">{spell.text}</p>
-                                          </div>
-                                        )) : <p className="text-sm text-muted-foreground text-center py-2">No spells known.</p>}
+                                        {knownSpells.length > 0 ? knownSpells.map(spell => {
+                                            const actionType = spell.time.toLowerCase().includes('bonus') ? 'Bonus Action' : 'Action';
+                                            const spellActionDisabled = getActionDisabledState(actionType);
+                                            let spellEffectText = '';
+                                            if (spellcastingInfo) {
+                                                if (spell.text.toLowerCase().includes('attack roll')) {
+                                                    spellEffectText = `Attack: +${spellcastingInfo.spellAttackBonus}`;
+                                                } else if (spell.text.toLowerCase().includes('saving throw')) {
+                                                    spellEffectText = `Save DC: ${spellcastingInfo.spellSaveDc}`;
+                                                }
+                                            }
+
+                                            return (
+                                                <div key={spell.name} className="group relative">
+                                                    <Button variant="link" className="p-0 h-auto text-sm text-left leading-snug" disabled={spellActionDisabled} onClick={() => onActionActivate(spell)}>
+                                                        <h4 className="font-semibold">{spell.name}</h4>
+                                                    </Button>
+                                                    <span className="text-xs text-muted-foreground ml-2">({spell.level === 0 ? "Cantrip" : `Lvl ${spell.level}`}, {spell.school})</span>
+                                                    {spellEffectText && <Badge variant="outline" className="ml-2">{spellEffectText}</Badge>}
+                                                    <p className="text-sm text-muted-foreground mt-1">{spell.text}</p>
+                                                </div>
+                                            );
+                                        }) : <p className="text-sm text-muted-foreground text-center py-2">No spells known.</p>}
                                     </div>
                                 </div>
                             </AccordionContent>

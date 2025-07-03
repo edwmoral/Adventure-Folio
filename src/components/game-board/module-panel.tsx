@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,7 +24,7 @@ interface ModulePanelProps {
     allItems: Item[];
     selectedTokenId: string | null;
     onTokenSelect: (id: string | null) => void;
-    onActionActivate: (action: ActionType | MonsterAction) => void;
+    onActionActivate: (action: ActionType | MonsterAction | Spell) => void;
     activeCombatant: Combatant | null;
 }
 

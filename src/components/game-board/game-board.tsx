@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -49,7 +48,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     const [recentRolls, setRecentRolls] = useState<string[]>([]);
 
     // Targeting State
-    const [targetingMode, setTargetingMode] = useState<{ action: ActionType | MonsterAction, casterId: string } | null>(null);
+    const [targetingMode, setTargetingMode] = useState<{ action: ActionType | MonsterAction | Spell, casterId: string } | null>(null);
     const { toast } = useToast();
 
     // Resizing Logic
@@ -283,7 +282,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }));
     };
 
-    const handleActionActivate = useCallback((action: ActionType | MonsterAction) => {
+    const handleActionActivate = useCallback((action: ActionType | MonsterAction | Spell) => {
         if (!selectedTokenId) {
             toast({ variant: 'destructive', title: 'No Caster', description: 'Select a token before activating an action.' });
             return;
@@ -297,7 +296,12 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
             return;
         }
 
-        const actionType = 'type' in action ? action.type : 'Action'; // Monster Actions default to 'Action'
+        let actionType: string;
+        if ('level' in action) { // It's a spell
+            actionType = action.time.toLowerCase().includes('bonus') ? 'Bonus Action' : 'Action';
+        } else {
+            actionType = 'type' in action ? action.type : 'Action';
+        }
 
         if (isPlayerTurn) {
             if (actionType === 'Action' && !activeCombatant.hasAction) {
@@ -306,6 +310,10 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
             }
             if (actionType === 'Bonus Action' && !activeCombatant.hasBonusAction) {
                 toast({ variant: 'destructive', title: 'No Bonus Action', description: 'You have already used your bonus action this turn.' });
+                return;
+            }
+            if (actionType === 'Reaction' && !activeCombatant.hasReaction) {
+                toast({ variant: 'destructive', title: 'No Reaction', description: 'You have already used your reaction this turn.' });
                 return;
             }
         }
@@ -361,13 +369,18 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }
 
         setTargetingMode({ action, casterId: selectedTokenId });
-        toast({ title: "Targeting...", description: `Select a target for ${action.name}.` });
+        toast({ title: "Targeting...", description: `Select a target for ${action.name}. Right-click to cancel.` });
     }, [selectedTokenId, toast, activeScene, handleUpdateScene, combatants, turnIndex, isInCombat]);
 
     const handleTargetSelect = useCallback((targetId: string) => {
         if (!targetingMode || !activeScene) return;
 
-        const actionType = 'type' in targetingMode.action ? targetingMode.action.type : 'Action';
+        let actionType: string;
+        if ('level' in targetingMode.action) { // It's a spell
+            actionType = targetingMode.action.time.toLowerCase().includes('bonus') ? 'Bonus Action' : 'Action';
+        } else {
+            actionType = 'type' in targetingMode.action ? targetingMode.action.type : 'Action';
+        }
         handleUseAction(actionType);
         
         const casterToken = activeScene.tokens.find(t => t.id === targetingMode.casterId);
@@ -403,7 +416,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         } else {
             const targetToken = activeScene.tokens.find(t => t.id === targetId);
             if (casterToken && targetToken) {
-                toast({ title: 'Action Targeted!', description: `${casterToken.name} used ${targetingMode.action.name} on ${targetToken.name}. ${targetingMode.action.effects || ''}` });
+                toast({ title: 'Action Targeted!', description: `${casterToken.name} used ${targetingMode.action.name} on ${targetToken.name}. ${'effects' in targetingMode.action ? targetingMode.action.effects : ''}` });
             }
         }
         
