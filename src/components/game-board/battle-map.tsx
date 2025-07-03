@@ -175,8 +175,8 @@ export function BattleMap({
             const containerRect = mapContainerRef.current.getBoundingClientRect();
             const mapX = (e.clientX - containerRect.left - pan.x) / zoom;
             const mapY = (e.clientY - containerRect.top - pan.y) / zoom;
-            const currentX_pc = (mapX / containerRect.width) * 100;
-            const currentY_pc = (mapY / containerRect.height) * 100;
+            const currentX_pc = (mapX / mapContainerRef.current.offsetWidth) * 100;
+            const currentY_pc = (mapY / mapContainerRef.current.offsetHeight) * 100;
             setMousePosition({ x: currentX_pc, y: currentY_pc });
         }
 
@@ -331,12 +331,13 @@ export function BattleMap({
 
             if (caster && target && rangeInfo && mapContainerRef.current) {
                 const mapWidthPx = mapContainerRef.current.offsetWidth;
-                const mapHeightPx = mapContainerRef.current.offsetHeight;
-
+                
                 const dx_pct = target.position.x - caster.position.x;
                 const dy_pct = target.position.y - caster.position.y;
                 
                 const dx_px = dx_pct / 100 * mapWidthPx;
+                
+                const mapHeightPx = mapContainerRef.current.offsetHeight;
                 const dy_px = dy_pct / 100 * mapHeightPx;
 
                 const dist_px = Math.hypot(dx_px, dy_px);
@@ -598,17 +599,60 @@ export function BattleMap({
                                     style={{ vectorEffect: 'non-scaling-stroke' }}
                                 />
                             )}
-                            {targetingMode && casterToken && mousePosition && (
-                                <line
-                                    x1={`${casterToken.position.x}%`}
-                                    y1={`${casterToken.position.y}%`}
-                                    x2={`${mousePosition.x}%`}
-                                    y2={`${mousePosition.y}%`}
-                                    stroke="white"
-                                    strokeWidth={0.2 / zoom}
-                                    strokeDasharray={`${0.5 / zoom} ${0.5 / zoom}`}
-                                    style={{ pointerEvents: 'none', vectorEffect: 'non-scaling-stroke' }}
-                                />
+                            {targetingMode && casterToken && mousePosition && mapContainerRef.current && (
+                                <g>
+                                    <line
+                                        x1={`${casterToken.position.x}%`}
+                                        y1={`${casterToken.position.y}%`}
+                                        x2={`${mousePosition.x}%`}
+                                        y2={`${mousePosition.y}%`}
+                                        stroke="white"
+                                        strokeWidth={0.5 / zoom}
+                                        strokeDasharray={`${0.8 / zoom} ${0.5 / zoom}`}
+                                        style={{ pointerEvents: 'none', vectorEffect: 'non-scaling-stroke' }}
+                                    />
+                                    {(() => {
+                                        const mapWidthPx = mapContainerRef.current!.offsetWidth;
+                                        const pxPerSquare = mapWidthPx / (scene.width || 30);
+                                        
+                                        const dx_pct = mousePosition.x - casterToken.position.x;
+                                        const dy_pct = mousePosition.y - casterToken.position.y;
+                                        
+                                        const dx_px = (dx_pct / 100) * mapWidthPx;
+                                        
+                                        const mapHeightPx = mapContainerRef.current!.offsetHeight;
+                                        const dy_px = (dy_pct / 100) * mapHeightPx;
+                                        
+                                        const dist_px = Math.hypot(dx_px, dy_px);
+                                        const dist_feet = (dist_px / pxPerSquare * 5).toFixed(0);
+
+                                        const midX = (casterToken.position.x + mousePosition.x) / 2;
+                                        const midY = (casterToken.position.y + mousePosition.y) / 2;
+                                        
+                                        const textStyle: React.CSSProperties = {
+                                            fill: "white",
+                                            stroke: "black",
+                                            strokeWidth: 4 / zoom,
+                                            fontSize: 14 / zoom,
+                                            textAnchor: "middle",
+                                            paintOrder: 'stroke',
+                                            fontWeight: 'bold',
+                                            vectorEffect: 'non-scaling-stroke'
+                                        };
+
+                                        return (
+                                             <text
+                                                x={`${midX}%`}
+                                                y={`${midY}%`}
+                                                dominantBaseline="text-after-edge"
+                                                dy={-5 / zoom}
+                                                style={textStyle}
+                                            >
+                                                {dist_feet}ft
+                                            </text>
+                                        );
+                                    })()}
+                                </g>
                             )}
                             <g>
                                 {scene.shapes?.map(shape => renderShapeLabel(shape))}
