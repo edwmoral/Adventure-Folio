@@ -139,7 +139,7 @@ export default function Header() {
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/character-sheet">
+                  <Link href="/character/sheet">
                     <Users className="mr-2 h-4 w-4" />
                     <span>My Characters</span>
                   </Link>
