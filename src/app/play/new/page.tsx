@@ -26,9 +26,9 @@ export default function NewCampaignPage() {
     setStatusMessages(prev => [...prev, message]);
   }
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setStatusMessages([]); // Reset messages on new submission
+    setStatusMessages([]);
 
     addStatus("1. Submit button clicked. Validating inputs...");
     if (!campaignName.trim() || !user) {
@@ -63,25 +63,28 @@ export default function NewCampaignPage() {
     };
     addStatus("   - Data prepared successfully.");
 
-    addStatus("3. Attempting to save to Firestore...");
-    saveDocForUser('campaigns', newCampaignId, newCampaign)
-        .then(() => {
-            addStatus("4. Save successful! Redirecting...");
-            toast({ title: "Campaign Created!", description: "Your new adventure awaits." });
-            router.push('/play');
-        })
-        .catch((error: any) => {
-            const errorMsg = `Save to Firestore failed. This is likely a security rules issue. Please check your Firebase project settings to ensure you can write to the 'campaigns' collection. Error: ${error.message}`;
-            addStatus(`4. ERROR: ${errorMsg}`);
-            console.error("Failed to create campaign:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Creation Failed',
-                description: `Could not create campaign. Check the status messages for details.`,
-                duration: 9000,
-            });
-            setIsCreating(false);
+    try {
+      addStatus("3. Attempting to save to Firestore via `saveDocForUser`...");
+      await saveDocForUser('campaigns', newCampaignId, newCampaign);
+      
+      addStatus("4. Save successful! Redirecting...");
+      toast({ title: "Campaign Created!", description: "Your new adventure awaits." });
+      router.push('/play');
+
+    } catch (error: any) {
+        const errorMsg = `Save to Firestore failed. This is likely a security rules issue. Please check your Firebase project settings to ensure you can write to the 'campaigns' collection. Error: ${error.message}`;
+        addStatus(`4. CATCH BLOCK TRIGGERED. ERROR: ${errorMsg}`);
+        console.error("Failed to create campaign:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Creation Failed',
+            description: `Could not create campaign. Check the status messages for details.`,
+            duration: 9000,
         });
+    } finally {
+        // This will run whether the try block succeeds or fails.
+        setIsCreating(false);
+    }
   }
 
   return (
