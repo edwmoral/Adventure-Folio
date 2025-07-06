@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import type { Campaign, Scene } from '@/lib/types';
+import type { Scene } from '@/lib/types';
 import { useAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { saveDocForUser } from "@/lib/firestore";
@@ -39,7 +39,7 @@ export default function NewCampaignPage() {
         };
         
         const newCampaignId = String(Date.now());
-        const newCampaign: Campaign = {
+        const newCampaign = {
             userId: user.uid,
             name: campaignName,
             imageUrl: 'https://placehold.co/400x225.png',

@@ -228,8 +228,7 @@ export function CharacterCreationForm() {
 
         const newCharacterId = String(Date.now());
 
-        const newCharacter: PlayerCharacter = {
-            id: newCharacterId,
+        const newCharacterData: Omit<PlayerCharacter, 'id'> = {
             name: values.characterName,
             race: values.characterRace,
             className: className,
@@ -255,19 +254,19 @@ export function CharacterCreationForm() {
         if (isCaster) {
             const level1SlotsData = fullCasterSpellSlots.find(l => l.level === 1)?.slots;
             if (level1SlotsData) {
-                newCharacter.spell_slots = {};
+                newCharacterData.spell_slots = {};
                 for (const levelKey in level1SlotsData) {
                     if (Object.prototype.hasOwnProperty.call(level1SlotsData, levelKey)) {
                         const max = level1SlotsData[levelKey as keyof typeof level1SlotsData];
-                        newCharacter.spell_slots[levelKey] = { current: max, max: max };
+                        newCharacterData.spell_slots[levelKey] = { current: max, max: max };
                     }
                 }
             }
-            newCharacter.mp = 10;
-            newCharacter.maxMp = 10;
+            newCharacterData.mp = 10;
+            newCharacterData.maxMp = 10;
         }
         
-        await saveDocForUser('playerCharacters', newCharacterId, newCharacter);
+        await saveDocForUser('playerCharacters', newCharacterId, newCharacterData);
         localStorage.setItem(STORAGE_KEY_LAST_ACTIVE_CHARACTER, newCharacterId);
 
         toast({ title: 'Character Created!', description: 'Your new hero is ready for adventure.' });
