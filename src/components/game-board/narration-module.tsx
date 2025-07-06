@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useRef } from 'react';
@@ -9,10 +10,12 @@ import { generateNarrationTextAction, generateNarrationAudioAction } from '@/app
 import { Sparkles, Trash2, Play, Pause, X } from 'lucide-react';
 import type { Narration, PlayerCharacter } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { PREBUILT_VOICES } from '@/lib/dnd-data';
 
 interface NarrationModuleProps {
     narrations: Narration[];
-    onNarrationCreate: (data: { plotSummary: string; audioUrl: string }) => void;
+    onNarrationCreate: (data: { plotSummary: string; audioUrl: string; voice: string; }) => void;
     onNarrationDelete: (narrationId: string) => void;
     characters: PlayerCharacter[];
 }
@@ -20,6 +23,7 @@ interface NarrationModuleProps {
 export function NarrationModule({ narrations, onNarrationCreate, onNarrationDelete, characters }: NarrationModuleProps) {
     const { toast } = useToast();
     const [plotSummary, setPlotSummary] = useState('');
+    const [selectedVoice, setSelectedVoice] = useState<string>(PREBUILT_VOICES[0].id);
     const [isGeneratingText, startTextTransition] = useTransition();
     const [isGeneratingAudio, startAudioTransition] = useTransition();
 
@@ -53,9 +57,13 @@ export function NarrationModule({ narrations, onNarrationCreate, onNarrationDele
     const handleGenerateAudio = () => {
         if (!epicNarration) return;
         startAudioTransition(async () => {
-            const result = await generateNarrationAudioAction({ narrationText: epicNarration });
+            const result = await generateNarrationAudioAction({ narrationText: epicNarration, voice: selectedVoice });
             if (result.success && result.audioUrl) {
-                onNarrationCreate({ plotSummary: originalSummaryForAudio, audioUrl: result.audioUrl });
+                onNarrationCreate({ 
+                    plotSummary: originalSummaryForAudio, 
+                    audioUrl: result.audioUrl,
+                    voice: selectedVoice,
+                });
                 handleCancelEdit();
                 toast({ title: 'Audio Generated!', description: 'The new narration is available in the history.' });
             } else {
@@ -70,10 +78,8 @@ export function NarrationModule({ narrations, onNarrationCreate, onNarrationDele
     };
     
     const handlePlayPause = (narration: Narration) => {
-        if (activeAudio?.id === narration.id) {
-            if (audioRef.current) {
-                audioRef.current.pause();
-            }
+        if (activeAudio?.id === narration.id && audioRef.current && !audioRef.current.paused) {
+            audioRef.current.pause();
             setActiveAudio(null);
         } else {
             setActiveAudio({ id: narration.id, url: narration.audioUrl });
@@ -102,6 +108,19 @@ export function NarrationModule({ narrations, onNarrationCreate, onNarrationDele
                         onChange={(e) => setEpicNarration(e.target.value)}
                         className="h-36"
                     />
+                     <div className="space-y-2">
+                        <Label htmlFor="voice-select">Voice</Label>
+                        <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                            <SelectTrigger id="voice-select">
+                                <SelectValue placeholder="Select a voice..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {PREBUILT_VOICES.map(voice => (
+                                    <SelectItem key={voice.id} value={voice.id}>{voice.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
                     <div className="flex gap-2">
                         <Button onClick={handleGenerateAudio} disabled={isGeneratingAudio} className="flex-1">
                             {isGeneratingAudio ? 'Generating Audio...' : 'Generate Audio'}
@@ -136,7 +155,7 @@ export function NarrationModule({ narrations, onNarrationCreate, onNarrationDele
                                     {activeAudio?.id === narration.id ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                                 </Button>
                                 <p className="min-w-0 flex-1 truncate text-sm" title={narration.plotSummary}>{narration.plotSummary}</p>
-                                <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0 text-destructive" onClick={() => onNarrationDelete(narration.id)}>
+                                <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onNarrationDelete(narration.id)}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>

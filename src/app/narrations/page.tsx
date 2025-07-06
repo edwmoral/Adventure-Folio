@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,6 +9,7 @@ import type { Campaign, Scene, Narration } from '@/lib/types';
 import { Pencil, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { PREBUILT_VOICES } from '@/lib/dnd-data';
 
 type NarrationListItem = Narration & {
     campaignName: string;
@@ -76,6 +78,10 @@ export default function NarrationsPage() {
     }
   };
 
+  const getVoiceName = (voiceId: string) => {
+    return PREBUILT_VOICES.find(v => v.id === voiceId)?.name || voiceId;
+  }
+
   return (
     <div className="space-y-8">
         <div className="flex items-center justify-between">
@@ -89,6 +95,7 @@ export default function NarrationsPage() {
                             <TableHead>Summary</TableHead>
                             <TableHead>Campaign</TableHead>
                             <TableHead>Scene</TableHead>
+                            <TableHead>Voice</TableHead>
                             <TableHead className="w-[120px] text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -98,6 +105,7 @@ export default function NarrationsPage() {
                             <TableCell className="font-medium max-w-sm truncate" title={narration.plotSummary}>{narration.plotSummary}</TableCell>
                             <TableCell className="text-muted-foreground">{narration.campaignName}</TableCell>
                             <TableCell className="text-muted-foreground">{narration.sceneName}</TableCell>
+                             <TableCell className="text-muted-foreground">{getVoiceName(narration.voice)}</TableCell>
                             <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                                 <Button asChild variant="outline" size="icon">

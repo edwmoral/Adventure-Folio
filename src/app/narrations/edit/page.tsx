@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -12,6 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { saveCampaignsAndCleanup } from "@/lib/storage-utils";
+import { PREBUILT_VOICES } from "@/lib/dnd-data";
+import { generateNarrationAudioAction } from "@/app/play/[id]/board/actions";
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
 
@@ -19,6 +22,7 @@ export default function EditNarrationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const [isSaving, startTransition] = useTransition();
 
   const campaignIdParam = searchParams.get('campaignId');
   const sceneIdParam = searchParams.get('sceneId');
@@ -34,6 +38,7 @@ export default function EditNarrationPage() {
   
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+  const [selectedVoice, setSelectedVoice] = useState<string>('');
 
   useEffect(() => {
     try {
@@ -45,13 +50,14 @@ export default function EditNarrationPage() {
             if (campaignIdParam && sceneIdParam && narrationIdParam) {
                 const campaign = campaigns.find(c => c.id === campaignIdParam);
                 const scene = campaign?.scenes.find(s => s.id === sceneIdParam);
-                const narration = scene?.narrations?.find(n => n.id === narrationIdParam);
+                const narrationData = scene?.narrations?.find(n => n.id === narrationIdParam);
                 
-                if (narration) {
-                    setNarration(narration);
-                    setPlotSummary(narration.plotSummary);
+                if (narrationData) {
+                    setNarration(narrationData);
+                    setPlotSummary(narrationData.plotSummary);
                     setSelectedCampaignId(campaignIdParam);
                     setSelectedSceneId(sceneIdParam);
+                    setSelectedVoice(narrationData.voice);
                     setScenesForSelectedCampaign(campaign?.scenes || []);
                 } else {
                     toast({ variant: 'destructive', title: 'Error', description: 'Narration not found.' });
@@ -70,7 +76,7 @@ export default function EditNarrationPage() {
     if (selectedCampaignId) {
         const campaign = allCampaigns.find(c => c.id === selectedCampaignId);
         setScenesForSelectedCampaign(campaign?.scenes || []);
-        // Reset scene selection if the campaign changes
+        // Reset scene selection if the campaign changes unless it's the initial load
         if (selectedCampaignId !== campaignIdParam) {
             setSelectedSceneId(null);
         }
@@ -80,47 +86,65 @@ export default function EditNarrationPage() {
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!plotSummary.trim() || !selectedCampaignId || !selectedSceneId || !narration) {
-        toast({ variant: 'destructive', title: 'Error', description: 'All fields are required.' });
-        return;
-    }
-
-    try {
-        let campaigns: Campaign[] = JSON.parse(localStorage.getItem(STORAGE_KEY_CAMPAIGNS) || '[]');
-        
-        // 1. Remove the original narration
-        const originalCampaign = campaigns.find(c => c.id === campaignIdParam);
-        if (originalCampaign) {
-            const originalScene = originalCampaign.scenes.find(s => s.id === sceneIdParam);
-            if (originalScene) {
-                originalScene.narrations = (originalScene.narrations || []).filter(n => n.id !== narrationIdParam);
-            }
+    startTransition(async () => {
+        if (!plotSummary.trim() || !selectedCampaignId || !selectedSceneId || !narration) {
+            toast({ variant: 'destructive', title: 'Error', description: 'All fields are required.' });
+            return;
         }
-        
-        // 2. Add the updated narration to the new location
-        const targetCampaign = campaigns.find(c => c.id === selectedCampaignId);
-        if (targetCampaign) {
-            const targetScene = targetCampaign.scenes.find(s => s.id === selectedSceneId);
-            if (targetScene) {
-                const updatedNarration: Narration = {
-                    ...narration,
-                    plotSummary: plotSummary,
-                };
-                if (!targetScene.narrations) {
-                    targetScene.narrations = [];
+
+        try {
+            let campaigns: Campaign[] = JSON.parse(localStorage.getItem(STORAGE_KEY_CAMPAIGNS) || '[]');
+            
+            let finalAudioUrl = narration.audioUrl;
+
+            // Re-generate audio if the voice has changed
+            if (selectedVoice !== narration.voice) {
+                const audioResult = await generateNarrationAudioAction({ narrationText: plotSummary, voice: selectedVoice });
+                if (audioResult.success && audioResult.audioUrl) {
+                    finalAudioUrl = audioResult.audioUrl;
+                    toast({ title: "Audio Re-generated", description: "The narration has been updated with the new voice." });
+                } else {
+                    toast({ variant: 'destructive', title: 'Audio Failed', description: 'Could not re-generate audio. Your other changes were not saved.' });
+                    return;
                 }
-                targetScene.narrations.push(updatedNarration);
             }
-        }
-        
-        saveCampaignsAndCleanup(campaigns);
-        toast({ title: "Narration Updated!", description: "The narration has been successfully updated." });
-        router.push(`/narrations`);
 
-    } catch (error) {
-        console.error("Failed to update narration:", error);
-        toast({ variant: "destructive", title: "Update Failed", description: "Could not update the narration." });
-    }
+            // 1. Remove the original narration
+            const originalCampaign = campaigns.find(c => c.id === campaignIdParam);
+            if (originalCampaign) {
+                const originalScene = originalCampaign.scenes.find(s => s.id === sceneIdParam);
+                if (originalScene) {
+                    originalScene.narrations = (originalScene.narrations || []).filter(n => n.id !== narrationIdParam);
+                }
+            }
+            
+            // 2. Add the updated narration to the new location
+            const targetCampaign = campaigns.find(c => c.id === selectedCampaignId);
+            if (targetCampaign) {
+                const targetScene = targetCampaign.scenes.find(s => s.id === selectedSceneId);
+                if (targetScene) {
+                    const updatedNarration: Narration = {
+                        ...narration,
+                        plotSummary: plotSummary,
+                        voice: selectedVoice,
+                        audioUrl: finalAudioUrl,
+                    };
+                    if (!targetScene.narrations) {
+                        targetScene.narrations = [];
+                    }
+                    targetScene.narrations.push(updatedNarration);
+                }
+            }
+            
+            saveCampaignsAndCleanup(campaigns);
+            toast({ title: "Narration Updated!", description: "The narration has been successfully updated." });
+            router.push(`/narrations`);
+
+        } catch (error) {
+            console.error("Failed to update narration:", error);
+            toast({ variant: "destructive", title: "Update Failed", description: "Could not update the narration." });
+        }
+    });
   }
 
   if (isLoading) {
@@ -139,7 +163,7 @@ export default function EditNarrationPage() {
             <CardHeader>
                 <CardTitle>Edit Narration</CardTitle>
                 <CardDescription>
-                    Update the summary or reassign this narration to a different scene.
+                    Update the summary, voice, or reassign this narration to a different scene.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -169,9 +193,19 @@ export default function EditNarrationPage() {
                             </Select>
                         </div>
                     </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="voice">Voice</Label>
+                        <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                            <SelectTrigger id="voice"><SelectValue placeholder="Select voice..." /></SelectTrigger>
+                            <SelectContent>
+                                {PREBUILT_VOICES.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
                    
                     <div className="flex justify-end pt-4">
-                        <Button type="submit">Save Changes</Button>
+                        <Button type="submit" disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Changes'}</Button>
                     </div>
                 </form>
             </CardContent>

@@ -455,7 +455,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }
     }, [isInitiatingCombat]);
 
-    const handleNarrationCreate = (data: { plotSummary: string; audioUrl: string }) => {
+    const handleNarrationCreate = (data: { plotSummary: string; audioUrl: string; voice: string; }) => {
         if (!activeScene) return;
 
         const newNarration: Narration = {
@@ -578,7 +578,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     allItems={allItems}
                     selectedTokenId={selectedTokenId}
                     onTokenSelect={handleTokenSelect}
-                    onActionActivate={handleActionActivate}
+                    onActionActivate={onActionActivate}
                     activeCombatant={activeCombatant}
                     narrations={activeScene.narrations || []}
                     onNarrationCreate={handleNarrationCreate}

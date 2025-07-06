@@ -40,6 +40,7 @@ export type Narration = {
   id: string;
   plotSummary: string;
   audioUrl: string;
+  voice: string;
 };
 
 export type Token = {
