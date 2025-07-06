@@ -578,7 +578,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     allItems={allItems}
                     selectedTokenId={selectedTokenId}
                     onTokenSelect={handleTokenSelect}
-                    onActionActivate={onActionActivate}
+                    onActionActivate={handleActionActivate}
                     activeCombatant={activeCombatant}
                     narrations={activeScene.narrations || []}
                     onNarrationCreate={handleNarrationCreate}
