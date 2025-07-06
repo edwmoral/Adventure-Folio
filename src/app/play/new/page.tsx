@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,47 +16,55 @@ import { saveDocForUser } from "@/lib/firestore";
 
 export default function NewCampaignPage() {
   const [campaignName, setCampaignName] = useState('');
+  const [isCreating, startCreationTransition] = useTransition();
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!campaignName.trim()) return;
-    if (!user) {
-        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to create a campaign.' });
+    if (!campaignName.trim() || !user) {
+        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in and provide a campaign name.' });
         return;
     }
 
-    try {
-        const newScene: Scene = {
-            id: `scene-${Date.now()}`,
-            name: 'My First Scene',
-            background_map_url: 'https://placehold.co/1200x800.png',
-            tokens: [],
-            is_active: true,
-            width: 30,
-            height: 20,
-        };
-        
-        const newCampaignId = String(Date.now());
-        const newCampaign = {
-            userId: user.uid,
-            name: campaignName,
-            imageUrl: 'https://placehold.co/400x225.png',
-            characters: [],
-            scenes: [newScene],
-            collaboratorIds: [],
-        };
+    startCreationTransition(async () => {
+        try {
+            const newScene: Scene = {
+                id: `scene-${Date.now()}`,
+                name: 'My First Scene',
+                background_map_url: 'https://placehold.co/1200x800.png',
+                tokens: [],
+                is_active: true,
+                width: 30,
+                height: 20,
+            };
+            
+            const newCampaignId = String(Date.now());
+            const newCampaign = {
+                userId: user.uid,
+                name: campaignName,
+                imageUrl: 'https://placehold.co/400x225.png',
+                characters: [],
+                scenes: [newScene],
+                collaboratorIds: [],
+            };
 
-        await saveDocForUser('campaigns', newCampaignId, newCampaign);
+            await saveDocForUser('campaigns', newCampaignId, newCampaign);
 
-        router.push('/play');
+            toast({ title: "Campaign Created!", description: "Your new adventure awaits." });
+            router.push('/play');
 
-    } catch (error) {
-        console.error("Failed to create campaign:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not create campaign.' });
-    }
+        } catch (error: any) {
+            console.error("Failed to create campaign:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Creation Failed',
+                description: `Could not create campaign. This is often due to database security rules. Full error: ${error.message}`,
+                duration: 9000,
+            });
+        }
+    });
   }
 
   return (
@@ -83,10 +92,13 @@ export default function NewCampaignPage() {
                         value={campaignName}
                         onChange={(e) => setCampaignName(e.target.value)}
                         required
+                        disabled={isCreating}
                     />
                 </div>
                 <div className="flex justify-end">
-                    <Button type="submit">Create Campaign</Button>
+                    <Button type="submit" disabled={isCreating || !campaignName.trim()}>
+                        {isCreating ? 'Creating...' : 'Create Campaign'}
+                    </Button>
                 </div>
             </form>
         </CardContent>

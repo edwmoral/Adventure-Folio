@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -51,18 +52,7 @@ async function getDocument<T>(collectionPath: string[], docId: string): Promise<
   const docRef = doc(db, ...collectionPath, docId);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
-    const data = { id: docSnap.id, ...docSnap.data() } as T & { id: string };
-
-    // Special access check for campaigns
-    if (collectionPath[0] === 'campaigns') {
-        const campaignData = data as Campaign;
-        const userId = auth?.currentUser?.uid;
-        if (userId && (campaignData.userId === userId || campaignData.collaboratorIds?.includes(userId))) {
-            return data;
-        }
-        return null; // No access
-    }
-    return data;
+    return { id: docSnap.id, ...docSnap.data() } as T & { id: string };
   }
   return null;
 }
@@ -174,6 +164,42 @@ export async function getCollectionForUser<T>(collectionName: string): Promise<(
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T & { id: string }));
 }
+
+/**
+ * Fetches a single document from a top-level collection and verifies ownership or collaboration.
+ * Currently specific to Campaigns.
+ * @param collectionName The name of the collection (e.g., 'campaigns').
+ * @param docId The ID of the document to fetch.
+ * @returns The document data with ID, or null if not found or no permission.
+ */
+export async function getDocForUser<T>(collectionName: string, docId: string): Promise<(T & { id: string }) | null> {
+  if (!db) throw new Error('Firestore not initialized.');
+  
+  const docData = await getDocument<T>([collectionName], docId);
+  if (!docData) return null;
+
+  if (collectionName === 'campaigns') {
+    const campaignData = docData as unknown as Campaign;
+    const userId = auth?.currentUser?.uid;
+    if (userId && (campaignData.userId === userId || campaignData.collaboratorIds?.includes(userId))) {
+      return docData;
+    }
+    return null; // No access
+  }
+
+  // Fallback for other potential collections, assuming a 'userId' field for ownership.
+  const record = docData as any;
+  if (record.userId && record.userId === auth?.currentUser?.uid) {
+    return docData;
+  }
+  
+  // If the logic reaches here for a collection other than 'campaigns' without a userId field,
+  // it might indicate a missing security check, but we'll return null to be safe.
+  if (!record.userId) return null;
+
+  return null;
+}
+
 
 /**
  * Fetches documents from a top-level collection where the current user is a collaborator.
