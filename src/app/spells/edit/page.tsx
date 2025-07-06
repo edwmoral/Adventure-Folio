@@ -15,9 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectCombobox } from "@/components/multi-select-combobox";
+import { getGlobalCollection, getGlobalDoc, saveGlobalDoc } from "@/lib/firestore";
 
-const STORAGE_KEY_SPELLS = 'dnd_spells';
-const STORAGE_KEY_CLASSES = 'dnd_classes';
 const SPELL_SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation'].sort();
 const CASTING_TIME_UNITS = ['Action', 'Bonus Action', 'Reaction', 'Minute', 'Hour'];
 const RANGE_UNITS = ['Self', 'Touch', 'Feet', 'Mile', 'Special'];
@@ -57,80 +56,84 @@ export default function EditSpellPage() {
   const [aoeSize, setAoeSize] = useState(20);
 
   useEffect(() => {
-    try {
-      const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
-      if (storedClasses) {
-        const parsedClasses: Class[] = JSON.parse(storedClasses);
-        const uniqueClassNames = [...new Set(parsedClasses.map(c => c.name))];
-        setAllClasses(uniqueClassNames.sort());
-      }
-
-      if (spellNameParam) {
-        const storedSpells = localStorage.getItem(STORAGE_KEY_SPELLS);
-        const spells: Spell[] = storedSpells ? JSON.parse(storedSpells) : [];
-        const spellToEdit = spells.find(s => s.name === spellNameParam);
-
-        if (spellToEdit) {
-            setSpell(spellToEdit);
-            setSelectedClasses(spellToEdit.classes?.split(', ').filter(Boolean) || []);
-
-            // Parse Components
-            const components = spellToEdit.components?.split(', ') || [];
-            setHasVerbal(components.some(c => c === 'V'));
-            setHasSomatic(components.some(c => c === 'S'));
-            const materialComponent = components.find(c => c.startsWith('M'));
-            if (materialComponent) {
-                setHasMaterial(true);
-                const match = materialComponent.match(/\((.*)\)/);
-                setSpell(p => ({ ...p, material_component: match ? match[1] : '' }));
-            }
-
-            // Parse Casting Time
-            const timeParts = spellToEdit.time.split(' ');
-            if (timeParts.length >= 2) {
-                setCastingTimeNumber(parseInt(timeParts[0]) || 1);
-                const unit = timeParts[1].replace(/s$/, '');
-                setCastingTimeUnit(CASTING_TIME_UNITS.find(u => u.toLowerCase() === unit) || 'Action');
-            }
-            
-            // Parse Range
-            const rangeParts = spellToEdit.range.split(' ');
-            if (rangeParts.length >= 2 && !isNaN(parseInt(rangeParts[0]))) {
-                setRangeNumber(parseInt(rangeParts[0]));
-                const unit = rangeParts[1].replace(/s$/, '');
-                setRangeUnit(RANGE_UNITS.find(u => u.toLowerCase() === unit) || 'Feet');
-            } else {
-                setRangeUnit(RANGE_UNITS.find(u => u === spellToEdit.range) || 'Special');
-            }
-
-            // Parse Duration
-            const durationString = spellToEdit.duration;
-            setIsConcentration(durationString.startsWith('Concentration'));
-            const relevantDurationString = durationString.replace('Concentration, up to ', '');
-            const durationParts = relevantDurationString.split(' ');
-            const durationUnitMatch = DURATION_UNITS.find(u => u === durationParts[0] || (durationParts[1] && u === durationParts[1].charAt(0).toUpperCase() + durationParts[1].slice(1)));
-            setDurationUnit(durationUnitMatch || 'Instantaneous');
-            if (!isNaN(parseInt(durationParts[0]))) {
-                setDurationNumber(parseInt(durationParts[0]));
-            }
-
-            // Parse AoE
-            if (spellToEdit.aoe) {
-                setHasAoe(true);
-                setAoeShape(AOE_SHAPES.find(s => s.toLowerCase() === spellToEdit.aoe!.shape) || 'Sphere');
-                setAoeSize(spellToEdit.aoe.size);
-            }
-
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: 'Spell not found.' });
+    async function fetchData() {
+        if (!spellNameParam) {
             router.push('/spells');
+            return;
         }
-      }
-    } catch (error) {
-      console.error("Failed to load data from localStorage", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not load required data.' });
+
+        setIsLoading(true);
+        try {
+            const [classesData, spellToEdit] = await Promise.all([
+                getGlobalCollection<Class>('classes'),
+                getGlobalDoc<Spell>('spells', spellNameParam),
+            ]);
+
+            const uniqueClassNames = [...new Set(classesData.map(c => c.name))];
+            setAllClasses(uniqueClassNames.sort());
+
+            if (spellToEdit) {
+                setSpell(spellToEdit);
+                setSelectedClasses(spellToEdit.classes?.split(', ').filter(Boolean) || []);
+
+                const components = spellToEdit.components?.split(', ') || [];
+                setHasVerbal(components.some(c => c === 'V'));
+                setHasSomatic(components.some(c => c === 'S'));
+                const materialComponent = components.find(c => c.startsWith('M'));
+                if (materialComponent) {
+                    setHasMaterial(true);
+                    const match = materialComponent.match(/\((.*)\)/);
+                    setSpell(p => ({ ...p, material_component: match ? match[1] : '' }));
+                }
+
+                const timeParts = spellToEdit.time.split(' ');
+                if (timeParts.length >= 2) {
+                    setCastingTimeNumber(parseInt(timeParts[0]) || 1);
+                    const unit = timeParts.slice(1).join(' ').replace(/s$/, '');
+                    setCastingTimeUnit(CASTING_TIME_UNITS.find(u => u.toLowerCase() === unit.toLowerCase()) || 'Action');
+                } else {
+                    setCastingTimeUnit(CASTING_TIME_UNITS.find(u => u.toLowerCase() === spellToEdit.time.toLowerCase()) || 'Action');
+                }
+
+                const rangeParts = spellToEdit.range.split(' ');
+                if (rangeParts.length >= 2 && !isNaN(parseInt(rangeParts[0]))) {
+                    setRangeNumber(parseInt(rangeParts[0]));
+                    const unit = rangeParts[1].replace(/s$/, '');
+                    setRangeUnit(RANGE_UNITS.find(u => u.toLowerCase() === unit.toLowerCase()) || 'Feet');
+                } else {
+                    setRangeUnit(RANGE_UNITS.find(u => u === spellToEdit.range) || 'Special');
+                }
+
+                const durationString = spellToEdit.duration;
+                setIsConcentration(durationString.toLowerCase().startsWith('concentration'));
+                const relevantDurationString = durationString.replace(/Concentration, up to /i, '');
+                const durationParts = relevantDurationString.split(' ');
+                if (!isNaN(parseInt(durationParts[0]))) {
+                  setDurationNumber(parseInt(durationParts[0]));
+                  const unit = durationParts.slice(1).join(' ').replace(/s$/,'');
+                  setDurationUnit(DURATION_UNITS.find(u => u.toLowerCase() === unit.toLowerCase()) || 'Instantaneous');
+                } else {
+                  setDurationUnit(DURATION_UNITS.find(u => u === relevantDurationString) || 'Instantaneous');
+                }
+
+                if (spellToEdit.aoe) {
+                    setHasAoe(true);
+                    setAoeShape(AOE_SHAPES.find(s => s.toLowerCase() === spellToEdit.aoe!.shape) || 'Sphere');
+                    setAoeSize(spellToEdit.aoe.size);
+                }
+
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: 'Spell not found.' });
+                router.push('/spells');
+            }
+        } catch (error) {
+            console.error("Failed to load data from Firestore", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load required data.' });
+        } finally {
+            setIsLoading(false);
+        }
     }
-    setIsLoading(false);
+    fetchData();
   }, [spellNameParam, router, toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -152,8 +155,9 @@ export default function EditSpellPage() {
   };
 
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!spellNameParam) return;
 
     if (!spell.name || !spell.school || !spell.text) {
         toast({ variant: 'destructive', title: 'Error', description: 'Name, School, and Description are required.' });
@@ -161,9 +165,6 @@ export default function EditSpellPage() {
     }
 
     try {
-        const storedSpells = localStorage.getItem(STORAGE_KEY_SPELLS);
-        const spells: Spell[] = storedSpells ? JSON.parse(storedSpells) : [];
-        
         let components_list = [];
         if (hasVerbal) components_list.push('V');
         if (hasSomatic) components_list.push('S');
@@ -175,32 +176,20 @@ export default function EditSpellPage() {
             components_list.push(material_string);
         }
         
-        // Construct casting time string
         let castingTimeString = `${castingTimeNumber} ${castingTimeUnit.toLowerCase()}`;
-        if (castingTimeNumber !== 1) {
+        if (castingTimeNumber !== 1 && castingTimeUnit !== 'Action' && castingTimeUnit !== 'Reaction' && castingTimeUnit !== 'Bonus Action') {
             castingTimeString += 's';
         }
 
-        // Construct range string
         let rangeString = rangeUnit;
         if (['Feet', 'Mile'].includes(rangeUnit)) {
             rangeString = `${rangeNumber} ${rangeUnit.toLowerCase()}`;
-            if (rangeNumber !== 1 && rangeUnit === 'Mile') {
-                rangeString += 's';
-            }
+            if (rangeNumber !== 1 && rangeUnit === 'Mile') rangeString += 's';
         }
         
-        // Construct duration string
-        let durationString = '';
-        if (isConcentration) {
-            durationString += 'Concentration, up to ';
-        }
-
+        let durationString = isConcentration ? 'Concentration, up to ' : '';
         if (['Round', 'Minute', 'Hour', 'Day'].includes(durationUnit)) {
-            durationString += `${durationNumber} ${durationUnit.toLowerCase()}`;
-            if (durationNumber !== 1) {
-                durationString += 's';
-            }
+            durationString += `${durationNumber} ${durationUnit.toLowerCase()}${durationNumber !== 1 ? 's' : ''}`;
         } else {
             durationString += durationUnit;
         }
@@ -225,8 +214,7 @@ export default function EditSpellPage() {
             };
         }
 
-        const updatedSpells = spells.map(s => s.name === spellNameParam ? updatedSpell : s);
-        localStorage.setItem(STORAGE_KEY_SPELLS, JSON.stringify(updatedSpells));
+        await saveGlobalDoc('spells', spellNameParam, updatedSpell);
 
         toast({ title: "Spell Updated!", description: "The spell has been successfully updated." });
         router.push(`/spells`);

@@ -10,6 +10,7 @@ import type { Spell } from '@/lib/types';
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { getGlobalCollection, deleteGlobalDoc, seedGlobalData } from '@/lib/firestore';
 
 const initialSpells: Spell[] = [
   {
@@ -37,44 +38,49 @@ const initialSpells: Spell[] = [
   }
 ];
 
-const STORAGE_KEY = 'dnd_spells';
-
 export default function SpellsPage() {
   const [spells, setSpells] = useState<Spell[]>([]);
+  const [loading, setLoading] = useState(true);
   const [spellToDelete, setSpellToDelete] = useState<Spell | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      const storedSpells = localStorage.getItem(STORAGE_KEY);
-      if (storedSpells) {
-        setSpells(JSON.parse(storedSpells));
-      } else {
-        setSpells(initialSpells);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialSpells));
-      }
-    } catch (error) {
-      console.error("Failed to access localStorage:", error);
-      setSpells(initialSpells);
-    }
-  }, []);
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            await seedGlobalData('spells', initialSpells, 'name');
+            const data = await getGlobalCollection<Spell>('spells');
+            setSpells(data);
+        } catch (error) {
+            console.error("Failed to fetch spells:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch spells.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+    fetchData();
+  }, [toast]);
 
-  const handleDeleteSpell = () => {
+  const handleDeleteSpell = async () => {
     if (!spellToDelete) return;
     try {
-        const updatedSpells = spells.filter(s => s.name !== spellToDelete.name);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSpells));
-        setSpells(updatedSpells);
+        await deleteGlobalDoc('spells', spellToDelete.name);
+        setSpells(spells.filter(s => s.name !== spellToDelete.name));
         toast({
             title: "Spell Deleted",
             description: `"${spellToDelete.name}" has been deleted.`
         });
-        setSpellToDelete(null);
     } catch (error) {
         console.error("Failed to delete spell:", error);
         toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the spell." });
+    } finally {
+        setSpellToDelete(null);
     }
   };
+  
+  if (loading) {
+    return <div>Loading spells...</div>;
+  }
 
   return (
     <div className="space-y-8">

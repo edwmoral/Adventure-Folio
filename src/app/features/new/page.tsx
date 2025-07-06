@@ -1,10 +1,10 @@
+
 'use client';
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-
 import type { Feat } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,8 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
-
-const STORAGE_KEY = 'dnd_feats';
+import { saveGlobalDoc } from "@/lib/firestore";
 
 export default function NewFeatPage() {
   const router = useRouter();
@@ -23,7 +22,7 @@ export default function NewFeatPage() {
   const [prerequisite, setPrerequisite] = useState('');
   const [text, setText] = useState('');
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!name || !text) {
@@ -32,17 +31,13 @@ export default function NewFeatPage() {
     }
 
     try {
-        const storedFeats = localStorage.getItem(STORAGE_KEY);
-        const feats: Feat[] = storedFeats ? JSON.parse(storedFeats) : [];
-        
         const newFeat: Feat = {
             name,
             text,
             prerequisite: prerequisite || undefined,
         };
 
-        const updatedFeats = [...feats, newFeat];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedFeats));
+        await saveGlobalDoc('feats', name, newFeat);
 
         toast({ title: "Feat Created!", description: "The new feat has been added." });
         router.push(`/features`);

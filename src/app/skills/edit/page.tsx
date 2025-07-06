@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-
 import type { Skill } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,8 +13,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getGlobalDoc, saveGlobalDoc } from "@/lib/firestore";
 
-const STORAGE_KEY = 'dnd_skills';
 const ABILITIES = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'].sort();
 
 export default function EditSkillPage() {
@@ -31,31 +30,36 @@ export default function EditSkillPage() {
   const [description, setDescription] = useState('');
 
   useEffect(() => {
-    if (skillNameParam) {
-      try {
-        const storedSkills = localStorage.getItem(STORAGE_KEY);
-        if (storedSkills) {
-          const skills: Skill[] = JSON.parse(storedSkills);
-          const foundSkill = skills.find(s => s.name === skillNameParam);
-          if (foundSkill) {
-            setName(foundSkill.name);
-            setAbility(foundSkill.ability);
-            setDescription(foundSkill.description);
-          } else {
-            toast({ variant: 'destructive', title: 'Error', description: 'Skill not found.' });
-            router.push('/skills');
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load skill from localStorage", error);
-        toast({ variant: "destructive", title: "Load Failed", description: "Could not load skill data." });
-      }
+    if (!skillNameParam) {
+        router.push('/skills');
+        return;
     }
-    setIsLoading(false);
+    
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const foundSkill = await getGlobalDoc<Skill>('skills', skillNameParam);
+            if (foundSkill) {
+                setName(foundSkill.name);
+                setAbility(foundSkill.ability);
+                setDescription(foundSkill.description);
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: 'Skill not found.' });
+                router.push('/skills');
+            }
+        } catch (error) {
+            console.error("Failed to load skill:", error);
+            toast({ variant: "destructive", title: "Load Failed", description: "Could not load skill data." });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchData();
   }, [skillNameParam, router, toast]);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!skillNameParam) return;
 
     if (!name || !ability || !description) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please fill all fields.' });
@@ -63,13 +67,8 @@ export default function EditSkillPage() {
     }
 
     try {
-        const storedSkills = localStorage.getItem(STORAGE_KEY);
-        const skills: Skill[] = storedSkills ? JSON.parse(storedSkills) : [];
-        
         const updatedSkill: Skill = { name, ability, description };
-
-        const updatedSkills = skills.map(s => s.name === skillNameParam ? updatedSkill : s);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSkills));
+        await saveGlobalDoc('skills', skillNameParam, updatedSkill);
 
         toast({ title: "Skill Updated!", description: "The skill has been successfully updated." });
         router.push(`/skills`);

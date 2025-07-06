@@ -2,6 +2,7 @@
 
 
 
+
 // --- Base & Container Types ---
 
 export type CircleShape = {
@@ -202,6 +203,7 @@ export type ClassAutolevel = {
 };
 
 export type Class = {
+    id: string;
     name: string;
     subclass: string;
     hd: number;

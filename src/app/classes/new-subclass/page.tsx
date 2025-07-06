@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from "react";
@@ -18,8 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-const STORAGE_KEY = 'dnd_classes';
+import { getGlobalCollection, saveGlobalDoc } from "@/lib/firestore";
 
 export default function NewSubclassPage() {
   const router = useRouter();
@@ -33,21 +33,21 @@ export default function NewSubclassPage() {
   const [features, setFeatures] = useState('');
 
   useEffect(() => {
-    try {
-      const storedClasses = localStorage.getItem(STORAGE_KEY);
-      if (storedClasses) {
-        const parsedClasses: Class[] = JSON.parse(storedClasses);
-        setAllClasses(parsedClasses);
-        const uniqueNames = [...new Set(parsedClasses.map(c => c.name))];
-        setBaseClassNames(uniqueNames.sort());
-      }
-    } catch (error) {
-      console.error("Failed to load classes:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not load existing classes.' });
+    async function fetchClasses() {
+        try {
+            const parsedClasses = await getGlobalCollection<Class>('classes');
+            setAllClasses(parsedClasses);
+            const uniqueNames = [...new Set(parsedClasses.map(c => c.name))];
+            setBaseClassNames(uniqueNames.sort());
+        } catch (error) {
+            console.error("Failed to load classes:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load existing classes.' });
+        }
     }
+    fetchClasses();
   }, [toast]);
   
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!selectedBaseClass || !subclassName.trim() || !features.trim()) {
@@ -62,8 +62,11 @@ export default function NewSubclassPage() {
              return;
         }
         
+        const newSubclassId = `${baseClass.name}-${subclassName}`.replace(/\s+/g, '-').toLowerCase();
+
         const newSubclass: Class = {
             ...baseClass,
+            id: newSubclassId,
             subclass: subclassName,
             autolevel: [...baseClass.autolevel], // Deprecated, keep for now
             levels: [...baseClass.levels] // Use new structure
@@ -82,8 +85,7 @@ export default function NewSubclassPage() {
             newSubclass.levels.sort((a,b) => a.level - b.level);
         }
 
-        const updatedClasses = [...allClasses, newSubclass];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedClasses));
+        await saveGlobalDoc('classes', newSubclassId, newSubclass);
 
         toast({ title: "Subclass Created!", description: "The new subclass has been added." });
         router.push(`/classes`);

@@ -19,9 +19,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { getGlobalCollection, deleteGlobalDoc, seedGlobalData } from '@/lib/firestore';
 
 const initialMockClasses: Class[] = [
   {
+    id: "Fighter-Champion",
     name: "Fighter",
     subclass: "Champion",
     hd: 10,
@@ -34,6 +36,7 @@ const initialMockClasses: Class[] = [
     autolevel: [{ level: 1, feature: [{ name: "Fighting Style", text: "" }, { name: "Second Wind", text: "" }] }]
   },
   {
+    id: "Fighter-Battle-Master",
     name: "Fighter",
     subclass: "Battle Master",
     hd: 10,
@@ -46,6 +49,7 @@ const initialMockClasses: Class[] = [
     autolevel: [{ level: 3, feature: [{ name: "Combat Superiority", text: "" }] }]
   },
   {
+    id: "Wizard-School-of-Evocation",
     name: "Wizard",
     subclass: "School of Evocation",
     hd: 6,
@@ -58,6 +62,7 @@ const initialMockClasses: Class[] = [
     autolevel: [{ level: 2, feature: [{ name: "Evocation Savant", text: "" }, { name: "Sculpt Spells", text: "" }] }]
   },
   {
+    id: "Wizard-School-of-Abjuration",
     name: "Wizard",
     subclass: "School of Abjuration",
     hd: 6,
@@ -70,6 +75,7 @@ const initialMockClasses: Class[] = [
     autolevel: [{ level: 2, feature: [{ name: "Abjuration Savant", text: "" }, { name: "Arcane Ward", text: "" }] }]
   },
   {
+    id: "Rogue-Thief",
     name: "Rogue",
     subclass: "Thief",
     hd: 8,
@@ -82,6 +88,7 @@ const initialMockClasses: Class[] = [
     autolevel: [{ level: 1, feature: [{ name: "Expertise", text: "" }, { name: "Sneak Attack", text: "" }, { name: "Thieves' Cant", text: "" }] }]
   },
   {
+    id: "Rogue-Assassin",
     name: "Rogue",
     subclass: "Assassin",
     hd: 8,
@@ -94,8 +101,6 @@ const initialMockClasses: Class[] = [
     autolevel: [{ level: 3, feature: [{ name: "Assassinate", text: "" }] }]
   },
 ];
-
-const STORAGE_KEY = 'dnd_classes';
 
 // Helper to group classes by name
 const groupClassesByName = (classes: Class[]) => {
@@ -112,43 +117,48 @@ const groupClassesByName = (classes: Class[]) => {
 
 export default function ClassesPage() {
   const [classes, setClasses] = useState<Class[]>([]);
+  const [loading, setLoading] = useState(true);
   const [classToDelete, setClassToDelete] = useState<Class | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      const storedClasses = localStorage.getItem(STORAGE_KEY);
-      if (storedClasses) {
-        setClasses(JSON.parse(storedClasses));
-      } else {
-        setClasses(initialMockClasses);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialMockClasses));
-      }
-    } catch (error) {
-      console.error("Failed to access localStorage:", error);
-      setClasses(initialMockClasses);
-    }
-  }, []);
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            await seedGlobalData('classes', initialMockClasses, 'id');
+            const data = await getGlobalCollection<Class>('classes');
+            setClasses(data);
+        } catch (error) {
+            console.error("Failed to fetch classes:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch classes.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+    fetchData();
+  }, [toast]);
 
-  const handleDeleteClass = () => {
+  const handleDeleteClass = async () => {
     if (!classToDelete) return;
 
     try {
-        const updatedClasses = classes.filter(c => !(c.name === classToDelete.name && c.subclass === classToDelete.subclass));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedClasses));
-        setClasses(updatedClasses);
-
+        await deleteGlobalDoc('classes', classToDelete.id);
+        setClasses(classes.filter(c => c.id !== classToDelete.id));
         toast({
           title: "Class Deleted",
           description: `"${classToDelete.name} - ${classToDelete.subclass}" has been deleted.`
         });
-        
-        setClassToDelete(null); // Close the dialog
     } catch (error) {
         console.error("Failed to delete class:", error);
         toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the class." });
+    } finally {
+        setClassToDelete(null);
     }
   };
+  
+  if (loading) {
+    return <div>Loading classes...</div>;
+  }
 
   const groupedClasses = groupClassesByName(classes);
 
@@ -183,14 +193,14 @@ export default function ClassesPage() {
                 </TableHeader>
                 <TableBody>
                   {subclasses.map((subclass) => (
-                    <TableRow key={subclass.subclass}>
+                    <TableRow key={subclass.id}>
                       <TableCell className="font-medium">{subclass.subclass}</TableCell>
                       <TableCell>{subclass.primary_ability}</TableCell>
                       <TableCell>d{subclass.hd}</TableCell>
                        <TableCell className="text-right">
                          <div className="flex justify-end gap-2">
                             <Button asChild variant="outline" size="icon">
-                                <Link href={`/classes/edit?name=${encodeURIComponent(subclass.name)}&subclass=${encodeURIComponent(subclass.subclass)}`}>
+                                <Link href={`/classes/edit?id=${encodeURIComponent(subclass.id)}`}>
                                     <Pencil className="h-4 w-4" />
                                     <span className="sr-only">Edit {subclass.name} - {subclass.subclass}</span>
                                 </Link>

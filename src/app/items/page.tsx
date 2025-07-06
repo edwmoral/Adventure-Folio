@@ -10,6 +10,7 @@ import type { Item } from '@/lib/types';
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { getGlobalCollection, deleteGlobalDoc, seedGlobalData } from '@/lib/firestore';
 
 const initialItems: Item[] = [
   {
@@ -61,41 +62,46 @@ const initialItems: Item[] = [
   }
 ];
 
-const STORAGE_KEY = 'dnd_items';
-
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
   const [itemToDelete, setItemToDelete] = useState<Item | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      const storedItems = localStorage.getItem(STORAGE_KEY);
-      if (storedItems) {
-        setItems(JSON.parse(storedItems));
-      } else {
-        setItems(initialItems);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialItems));
-      }
-    } catch (error) {
-      console.error("Failed to access localStorage:", error);
-      setItems(initialItems);
-    }
-  }, []);
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            await seedGlobalData('items', initialItems, 'id');
+            const data = await getGlobalCollection<Item>('items');
+            setItems(data);
+        } catch (error) {
+            console.error("Failed to fetch items:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch items.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+    fetchData();
+  }, [toast]);
 
-  const handleDeleteItem = () => {
+  const handleDeleteItem = async () => {
     if (!itemToDelete) return;
     try {
-        const updatedItems = items.filter(i => i.id !== itemToDelete.id);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedItems));
-        setItems(updatedItems);
+        await deleteGlobalDoc('items', itemToDelete.id);
+        setItems(items.filter(i => i.id !== itemToDelete.id));
         toast({ title: "Item Deleted", description: `"${itemToDelete.name}" has been deleted.` });
-        setItemToDelete(null);
     } catch (error) {
         console.error("Failed to delete item:", error);
         toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the item." });
+    } finally {
+        setItemToDelete(null);
     }
   };
+
+  if (loading) {
+    return <div>Loading items...</div>;
+  }
 
   return (
     <div className="space-y-8">

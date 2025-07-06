@@ -15,8 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectCombobox } from "@/components/multi-select-combobox";
+import { getGlobalDoc, saveGlobalDoc } from "@/lib/firestore";
 
-const STORAGE_KEY_ITEMS = 'dnd_items';
 const STORAGE_KEY_PROPERTIES = 'dnd_item_properties';
 const STORAGE_KEY_EFFECTS = 'dnd_item_effects';
 
@@ -39,30 +39,35 @@ export default function EditItemPage() {
     const [allEffects, setAllEffects] = useState<string[]>(DEFAULT_EFFECTS);
 
     useEffect(() => {
-        try {
-            const storedProps = localStorage.getItem(STORAGE_KEY_PROPERTIES);
-            if (storedProps) setAllProperties(JSON.parse(storedProps).sort());
-            
-            const storedEffects = localStorage.getItem(STORAGE_KEY_EFFECTS);
-            if (storedEffects) setAllEffects(JSON.parse(storedEffects).sort());
-
-            if (itemIdParam) {
-                const storedItems = localStorage.getItem(STORAGE_KEY_ITEMS);
-                if (storedItems) {
-                    const items: Item[] = JSON.parse(storedItems);
-                    const foundItem = items.find(i => i.id === itemIdParam);
-                    if (foundItem) {
-                        setItem(foundItem);
-                    } else {
-                        toast({ variant: 'destructive', title: 'Error', description: 'Item not found.' });
-                        router.push('/items');
-                    }
-                }
+        const fetchItemData = async () => {
+            if (!itemIdParam) {
+                router.push('/items');
+                return;
             }
-        } catch (e) {
-            console.error("Failed to load item metadata from localStorage", e);
-        }
-        setIsLoading(false);
+            setIsLoading(true);
+            try {
+                // Fetch dynamic properties from localStorage
+                const storedProps = localStorage.getItem(STORAGE_KEY_PROPERTIES);
+                if (storedProps) setAllProperties(JSON.parse(storedProps).sort());
+                const storedEffects = localStorage.getItem(STORAGE_KEY_EFFECTS);
+                if (storedEffects) setAllEffects(JSON.parse(storedEffects).sort());
+
+                // Fetch item data from Firestore
+                const foundItem = await getGlobalDoc<Item>('items', itemIdParam);
+                if (foundItem) {
+                    setItem(foundItem);
+                } else {
+                    toast({ variant: 'destructive', title: 'Error', description: 'Item not found.' });
+                    router.push('/items');
+                }
+            } catch (e) {
+                console.error("Failed to load item data", e);
+                toast({ variant: 'destructive', title: 'Load Failed', description: 'Could not load item data.' });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchItemData();
     }, [itemIdParam, router, toast]);
 
     const handleCreateOption = (type: 'property' | 'effect', value: string) => {
@@ -95,8 +100,9 @@ export default function EditItemPage() {
         setItem(prev => ({ ...prev, [id]: checked }));
     };
 
-    const handleSubmit = (event: React.FormEvent) => {
+    const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
+        if (!itemIdParam) return;
 
         if (!item.name || !item.type) {
             toast({ variant: 'destructive', title: 'Error', description: 'Name and Type are required.' });
@@ -104,15 +110,8 @@ export default function EditItemPage() {
         }
 
         try {
-            const storedItems = localStorage.getItem(STORAGE_KEY_ITEMS);
-            const items: Item[] = storedItems ? JSON.parse(storedItems) : [];
-            
-            const updatedItem: Item = {
-                ...item as Item,
-            };
-
-            const updatedItems = items.map(i => i.id === itemIdParam ? updatedItem : i);
-            localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(updatedItems));
+            const updatedItem: Item = { ...item as Item };
+            await saveGlobalDoc('items', itemIdParam, updatedItem);
 
             toast({ title: "Item Updated!", description: "The item has been successfully updated." });
             router.push(`/items`);

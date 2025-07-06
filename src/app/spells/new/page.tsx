@@ -15,9 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectCombobox } from "@/components/multi-select-combobox";
+import { getGlobalCollection, saveGlobalDoc } from "@/lib/firestore";
 
-const STORAGE_KEY_SPELLS = 'dnd_spells';
-const STORAGE_KEY_CLASSES = 'dnd_classes';
 const SPELL_SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation'].sort();
 const CASTING_TIME_UNITS = ['Action', 'Bonus Action', 'Reaction', 'Minute', 'Hour'];
 const RANGE_UNITS = ['Self', 'Touch', 'Feet', 'Mile', 'Special'];
@@ -52,17 +51,17 @@ export default function NewSpellPage() {
   const [aoeSize, setAoeSize] = useState(20);
 
   useEffect(() => {
-    try {
-      const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
-      if (storedClasses) {
-        const parsedClasses: Class[] = JSON.parse(storedClasses);
-        const uniqueClassNames = [...new Set(parsedClasses.map(c => c.name))];
-        setAllClasses(uniqueClassNames.sort());
-      }
-    } catch (error) {
-      console.error("Failed to load classes from localStorage", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not load class data.' });
+    async function fetchClasses() {
+        try {
+            const fetchedClasses = await getGlobalCollection<Class>('classes');
+            const uniqueClassNames = [...new Set(fetchedClasses.map(c => c.name))];
+            setAllClasses(uniqueClassNames.sort());
+        } catch (error) {
+            console.error("Failed to load classes from Firestore", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load class data.' });
+        }
     }
+    fetchClasses();
   }, [toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -84,7 +83,7 @@ export default function NewSpellPage() {
   };
 
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!spell.name || !spell.school || !spell.text) {
@@ -93,9 +92,6 @@ export default function NewSpellPage() {
     }
 
     try {
-        const storedSpells = localStorage.getItem(STORAGE_KEY_SPELLS);
-        const spells: Spell[] = storedSpells ? JSON.parse(storedSpells) : [];
-        
         let components_list = [];
         if (hasVerbal) components_list.push('V');
         if (hasSomatic) components_list.push('S');
@@ -107,32 +103,20 @@ export default function NewSpellPage() {
             components_list.push(material_string);
         }
         
-        // Construct casting time string
         let castingTimeString = `${castingTimeNumber} ${castingTimeUnit.toLowerCase()}`;
-        if (castingTimeNumber !== 1) {
+        if (castingTimeNumber !== 1 && castingTimeUnit !== 'Action' && castingTimeUnit !== 'Reaction' && castingTimeUnit !== 'Bonus Action') {
             castingTimeString += 's';
         }
 
-        // Construct range string
         let rangeString = rangeUnit;
         if (['Feet', 'Mile'].includes(rangeUnit)) {
             rangeString = `${rangeNumber} ${rangeUnit.toLowerCase()}`;
-            if (rangeNumber !== 1 && rangeUnit === 'Mile') {
-                rangeString += 's';
-            }
+            if (rangeNumber !== 1 && rangeUnit === 'Mile') rangeString += 's';
         }
         
-        // Construct duration string
-        let durationString = '';
-        if (isConcentration) {
-            durationString += 'Concentration, up to ';
-        }
-
+        let durationString = isConcentration ? 'Concentration, up to ' : '';
         if (['Round', 'Minute', 'Hour', 'Day'].includes(durationUnit)) {
-            durationString += `${durationNumber} ${durationUnit.toLowerCase()}`;
-            if (durationNumber !== 1) {
-                durationString += 's';
-            }
+            durationString += `${durationNumber} ${durationUnit.toLowerCase()}${durationNumber !== 1 ? 's' : ''}`;
         } else {
             durationString += durationUnit;
         }
@@ -140,7 +124,7 @@ export default function NewSpellPage() {
         const newSpell: Spell = {
             name: spell.name!,
             level: spell.level || 0,
-            school: spell.school,
+            school: spell.school!,
             time: castingTimeString.trim(),
             range: rangeString.trim(),
             duration: durationString.trim(),
@@ -157,8 +141,7 @@ export default function NewSpellPage() {
             };
         }
 
-        const updatedSpells = [...spells, newSpell];
-        localStorage.setItem(STORAGE_KEY_SPELLS, JSON.stringify(updatedSpells));
+        await saveGlobalDoc('spells', newSpell.name, newSpell);
 
         toast({ title: "Spell Created!", description: "The new spell has been added to the grimoire." });
         router.push(`/spells`);

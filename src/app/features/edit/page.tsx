@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-
 import type { Feat } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,8 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
-
-const STORAGE_KEY = 'dnd_feats';
+import { getGlobalDoc, saveGlobalDoc } from "@/lib/firestore";
 
 export default function EditFeatPage() {
   const router = useRouter();
@@ -29,31 +27,35 @@ export default function EditFeatPage() {
   const [text, setText] = useState('');
 
   useEffect(() => {
-    if (featNameParam) {
-      try {
-        const storedFeats = localStorage.getItem(STORAGE_KEY);
-        if (storedFeats) {
-          const feats: Feat[] = JSON.parse(storedFeats);
-          const foundFeat = feats.find(f => f.name === featNameParam);
-          if (foundFeat) {
-            setName(foundFeat.name);
-            setPrerequisite(foundFeat.prerequisite || '');
-            setText(foundFeat.text);
-          } else {
-            toast({ variant: 'destructive', title: 'Error', description: 'Feat not found.' });
-            router.push('/features');
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load feat from localStorage", error);
-        toast({ variant: "destructive", title: "Load Failed", description: "Could not load feat data." });
-      }
+    if (!featNameParam) {
+        router.push('/features');
+        return;
     }
-    setIsLoading(false);
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const foundFeat = await getGlobalDoc<Feat>('feats', featNameParam);
+            if (foundFeat) {
+                setName(foundFeat.name);
+                setPrerequisite(foundFeat.prerequisite || '');
+                setText(foundFeat.text);
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: 'Feat not found.' });
+                router.push('/features');
+            }
+        } catch (error) {
+            console.error("Failed to load feat:", error);
+            toast({ variant: "destructive", title: "Load Failed", description: "Could not load feat data." });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchData();
   }, [featNameParam, router, toast]);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!featNameParam) return;
 
     if (!name || !text) {
         toast({ variant: 'destructive', title: 'Error', description: 'Name and description are required.' });
@@ -61,17 +63,13 @@ export default function EditFeatPage() {
     }
 
     try {
-        const storedFeats = localStorage.getItem(STORAGE_KEY);
-        const feats: Feat[] = storedFeats ? JSON.parse(storedFeats) : [];
-        
         const updatedFeat: Feat = {
             name,
             text,
             prerequisite: prerequisite || undefined,
         };
 
-        const updatedFeats = feats.map(f => f.name === featNameParam ? updatedFeat : f);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedFeats));
+        await saveGlobalDoc('feats', featNameParam, updatedFeat);
 
         toast({ title: "Feat Updated!", description: "The feat has been successfully updated." });
         router.push(`/features`);

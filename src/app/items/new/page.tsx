@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from "react";
@@ -14,8 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectCombobox } from "@/components/multi-select-combobox";
+import { saveGlobalDoc } from "@/lib/firestore";
 
-const STORAGE_KEY_ITEMS = 'dnd_items';
 const STORAGE_KEY_PROPERTIES = 'dnd_item_properties';
 const STORAGE_KEY_EFFECTS = 'dnd_item_effects';
 
@@ -75,7 +76,7 @@ export default function NewItemPage() {
         setItem(prev => ({ ...prev, [id]: checked }));
     };
 
-    const handleSubmit = (event: React.FormEvent) => {
+    const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
 
         if (!item.name || !item.type) {
@@ -84,11 +85,10 @@ export default function NewItemPage() {
         }
 
         try {
-            const storedItems = localStorage.getItem(STORAGE_KEY_ITEMS);
-            const items: Item[] = storedItems ? JSON.parse(storedItems) : [];
+            const newItemId = `item-${Date.now()}`;
             
             const newItem: Item = {
-                id: `item-${Date.now()}`,
+                id: newItemId,
                 name: item.name!,
                 type: item.type,
                 weight: Number(item.weight) || 0,
@@ -100,8 +100,7 @@ export default function NewItemPage() {
                 dmgType: item.dmgType,
             };
 
-            const updatedItems = [...items, newItem];
-            localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(updatedItems));
+            await saveGlobalDoc('items', newItemId, newItem);
 
             toast({ title: "Item Created!", description: "The new item has been added." });
             router.push(`/items`);

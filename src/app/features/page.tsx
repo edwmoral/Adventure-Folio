@@ -9,6 +9,7 @@ import type { Feat } from '@/lib/types';
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { getGlobalCollection, deleteGlobalDoc, seedGlobalData } from '@/lib/firestore';
 
 const initialFeats: Feat[] = [
   {
@@ -27,41 +28,46 @@ const initialFeats: Feat[] = [
   }
 ];
 
-const STORAGE_KEY = 'dnd_feats';
-
 export default function FeaturesPage() {
   const [feats, setFeats] = useState<Feat[]>([]);
+  const [loading, setLoading] = useState(true);
   const [featToDelete, setFeatToDelete] = useState<Feat | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      const storedFeats = localStorage.getItem(STORAGE_KEY);
-      if (storedFeats) {
-        setFeats(JSON.parse(storedFeats));
-      } else {
-        setFeats(initialFeats);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialFeats));
-      }
-    } catch (error) {
-      console.error("Failed to access localStorage:", error);
-      setFeats(initialFeats);
-    }
-  }, []);
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            await seedGlobalData('feats', initialFeats, 'name');
+            const data = await getGlobalCollection<Feat>('feats');
+            setFeats(data);
+        } catch (error) {
+            console.error("Failed to fetch feats:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch feats.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+    fetchData();
+  }, [toast]);
 
-  const handleDeleteFeat = () => {
+  const handleDeleteFeat = async () => {
     if (!featToDelete) return;
     try {
-        const updatedFeats = feats.filter(f => f.name !== featToDelete.name);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedFeats));
-        setFeats(updatedFeats);
+        await deleteGlobalDoc('feats', featToDelete.name);
+        setFeats(feats.filter(f => f.name !== featToDelete.name));
         toast({ title: "Feat Deleted", description: `"${featToDelete.name}" has been deleted.` });
-        setFeatToDelete(null);
     } catch (error) {
         console.error("Failed to delete feat:", error);
         toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the feat." });
+    } finally {
+        setFeatToDelete(null);
     }
   };
+  
+  if (loading) {
+    return <div>Loading feats...</div>;
+  }
 
   return (
     <div className="space-y-8">

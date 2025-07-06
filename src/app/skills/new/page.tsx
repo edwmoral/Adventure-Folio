@@ -1,10 +1,10 @@
+
 'use client';
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-
 import type { Skill } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,8 +13,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { saveGlobalDoc } from "@/lib/firestore";
 
-const STORAGE_KEY = 'dnd_skills';
 const ABILITIES = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'].sort();
 
 export default function NewSkillPage() {
@@ -25,7 +25,7 @@ export default function NewSkillPage() {
   const [ability, setAbility] = useState('');
   const [description, setDescription] = useState('');
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!name || !ability || !description) {
@@ -34,13 +34,8 @@ export default function NewSkillPage() {
     }
 
     try {
-        const storedSkills = localStorage.getItem(STORAGE_KEY);
-        const skills: Skill[] = storedSkills ? JSON.parse(storedSkills) : [];
-        
         const newSkill: Skill = { name, ability, description };
-
-        const updatedSkills = [...skills, newSkill];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSkills));
+        await saveGlobalDoc('skills', name, newSkill);
 
         toast({ title: "Skill Created!", description: "The new skill has been added." });
         router.push(`/skills`);

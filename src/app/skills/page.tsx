@@ -10,6 +10,7 @@ import type { Skill } from '@/lib/types';
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { getGlobalCollection, deleteGlobalDoc, seedGlobalData } from '@/lib/firestore';
 
 const initialSkills: Skill[] = [
   {
@@ -39,41 +40,46 @@ const initialSkills: Skill[] = [
   }
 ];
 
-const STORAGE_KEY = 'dnd_skills';
-
 export default function SkillsPage() {
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [loading, setLoading] = useState(true);
   const [skillToDelete, setSkillToDelete] = useState<Skill | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      const storedSkills = localStorage.getItem(STORAGE_KEY);
-      if (storedSkills) {
-        setSkills(JSON.parse(storedSkills));
-      } else {
-        setSkills(initialSkills);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialSkills));
-      }
-    } catch (error) {
-      console.error("Failed to access localStorage:", error);
-      setSkills(initialSkills);
-    }
-  }, []);
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            await seedGlobalData('skills', initialSkills, 'name');
+            const data = await getGlobalCollection<Skill>('skills');
+            setSkills(data);
+        } catch (error) {
+            console.error("Failed to fetch skills:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch skills.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+    fetchData();
+  }, [toast]);
 
-  const handleDeleteSkill = () => {
+  const handleDeleteSkill = async () => {
     if (!skillToDelete) return;
     try {
-        const updatedSkills = skills.filter(s => s.name !== skillToDelete.name);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSkills));
-        setSkills(updatedSkills);
+        await deleteGlobalDoc('skills', skillToDelete.name);
+        setSkills(skills.filter(s => s.name !== skillToDelete.name));
         toast({ title: "Skill Deleted", description: `"${skillToDelete.name}" has been deleted.` });
-        setSkillToDelete(null);
     } catch (error) {
         console.error("Failed to delete skill:", error);
         toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the skill." });
+    } finally {
+        setSkillToDelete(null);
     }
   };
+  
+  if (loading) {
+    return <div>Loading skills...</div>;
+  }
 
   return (
     <div className="space-y-8">

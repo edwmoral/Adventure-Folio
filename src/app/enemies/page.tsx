@@ -10,6 +10,7 @@ import type { Monster } from '@/lib/types';
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { getGlobalCollection, deleteGlobalDoc, seedGlobalData } from '@/lib/firestore';
 
 const initialEnemies: Monster[] = [
   {
@@ -65,41 +66,46 @@ const initialEnemies: Monster[] = [
   },
 ];
 
-const STORAGE_KEY = 'dnd_enemies';
-
 export default function EnemiesPage() {
   const [enemies, setEnemies] = useState<Monster[]>([]);
+  const [loading, setLoading] = useState(true);
   const [enemyToDelete, setEnemyToDelete] = useState<Monster | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      const storedEnemies = localStorage.getItem(STORAGE_KEY);
-      if (storedEnemies) {
-        setEnemies(JSON.parse(storedEnemies));
-      } else {
-        setEnemies(initialEnemies);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialEnemies));
-      }
-    } catch (error) {
-      console.error("Failed to access localStorage:", error);
-      setEnemies(initialEnemies);
-    }
-  }, []);
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            await seedGlobalData('enemies', initialEnemies, 'id');
+            const data = await getGlobalCollection<Monster>('enemies');
+            setEnemies(data);
+        } catch (error) {
+            console.error("Failed to fetch enemies:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch enemies.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+    fetchData();
+  }, [toast]);
 
-  const handleDeleteEnemy = () => {
+  const handleDeleteEnemy = async () => {
     if (!enemyToDelete) return;
     try {
-        const updatedEnemies = enemies.filter(e => e.id !== enemyToDelete.id);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedEnemies));
-        setEnemies(updatedEnemies);
+        await deleteGlobalDoc('enemies', enemyToDelete.id);
+        setEnemies(enemies.filter(e => e.id !== enemyToDelete.id));
         toast({ title: "Creature Deleted", description: `"${enemyToDelete.name}" has been removed from the bestiary.` });
-        setEnemyToDelete(null);
     } catch (error) {
         console.error("Failed to delete creature:", error);
         toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the creature." });
+    } finally {
+        setEnemyToDelete(null);
     }
   };
+
+  if (loading) {
+    return <div>Loading bestiary...</div>;
+  }
 
   return (
     <div className="space-y-8">

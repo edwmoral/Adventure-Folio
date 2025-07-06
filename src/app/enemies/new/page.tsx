@@ -5,7 +5,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-
 import type { Monster, MonsterAction } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,8 +13,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const STORAGE_KEY = 'dnd_enemies';
+import { saveGlobalDoc } from "@/lib/firestore";
 
 const CREATURE_TYPES = ['Aberration', 'Beast', 'Celestial', 'Construct', 'Dragon', 'Elemental', 'Fey', 'Fiend', 'Giant', 'Humanoid', 'Monstrosity', 'Ooze', 'Plant', 'Undead'].sort();
 const ALIGNMENTS = ['Lawful Good', 'Neutral Good', 'Chaotic Good', 'Lawful Neutral', 'True Neutral', 'Chaotic Neutral', 'Lawful Evil', 'Neutral Evil', 'Chaotic Evil', 'Unaligned'].sort();
@@ -66,7 +64,7 @@ export default function NewEnemyPage() {
     setEnemy(prev => ({ ...prev, [id]: value }));
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!enemy.name || !enemy.type || !enemy.alignment) {
@@ -75,11 +73,10 @@ export default function NewEnemyPage() {
     }
 
     try {
-        const storedEnemies = localStorage.getItem(STORAGE_KEY);
-        const enemies: Monster[] = storedEnemies ? JSON.parse(storedEnemies) : [];
+        const newEnemyId = `enemy-${Date.now()}`;
         
         const newEnemy: Monster = {
-            id: `enemy-${Date.now()}`,
+            id: newEnemyId,
             name: enemy.name!,
             type: enemy.type!,
             alignment: enemy.alignment!,
@@ -103,8 +100,7 @@ export default function NewEnemyPage() {
             tokenImageUrl: enemy.tokenImageUrl || 'https://placehold.co/48x48.png',
         };
 
-        const updatedEnemies = [...enemies, newEnemy];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedEnemies));
+        await saveGlobalDoc('enemies', newEnemyId, newEnemy);
 
         toast({ title: "Creature Created!", description: "The new creature has been added to your bestiary." });
         router.push(`/enemies`);

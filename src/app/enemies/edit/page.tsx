@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-
 import type { Monster, MonsterAction } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,8 +13,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const STORAGE_KEY = 'dnd_enemies';
+import { getGlobalDoc, saveGlobalDoc } from "@/lib/firestore";
 
 const CREATURE_TYPES = ['Aberration', 'Beast', 'Celestial', 'Construct', 'Dragon', 'Elemental', 'Fey', 'Fiend', 'Giant', 'Humanoid', 'Monstrosity', 'Ooze', 'Plant', 'Undead'].sort();
 const ALIGNMENTS = ['Lawful Good', 'Neutral Good', 'Chaotic Good', 'Lawful Neutral', 'True Neutral', 'Chaotic Neutral', 'Lawful Evil', 'Neutral Evil', 'Chaotic Evil', 'Unaligned'].sort();
@@ -51,29 +49,33 @@ export default function EditEnemyPage() {
   const [reactionsText, setReactionsText] = useState('');
 
   useEffect(() => {
-    if (enemyIdParam) {
-      try {
-        const storedEnemies = localStorage.getItem(STORAGE_KEY);
-        if (storedEnemies) {
-          const enemies: Monster[] = JSON.parse(storedEnemies);
-          const foundEnemy = enemies.find(e => e.id === enemyIdParam);
-          if (foundEnemy) {
-            setEnemy(foundEnemy);
-            setTraitsText(formatActions(foundEnemy.trait));
-            setActionsText(formatActions(foundEnemy.action));
-            setLegendaryActionsText(formatActions(foundEnemy.legendary));
-            setReactionsText(formatActions(foundEnemy.reaction));
-          } else {
-            toast({ variant: 'destructive', title: 'Error', description: 'Creature not found.' });
-            router.push('/enemies');
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load creature from localStorage", error);
-        toast({ variant: "destructive", title: "Load Failed", description: "Could not load creature data." });
-      }
+    if (!enemyIdParam) {
+      router.push('/enemies');
+      return;
     }
-    setIsLoading(false);
+    
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const foundEnemy = await getGlobalDoc<Monster>('enemies', enemyIdParam);
+            if (foundEnemy) {
+                setEnemy(foundEnemy);
+                setTraitsText(formatActions(foundEnemy.trait));
+                setActionsText(formatActions(foundEnemy.action));
+                setLegendaryActionsText(formatActions(foundEnemy.legendary));
+                setReactionsText(formatActions(foundEnemy.reaction));
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: 'Creature not found.' });
+                router.push('/enemies');
+            }
+        } catch (error) {
+            console.error("Failed to load creature:", error);
+            toast({ variant: "destructive", title: "Load Failed", description: "Could not load creature data." });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchData();
   }, [enemyIdParam, router, toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -86,8 +88,9 @@ export default function EditEnemyPage() {
     setEnemy(prev => ({ ...prev, [id]: value }));
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!enemyIdParam) return;
 
     if (!enemy.name || !enemy.type || !enemy.alignment) {
         toast({ variant: 'destructive', title: 'Error', description: 'Name, Type, and Alignment are required.' });
@@ -95,9 +98,6 @@ export default function EditEnemyPage() {
     }
 
     try {
-        const storedEnemies = localStorage.getItem(STORAGE_KEY);
-        const enemies: Monster[] = storedEnemies ? JSON.parse(storedEnemies) : [];
-        
         const updatedEnemy: Monster = {
             ...enemy as Monster,
             trait: parseActions(traitsText),
@@ -106,8 +106,7 @@ export default function EditEnemyPage() {
             reaction: parseActions(reactionsText),
         };
 
-        const updatedEnemies = enemies.map(e => e.id === enemyIdParam ? updatedEnemy : e);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedEnemies));
+        await saveGlobalDoc('enemies', enemyIdParam, updatedEnemy);
 
         toast({ title: "Creature Updated!", description: "The creature has been successfully updated." });
         router.push(`/enemies`);

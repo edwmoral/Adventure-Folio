@@ -1,11 +1,11 @@
+
 'use client';
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-
-import type { Class, Skill, Feat, ClassFeature, ClassAutolevel } from '@/lib/types';
+import type { Class, Skill, Feat, ClassAutolevel } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,10 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
-const STORAGE_KEY_CLASSES = 'dnd_classes';
-const STORAGE_KEY_SKILLS = 'dnd_skills';
-const STORAGE_KEY_FEATS = 'dnd_feats';
+import { getGlobalCollection, saveGlobalDoc } from "@/lib/firestore";
 
 const ABILITIES = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'].sort();
 const HIT_DICE = ['d6', 'd8', 'd10', 'd12'];
@@ -41,16 +38,20 @@ export default function NewClassPage() {
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
 
   useEffect(() => {
-    try {
-      const storedSkills = localStorage.getItem(STORAGE_KEY_SKILLS);
-      if (storedSkills) setAllSkills(JSON.parse(storedSkills).sort((a: Skill, b: Skill) => a.name.localeCompare(b.name)));
-
-      const storedFeats = localStorage.getItem(STORAGE_KEY_FEATS);
-      if (storedFeats) setAllFeats(JSON.parse(storedFeats).sort((a: Feat, b: Feat) => a.name.localeCompare(b.name)));
-    } catch (error) {
-      console.error("Failed to load skills/feats from localStorage", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not load skills and features data.' });
+    async function fetchPrerequisites() {
+        try {
+            const [skillsData, featsData] = await Promise.all([
+                getGlobalCollection<Skill>('skills'),
+                getGlobalCollection<Feat>('feats')
+            ]);
+            setAllSkills(skillsData.sort((a,b) => a.name.localeCompare(b.name)));
+            setAllFeats(featsData.sort((a,b) => a.name.localeCompare(b.name)));
+        } catch (error) {
+            console.error("Failed to load skills/feats from Firestore", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load skills and features data.' });
+        }
     }
+    fetchPrerequisites();
   }, [toast]);
 
   const handleSavingThrowChange = (ability: string) => {
@@ -58,7 +59,6 @@ export default function NewClassPage() {
         if (prev.includes(ability)) {
             return prev.filter(item => item !== ability);
         } else {
-            // D&D classes typically have 2 saving throw proficiencies
             if (prev.length < 2) {
                 return [...prev, ability];
             }
@@ -84,7 +84,7 @@ export default function NewClassPage() {
     );
   };
   
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!name || !subclass || !hitDie || !primaryAbility || !spellcastingType || selectedSavingThrows.length !== 2 || selectedSkills.length === 0 || selectedFeatures.length === 0) {
@@ -93,8 +93,7 @@ export default function NewClassPage() {
     }
 
     try {
-        const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
-        const classes: Class[] = storedClasses ? JSON.parse(storedClasses) : [];
+        const classId = `${name}-${subclass}`.replace(/\s+/g, '-').toLowerCase();
         
         const newAutolevel: ClassAutolevel[] = [
           {
@@ -107,6 +106,7 @@ export default function NewClassPage() {
         ];
 
         const newClass: Class = {
+            id: classId,
             name: name,
             subclass: subclass,
             hd: parseInt(hitDie.replace('d', '')),
@@ -116,12 +116,10 @@ export default function NewClassPage() {
             spellcasting_type: spellcastingType,
             skills: selectedSkills,
             levels: newAutolevel, // Use the new structure
-            // Deprecated fields, can be removed if fully migrated
             autolevel: newAutolevel,
         };
 
-        const updatedClasses = [...classes, newClass];
-        localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(updatedClasses));
+        await saveGlobalDoc('classes', classId, newClass);
 
         toast({ title: "Class Created!", description: "The new class has been added." });
         router.push(`/classes`);

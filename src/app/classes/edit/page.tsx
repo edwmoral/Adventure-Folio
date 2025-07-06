@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-
 import type { Class, Skill, Feat, ClassAutolevel, ClassFeature } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,10 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
-const STORAGE_KEY_CLASSES = 'dnd_classes';
-const STORAGE_KEY_SKILLS = 'dnd_skills';
-const STORAGE_KEY_FEATS = 'dnd_feats';
+import { getGlobalCollection, getGlobalDoc, saveGlobalDoc } from "@/lib/firestore";
 
 const ABILITIES = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'].sort();
 const HIT_DICE = ['d6', 'd8', 'd10', 'd12'];
@@ -29,8 +25,7 @@ export default function EditClassPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   
-  const classNameParam = searchParams.get('name');
-  const subclassParam = searchParams.get('subclass');
+  const classIdParam = searchParams.get('id');
 
   const [classData, setClassData] = useState<Partial<Class>>({});
   const [selectedSavingThrows, setSelectedSavingThrows] = useState<string[]>([]);
@@ -42,34 +37,42 @@ export default function EditClassPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const storedSkills = localStorage.getItem(STORAGE_KEY_SKILLS);
-      if (storedSkills) setAllSkills(JSON.parse(storedSkills).sort((a: Skill, b: Skill) => a.name.localeCompare(b.name)));
+    async function fetchData() {
+        if (!classIdParam) {
+            toast({ variant: 'destructive', title: 'Error', description: 'No class ID provided.' });
+            router.push('/classes');
+            return;
+        }
 
-      const storedFeats = localStorage.getItem(STORAGE_KEY_FEATS);
-      if (storedFeats) setAllFeats(JSON.parse(storedFeats).sort((a: Feat, b: Feat) => a.name.localeCompare(b.name)));
+        try {
+            const [skillsData, featsData, classToEdit] = await Promise.all([
+                getGlobalCollection<Skill>('skills'),
+                getGlobalCollection<Feat>('feats'),
+                getGlobalDoc<Class>('classes', classIdParam)
+            ]);
 
-      const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
-      if (storedClasses && classNameParam && subclassParam) {
-          const classes: Class[] = JSON.parse(storedClasses);
-          const foundClass = classes.find(c => c.name === classNameParam && c.subclass === subclassParam);
-          if (foundClass) {
-              setClassData(foundClass);
-              setSelectedSavingThrows(foundClass.saving_throws || []);
-              setSelectedSkills(foundClass.skills || []);
-              const level1Features = (foundClass.levels || foundClass.autolevel || []).find(l => l.level === 1)?.feature?.map(f => f.name) || [];
-              setSelectedFeatures(level1Features);
-          } else {
-              toast({ variant: 'destructive', title: 'Error', description: 'Class not found.' });
-              router.push('/classes');
-          }
-      }
-    } catch (error) {
-      console.error("Failed to load data from localStorage", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not load required data.' });
+            setAllSkills(skillsData.sort((a,b) => a.name.localeCompare(b.name)));
+            setAllFeats(featsData.sort((a,b) => a.name.localeCompare(b.name)));
+
+            if (classToEdit) {
+                setClassData(classToEdit);
+                setSelectedSavingThrows(classToEdit.saving_throws || []);
+                setSelectedSkills(classToEdit.skills || []);
+                const level1Features = (classToEdit.levels || classToEdit.autolevel || []).find(l => l.level === 1)?.feature?.map(f => f.name) || [];
+                setSelectedFeatures(level1Features);
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: 'Class not found.' });
+                router.push('/classes');
+            }
+        } catch (error) {
+            console.error("Failed to load data from Firestore", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load required data.' });
+        } finally {
+            setIsLoading(false);
+        }
     }
-    setIsLoading(false);
-  }, [classNameParam, subclassParam, router, toast]);
+    fetchData();
+  }, [classIdParam, router, toast]);
 
   const handleSavingThrowChange = (ability: string) => {
     setSelectedSavingThrows(prev => {
@@ -101,8 +104,9 @@ export default function EditClassPage() {
     );
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!classIdParam) return;
 
     if (!classData.name || !classData.subclass || !classData.hit_die || !classData.primary_ability || !classData.spellcasting_type || selectedSavingThrows.length !== 2 || selectedSkills.length === 0 || selectedFeatures.length === 0) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please fill all fields, select exactly 2 saving throws, and at least one skill and feature.' });
@@ -110,9 +114,6 @@ export default function EditClassPage() {
     }
 
     try {
-        const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
-        const classes: Class[] = storedClasses ? JSON.parse(storedClasses) : [];
-        
         const newLevel1Features: ClassFeature[] = selectedFeatures.map(f => {
             const feat = allFeats.find(feat => feat.name === f);
             return { name: f, text: feat?.text || 'No description available.' };
@@ -141,10 +142,7 @@ export default function EditClassPage() {
             autolevel: newLevels, // for backward compatibility
         };
 
-        const updatedClasses = classes.map(c => 
-            c.name === classNameParam && c.subclass === subclassParam ? updatedClass : c
-        );
-        localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(updatedClasses));
+        await saveGlobalDoc('classes', classIdParam, updatedClass);
 
         toast({ title: "Class Updated!", description: "The class has been updated." });
         router.push(`/classes`);
