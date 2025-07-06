@@ -15,7 +15,7 @@ import wav from 'wav';
 
 // --- TEXT GENERATION ---
 
-export const GenerateNarrationTextInputSchema = z.object({
+const GenerateNarrationTextInputSchema = z.object({
   plotSummary: z.string().describe('A summary of the plot to be narrated.'),
   characters: z.array(z.object({
     name: z.string(),
@@ -25,7 +25,7 @@ export const GenerateNarrationTextInputSchema = z.object({
 });
 export type GenerateNarrationTextInput = z.infer<typeof GenerateNarrationTextInputSchema>;
 
-export const GenerateNarrationTextOutputSchema = z.object({
+const GenerateNarrationTextOutputSchema = z.object({
   narrationText: z.string().describe('The rewritten, epic narration text.'),
 });
 export type GenerateNarrationTextOutput = z.infer<typeof GenerateNarrationTextOutputSchema>;
@@ -78,13 +78,13 @@ const generateNarrationTextFlow = ai.defineFlow(
 
 // --- AUDIO GENERATION ---
 
-export const GenerateNarrationAudioInputSchema = z.object({
+const GenerateNarrationAudioInputSchema = z.object({
   narrationText: z.string().describe('The final text to be converted to speech.'),
   voice: z.string().describe('The voice to use for the narration.'),
 });
 export type GenerateNarrationAudioInput = z.infer<typeof GenerateNarrationAudioInputSchema>;
 
-export const GenerateNarrationAudioOutputSchema = z.object({
+const GenerateNarrationAudioOutputSchema = z.object({
   audioUrl: z
     .string()
     .describe('The generated narration audio as a data URI.'),
