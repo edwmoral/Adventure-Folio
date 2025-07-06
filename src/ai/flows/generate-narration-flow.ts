@@ -54,7 +54,10 @@ const generateNarrationTextFlow = ai.defineFlow(
         The current party consists of:
         ${characterDescriptions || 'No specific characters provided.'}
 
-        Weave these characters into the narration where appropriate. Keep the narration concise and impactful. **The final narration should not be more than 2.5 times the length of the original plot summary.**
+        IMPORTANT INSTRUCTIONS:
+        1. Only mention characters by name in your narration if their name also appears in the original "Plot Summary" below.
+        2. When you do mention a character, use the list above to accurately describe their race and class if appropriate.
+        3. Keep the final narration concise and impactful. It must not be more than 2.5 times the length of the original plot summary (do not count the character list when calculating this length).
 
         Plot Summary: "${plotSummary}"
         
