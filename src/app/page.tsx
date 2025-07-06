@@ -1,10 +1,11 @@
+
 'use client';
 import { useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
 } from 'firebase/auth';
 import { auth, isFirebaseConfigured } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -47,14 +48,15 @@ export default function LoginPage() {
     setIsLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      toast({ title: 'Signed In', description: 'Welcome to Adventure Folio!' });
-      // The redirect to /dashboard is handled by LayoutWrapper
+      // Use signInWithRedirect instead of signInWithPopup
+      await signInWithRedirect(auth, provider);
+      // The user will be redirected. The onAuthStateChanged listener will handle the
+      // successful login when they are redirected back to the app.
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Google Sign-In Failed', description: error.message });
-    } finally {
       setIsLoading(false);
     }
+    // No need for a finally block to set loading to false, as the page will navigate away.
   };
 
   const allAuthDisabled = isLoading || !isFirebaseConfigured;
