@@ -1,8 +1,9 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell, Combatant, Action as ActionType, MonsterAction, Token, Item } from '@/lib/types';
+import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell, Combatant, Action as ActionType, MonsterAction, Token, Item, Narration } from '@/lib/types';
 import { BattleMap } from './battle-map';
 import { ModulePanel } from './module-panel';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,6 +14,7 @@ import { InitiativeTracker } from './initiative-tracker';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { parseRangeFromAction } from '@/lib/action-utils';
+import { saveCampaignsAndCleanup } from '@/lib/storage-utils';
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
@@ -190,11 +192,21 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
             const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
             const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
             const updatedCampaignsList = campaigns.map(c => c.id === updatedCampaign.id ? updatedCampaign : c);
-            localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(updatedCampaignsList));
+            saveCampaignsAndCleanup(updatedCampaignsList);
         } catch (error) {
-            console.error("Failed to save campaign:", error);
+            if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Storage Limit Reached',
+                    description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                    duration: 10000,
+                });
+            } else {
+                console.error("Failed to save campaign:", error);
+                toast({ variant: "destructive", title: "Save Failed", description: "Could not save the campaign changes." });
+            }
         }
-    }, [campaign]);
+    }, [campaign, toast]);
 
     const handleFocusActiveCombatant = () => {
         if (isInCombat && combatants.length > 0) {
@@ -437,6 +449,30 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }
     }, [isInitiatingCombat]);
 
+    const handleNarrationCreate = (data: { plotSummary: string; audioUrl: string }) => {
+        if (!activeScene) return;
+
+        const newNarration: Narration = {
+            id: `narration-${Date.now()}`,
+            ...data,
+        };
+        
+        const updatedScene: Scene = {
+            ...activeScene,
+            narrations: [...(activeScene.narrations || []), newNarration],
+        };
+        handleUpdateScene(updatedScene);
+    };
+
+    const handleNarrationDelete = (narrationId: string) => {
+        if (!activeScene) return;
+        
+        const updatedScene: Scene = {
+            ...activeScene,
+            narrations: (activeScene.narrations || []).filter(n => n.id !== narrationId),
+        };
+        handleUpdateScene(updatedScene);
+    };
 
     if (loading) {
         return (
@@ -538,6 +574,9 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     onTokenSelect={handleTokenSelect}
                     onActionActivate={handleActionActivate}
                     activeCombatant={activeCombatant}
+                    narrations={activeScene.narrations || []}
+                    onNarrationCreate={handleNarrationCreate}
+                    onNarrationDelete={handleNarrationDelete}
                 />
             </aside>
             <InitiativeDialog 

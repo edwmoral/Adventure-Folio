@@ -36,6 +36,12 @@ export type SquareShape = {
 
 export type Shape = CircleShape | ConeShape | LineShape | SquareShape;
 
+export type Narration = {
+  id: string;
+  plotSummary: string;
+  audioUrl: string;
+};
+
 export type Token = {
   id: string;
   imageUrl: string;
@@ -62,6 +68,7 @@ export type Scene = {
   width?: number;
   height?: number;
   shapes?: Shape[];
+  narrations?: Narration[];
 };
 
 export type Character = {

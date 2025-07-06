@@ -1,8 +1,14 @@
 'use server';
 
-import { generateNarration, GenerateNarrationInput } from '@/ai/flows/generate-narration-flow';
+import { generateNarration, GenerateNarrationInput, GenerateNarrationOutput } from '@/ai/flows/generate-narration-flow';
 
-export async function generateNarrationAction(input: GenerateNarrationInput) {
+export type GenerateNarrationActionResult = {
+    success: boolean;
+    error?: string;
+    narration?: { plotSummary: string, audioUrl: string };
+};
+
+export async function generateNarrationAction(input: GenerateNarrationInput): Promise<GenerateNarrationActionResult> {
   if (!input.plotSummary) {
     return {
       success: false,
@@ -11,10 +17,13 @@ export async function generateNarrationAction(input: GenerateNarrationInput) {
   }
 
   try {
-    const result = await generateNarration(input);
+    const result: GenerateNarrationOutput = await generateNarration(input);
     return {
       success: true,
-      audioUrl: result.audioUrl,
+      narration: {
+        plotSummary: result.plotSummary,
+        audioUrl: result.audioUrl,
+      }
     };
   } catch (error) {
     console.error('Error generating narration:', error);

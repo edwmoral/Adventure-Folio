@@ -4,23 +4,24 @@
 /**
  * @fileOverview An AI flow for generating epic narrations from plot summaries.
  *
- * - generateNarration - A function that takes a plot summary and a voice,
- *   rewrites the summary for dramatic effect, and generates a spoken version.
+ * - generateNarration - A function that takes a plot summary,
+ *   rewrites it for dramatic effect, and generates a spoken version.
  * - GenerateNarrationInput - The input type for the generateNarration function.
  * - GenerateNarrationOutput - The return type for the generateNarration function.
  */
 
-import {ai, googleAIPlugin} from '@/ai/genkit';
+import {ai} from '@/ai/genkit';
+import {googleAI} from '@genkit-ai/googleai';
 import {z} from 'genkit';
 import wav from 'wav';
 
 const GenerateNarrationInputSchema = z.object({
   plotSummary: z.string().describe('A summary of the plot to be narrated.'),
-  voice: z.string().describe('The selected voice for the narration.'),
 });
 export type GenerateNarrationInput = z.infer<typeof GenerateNarrationInputSchema>;
 
 const GenerateNarrationOutputSchema = z.object({
+  plotSummary: z.string().describe('The original plot summary used for generation.'),
   audioUrl: z
     .string()
     .describe('The generated narration audio as a data URI.'),
@@ -68,7 +69,7 @@ const generateNarrationFlow = ai.defineFlow(
     inputSchema: GenerateNarrationInputSchema,
     outputSchema: GenerateNarrationOutputSchema,
   },
-  async ({ plotSummary, voice }) => {
+  async ({ plotSummary }) => {
 
     const EpicNarrationSchema = z.object({
       narration: z.string().describe('The rewritten, epic narration text, ready for text-to-speech.'),
@@ -92,12 +93,12 @@ const generateNarrationFlow = ai.defineFlow(
     }
 
     const { media } = await ai.generate({
-      model: googleAIPlugin.model('gemini-2.5-flash-preview-tts'),
+      model: googleAI.model('gemini-2.5-flash-preview-tts'),
       config: {
         responseModalities: ['AUDIO'],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: voice },
+            prebuiltVoiceConfig: { voiceName: 'Algenib' },
           },
         },
       },
@@ -115,6 +116,9 @@ const generateNarrationFlow = ai.defineFlow(
     
     const wavBase64 = await toWav(audioBuffer);
 
-    return { audioUrl: 'data:audio/wav;base64,' + wavBase64 };
+    return { 
+        plotSummary: plotSummary,
+        audioUrl: 'data:audio/wav;base64,' + wavBase64 
+    };
   }
 );

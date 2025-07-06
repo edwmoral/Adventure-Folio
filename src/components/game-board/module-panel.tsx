@@ -6,7 +6,7 @@ import { MenuModule } from './menu-module';
 import { PlayerCharacterSheetModule } from './player-character-sheet-module';
 import { NpcSheetModule } from './npc-sheet-module';
 import { NarrationModule } from './narration-module';
-import type { PlayerCharacter, Enemy, Scene, Class, Spell, Action as ActionType, MonsterAction, Combatant, Item } from '@/lib/types';
+import type { PlayerCharacter, Enemy, Scene, Class, Spell, Action as ActionType, MonsterAction, Combatant, Item, Narration } from '@/lib/types';
 import { Users, Shield, Settings, MessageSquare, BookText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,9 @@ interface ModulePanelProps {
     onTokenSelect: (id: string | null) => void;
     onActionActivate: (action: ActionType | MonsterAction | Spell) => void;
     activeCombatant: Combatant | null;
+    narrations: Narration[];
+    onNarrationCreate: (data: { plotSummary: string; audioUrl: string }) => void;
+    onNarrationDelete: (narrationId: string) => void;
 }
 
 export function ModulePanel({ 
@@ -44,6 +47,9 @@ export function ModulePanel({
     onTokenSelect,
     onActionActivate,
     activeCombatant,
+    narrations,
+    onNarrationCreate,
+    onNarrationDelete,
 }: ModulePanelProps) {
     const [activeTab, setActiveTab] = useState('chat');
 
@@ -120,7 +126,11 @@ export function ModulePanel({
                    <ChatModule />
                 </TabsContent>
                 <TabsContent value="narration" className="flex-1 min-h-0 mt-0">
-                    <NarrationModule />
+                    <NarrationModule 
+                        narrations={narrations}
+                        onNarrationCreate={onNarrationCreate}
+                        onNarrationDelete={onNarrationDelete}
+                    />
                 </TabsContent>
                 <TabsContent value="characters" className="flex-1 min-h-0 mt-0">
                     <PlayerCharacterSheetModule 
