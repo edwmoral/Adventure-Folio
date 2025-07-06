@@ -21,7 +21,7 @@ export default function NewCampaignPage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!campaignName.trim() || !user) {
         toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in and provide a campaign name.' });
@@ -29,43 +29,43 @@ export default function NewCampaignPage() {
     }
 
     setIsCreating(true);
-    try {
-        const newScene: Scene = {
-            id: `scene-${Date.now()}`,
-            name: 'My First Scene',
-            background_map_url: 'https://placehold.co/1200x800.png',
-            tokens: [],
-            is_active: true,
-            width: 30,
-            height: 20,
-        };
-        
-        const newCampaignId = String(Date.now());
-        const newCampaign = {
-            userId: user.uid,
-            name: campaignName,
-            imageUrl: 'https://placehold.co/400x225.png',
-            characters: [],
-            scenes: [newScene],
-            collaboratorIds: [],
-        };
 
-        await saveDocForUser('campaigns', newCampaignId, newCampaign);
+    const newScene: Scene = {
+        id: `scene-${Date.now()}`,
+        name: 'My First Scene',
+        background_map_url: 'https://placehold.co/1200x800.png',
+        tokens: [],
+        is_active: true,
+        width: 30,
+        height: 20,
+    };
+    
+    const newCampaignId = String(Date.now());
+    const newCampaign = {
+        userId: user.uid,
+        name: campaignName,
+        imageUrl: 'https://placehold.co/400x225.png',
+        characters: [],
+        scenes: [newScene],
+        collaboratorIds: [],
+    };
 
-        toast({ title: "Campaign Created!", description: "Your new adventure awaits." });
-        router.push('/play');
-
-    } catch (error: any) {
-        console.error("Failed to create campaign:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Creation Failed',
-            description: `Could not create campaign. This is often due to database security rules. Full error: ${error.message}`,
-            duration: 9000,
+    saveDocForUser('campaigns', newCampaignId, newCampaign)
+        .then(() => {
+            toast({ title: "Campaign Created!", description: "Your new adventure awaits." });
+            router.push('/play');
+            // No need to setIsCreating(false) on success, because we navigate away
+        })
+        .catch((error: any) => {
+            console.error("Failed to create campaign:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Creation Failed',
+                description: `Could not create campaign. This may be due to database security rules. Please check your Firebase console.`,
+                duration: 9000,
+            });
+            setIsCreating(false); // Re-enable button on failure
         });
-    } finally {
-        setIsCreating(false);
-    }
   }
 
   return (
