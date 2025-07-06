@@ -50,6 +50,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     const [combatants, setCombatants] = useState<Combatant[]>([]);
     const [turnIndex, setTurnIndex] = useState(0);
     const [recentRolls, setRecentRolls] = useState<string[]>([]);
+    const [animationTarget, setAnimationTarget] = useState<string | null>(null);
 
     // Targeting State
     const [targetingMode, setTargetingMode] = useState<{ action: ActionType | MonsterAction | Spell, casterId: string } | null>(null);
@@ -394,6 +395,9 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
 
     const handleTargetSelect = useCallback((targetId: string) => {
         if (!targetingMode || !activeScene) return;
+        
+        setAnimationTarget(targetId);
+        setTimeout(() => setAnimationTarget(null), 800);
 
         let actionType: string;
         if ('level' in targetingMode.action) { // It's a spell
@@ -446,7 +450,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }
 
         setTargetingMode(null);
-    }, [targetingMode, activeScene, toast, handleUpdateScene, isInitiatingCombat]);
+    }, [targetingMode, activeScene, toast, handleUpdateScene, isInitiatingCombat, handleUseAction]);
 
     const handleCancelTargeting = useCallback(() => {
         setTargetingMode(null);
@@ -550,6 +554,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     onCancelTargeting={handleCancelTargeting}
                     tokenToCenter={tokenToCenter}
                     onCenterTokenComplete={() => setTokenToCenter(null)}
+                    animationTarget={animationTarget}
                 />
             </main>
             

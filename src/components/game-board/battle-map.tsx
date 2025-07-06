@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -29,6 +30,7 @@ export function BattleMap({
     onCancelTargeting,
     tokenToCenter,
     onCenterTokenComplete,
+    animationTarget,
 }: { 
     scene: Scene, 
     selectedTokenId: string | null, 
@@ -43,6 +45,7 @@ export function BattleMap({
     onCancelTargeting: () => void,
     tokenToCenter: string | null,
     onCenterTokenComplete: () => void,
+    animationTarget: string | null,
 }) {
     const [resolvedMapUrl, setResolvedMapUrl] = useState('');
     const [zoom, setZoom] = useState(1);
@@ -775,6 +778,7 @@ export function BattleMap({
                         const borderColor = isPlayer ? (allPlayerCharacters.find(c => c.id === token.linked_character_id)?.tokenBorderColor || 'hsl(var(--primary))') : 'hsl(var(--destructive))';
                         const isSelected = selectedTokenId === token.id;
                         const isActive = activeCombatantId === token.id;
+                        const isBeingAnimated = animationTarget === token.id;
 
                         return (
                          <TooltipProvider key={token.id} delayDuration={100}>
@@ -802,7 +806,8 @@ export function BattleMap({
                                             <Avatar className={cn(
                                                 "h-full w-full border-4 shadow-lg",
                                                 isSelected && "ring-4 ring-yellow-400",
-                                                isActive && "ring-4 ring-green-400"
+                                                isActive && "ring-4 ring-green-400",
+                                                isBeingAnimated && "animate-damage-flash"
                                             )} style={{ borderColor }}>
                                                 <AvatarImage src={token.imageUrl} className="object-cover" />
                                                 <AvatarFallback>{token.name.substring(0,1)}</AvatarFallback>
