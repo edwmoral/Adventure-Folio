@@ -455,12 +455,14 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }
     }, [isInitiatingCombat]);
 
-    const handleNarrationCreate = (data: { plotSummary: string; audioUrl: string; voice: string; }) => {
+    const handleNarrationCreate = (data: { plotSummary: string; audioId: string; voice: string; }) => {
         if (!activeScene) return;
 
         const newNarration: Narration = {
             id: `narration-${Date.now()}`,
-            ...data,
+            plotSummary: data.plotSummary,
+            audioId: data.audioId,
+            voice: data.voice,
         };
         
         const updatedScene: Scene = {

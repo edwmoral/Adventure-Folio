@@ -39,7 +39,7 @@ export type Shape = CircleShape | ConeShape | LineShape | SquareShape;
 export type Narration = {
   id: string;
   plotSummary: string;
-  audioUrl: string;
+  audioId: string;
   voice: string;
 };
 

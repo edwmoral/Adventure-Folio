@@ -29,7 +29,7 @@ interface ModulePanelProps {
     onActionActivate: (action: ActionType | MonsterAction | Spell) => void;
     activeCombatant: Combatant | null;
     narrations: Narration[];
-    onNarrationCreate: (data: { plotSummary: string; audioUrl: string }) => void;
+    onNarrationCreate: (data: { plotSummary: string; audioId: string; voice: string; }) => void;
     onNarrationDelete: (narrationId: string) => void;
     activeCampaignCharacters: PlayerCharacter[];
 }

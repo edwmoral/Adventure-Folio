@@ -13,9 +13,11 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { PREBUILT_VOICES } from '@/lib/dnd-data';
 
+const STORAGE_KEY_NARRATION_AUDIO = 'dnd_narration_audio';
+
 interface NarrationModuleProps {
     narrations: Narration[];
-    onNarrationCreate: (data: { plotSummary: string; audioUrl: string; voice: string; }) => void;
+    onNarrationCreate: (data: { plotSummary: string; audioId: string; voice: string; }) => void;
     onNarrationDelete: (narrationId: string) => void;
     characters: PlayerCharacter[];
 }
@@ -30,7 +32,8 @@ export function NarrationModule({ narrations, onNarrationCreate, onNarrationDele
     const [epicNarration, setEpicNarration] = useState<string | null>(null);
     const [originalSummaryForAudio, setOriginalSummaryForAudio] = useState('');
 
-    const [activeAudio, setActiveAudio] = useState<{ id: string; url: string } | null>(null);
+    const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
+    const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
 
     const handleGenerateText = () => {
@@ -59,13 +62,30 @@ export function NarrationModule({ narrations, onNarrationCreate, onNarrationDele
         startAudioTransition(async () => {
             const result = await generateNarrationAudioAction({ narrationText: epicNarration, voice: selectedVoice });
             if (result.success && result.audioUrl) {
-                onNarrationCreate({ 
-                    plotSummary: originalSummaryForAudio, 
-                    audioUrl: result.audioUrl,
-                    voice: selectedVoice,
-                });
-                handleCancelEdit();
-                toast({ title: 'Audio Generated!', description: 'The new narration is available in the history.' });
+                try {
+                    const audioId = `audio_${Date.now()}`;
+                    const audioStorageJSON = localStorage.getItem(STORAGE_KEY_NARRATION_AUDIO);
+                    const audioStorage = audioStorageJSON ? JSON.parse(audioStorageJSON) : {};
+                    audioStorage[audioId] = result.audioUrl;
+                    localStorage.setItem(STORAGE_KEY_NARRATION_AUDIO, JSON.stringify(audioStorage));
+                    
+                    onNarrationCreate({ 
+                        plotSummary: originalSummaryForAudio, 
+                        audioId: audioId,
+                        voice: selectedVoice,
+                    });
+                    
+                    handleCancelEdit();
+                    toast({ title: 'Audio Generated!', description: 'The new narration is available in the history.' });
+
+                } catch(e) {
+                     toast({
+                        variant: 'destructive',
+                        title: 'Storage Limit Reached',
+                        description: 'Could not save new audio. Try deleting old narrations or campaigns.',
+                        duration: 10000,
+                    });
+                }
             } else {
                  toast({ variant: 'destructive', title: 'Audio Generation Failed', description: result.error });
             }
@@ -78,23 +98,41 @@ export function NarrationModule({ narrations, onNarrationCreate, onNarrationDele
     };
     
     const handlePlayPause = (narration: Narration) => {
-        if (activeAudio?.id === narration.id && audioRef.current && !audioRef.current.paused) {
+        if (activeAudioId === narration.id && audioRef.current && !audioRef.current.paused) {
             audioRef.current.pause();
-            setActiveAudio(null);
+            setActiveAudioId(null);
+            setActiveAudioUrl(null);
         } else {
-            setActiveAudio({ id: narration.id, url: narration.audioUrl });
+             try {
+                const audioStorageJSON = localStorage.getItem(STORAGE_KEY_NARRATION_AUDIO);
+                if (audioStorageJSON) {
+                    const audioStorage = JSON.parse(audioStorageJSON);
+                    const audioUrl = audioStorage[narration.audioId];
+                    if (audioUrl) {
+                        setActiveAudioId(narration.id);
+                        setActiveAudioUrl(audioUrl);
+                    } else {
+                        toast({ variant: 'destructive', title: 'Audio Not Found', description: 'Could not find the audio data for this narration.' });
+                    }
+                }
+            } catch (e) {
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load audio data.' });
+            }
         }
     };
 
     return (
         <div className="h-full flex flex-col p-4 gap-4">
-            {activeAudio && (
+            {activeAudioUrl && (
                 <audio
                     ref={audioRef}
-                    key={activeAudio.id} 
-                    src={activeAudio.url}
+                    key={activeAudioId} 
+                    src={activeAudioUrl}
                     autoPlay
-                    onEnded={() => setActiveAudio(null)}
+                    onEnded={() => {
+                        setActiveAudioId(null);
+                        setActiveAudioUrl(null);
+                    }}
                     className="hidden"
                 />
             )}
@@ -152,7 +190,7 @@ export function NarrationModule({ narrations, onNarrationCreate, onNarrationDele
                         [...narrations].reverse().map(narration => (
                             <div key={narration.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
                                 <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0" onClick={() => handlePlayPause(narration)}>
-                                    {activeAudio?.id === narration.id ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                                    {activeAudioId === narration.id ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                                 </Button>
                                 <p className="min-w-0 flex-1 truncate text-sm" title={narration.plotSummary}>{narration.plotSummary}</p>
                                 <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onNarrationDelete(narration.id)}>

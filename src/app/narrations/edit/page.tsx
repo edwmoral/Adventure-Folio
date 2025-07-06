@@ -17,6 +17,7 @@ import { PREBUILT_VOICES } from "@/lib/dnd-data";
 import { generateNarrationAudioAction } from "@/app/play/[id]/board/actions";
 
 const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
+const STORAGE_KEY_NARRATION_AUDIO = 'dnd_narration_audio';
 
 export default function EditNarrationPage() {
   const router = useRouter();
@@ -95,14 +96,24 @@ export default function EditNarrationPage() {
         try {
             let campaigns: Campaign[] = JSON.parse(localStorage.getItem(STORAGE_KEY_CAMPAIGNS) || '[]');
             
-            let finalAudioUrl = narration.audioUrl;
+            let finalAudioId = narration.audioId;
 
-            // Re-generate audio if the voice has changed
-            if (selectedVoice !== narration.voice) {
+            // Re-generate audio if the voice or summary has changed
+            if (selectedVoice !== narration.voice || plotSummary !== narration.plotSummary) {
                 const audioResult = await generateNarrationAudioAction({ narrationText: plotSummary, voice: selectedVoice });
                 if (audioResult.success && audioResult.audioUrl) {
-                    finalAudioUrl = audioResult.audioUrl;
-                    toast({ title: "Audio Re-generated", description: "The narration has been updated with the new voice." });
+                    const newAudioId = `audio_${Date.now()}`;
+                    try {
+                        const audioStorageJSON = localStorage.getItem(STORAGE_KEY_NARRATION_AUDIO);
+                        const audioStorage = audioStorageJSON ? JSON.parse(audioStorageJSON) : {};
+                        audioStorage[newAudioId] = audioResult.audioUrl;
+                        localStorage.setItem(STORAGE_KEY_NARRATION_AUDIO, JSON.stringify(audioStorage));
+                        finalAudioId = newAudioId;
+                        toast({ title: "Audio Re-generated", description: "The narration has been updated with the new audio." });
+                    } catch(e) {
+                         toast({ variant: 'destructive', title: 'Storage Limit Reached', description: 'Could not save new audio. Changes not saved.' });
+                        return;
+                    }
                 } else {
                     toast({ variant: 'destructive', title: 'Audio Failed', description: 'Could not re-generate audio. Your other changes were not saved.' });
                     return;
@@ -127,7 +138,7 @@ export default function EditNarrationPage() {
                         ...narration,
                         plotSummary: plotSummary,
                         voice: selectedVoice,
-                        audioUrl: finalAudioUrl,
+                        audioId: finalAudioId,
                     };
                     if (!targetScene.narrations) {
                         targetScene.narrations = [];
