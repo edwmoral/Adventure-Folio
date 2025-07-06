@@ -64,13 +64,13 @@ export default function EditEnemyPage() {
             setLegendaryActionsText(formatActions(foundEnemy.legendary));
             setReactionsText(formatActions(foundEnemy.reaction));
           } else {
-            toast({ variant: 'destructive', title: 'Error', description: 'Enemy not found.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'Creature not found.' });
             router.push('/enemies');
           }
         }
       } catch (error) {
-        console.error("Failed to load enemy from localStorage", error);
-        toast({ variant: "destructive", title: "Load Failed", description: "Could not load enemy data." });
+        console.error("Failed to load creature from localStorage", error);
+        toast({ variant: "destructive", title: "Load Failed", description: "Could not load creature data." });
       }
     }
     setIsLoading(false);
@@ -109,17 +109,17 @@ export default function EditEnemyPage() {
         const updatedEnemies = enemies.map(e => e.id === enemyIdParam ? updatedEnemy : e);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedEnemies));
 
-        toast({ title: "Enemy Updated!", description: "The enemy has been successfully updated." });
+        toast({ title: "Creature Updated!", description: "The creature has been successfully updated." });
         router.push(`/enemies`);
 
     } catch (error) {
-        console.error("Failed to update enemy:", error);
-        toast({ variant: "destructive", title: "Update Failed", description: "Could not update the enemy." });
+        console.error("Failed to update creature:", error);
+        toast({ variant: "destructive", title: "Update Failed", description: "Could not update the creature." });
     }
   }
 
   if (isLoading) {
-    return <div className="text-center p-8">Loading enemy data...</div>;
+    return <div className="text-center p-8">Loading creature data...</div>;
   }
 
   return (
@@ -127,12 +127,12 @@ export default function EditEnemyPage() {
         <Button asChild variant="ghost" className="mb-4">
              <Link href="/enemies">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Enemies
+                Back to Bestiary
              </Link>
         </Button>
         <Card className="max-w-4xl mx-auto">
             <CardHeader>
-                <CardTitle>Edit Enemy</CardTitle>
+                <CardTitle>Edit Creature</CardTitle>
                 <CardDescription>
                     Update the details for "{enemy.name}". Use new lines for separate actions/traits.
                 </CardDescription>
@@ -142,7 +142,7 @@ export default function EditEnemyPage() {
                     {/* Basic Info */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                          <div className="space-y-2">
-                            <Label htmlFor="name">Enemy Name</Label>
+                            <Label htmlFor="name">Creature Name</Label>
                             <Input id="name" placeholder="e.g., Goblin" value={enemy.name} onChange={handleInputChange} required />
                         </div>
                         <div className="space-y-2">

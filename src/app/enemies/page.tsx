@@ -93,22 +93,22 @@ export default function EnemiesPage() {
         const updatedEnemies = enemies.filter(e => e.id !== enemyToDelete.id);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedEnemies));
         setEnemies(updatedEnemies);
-        toast({ title: "Enemy Deleted", description: `"${enemyToDelete.name}" has been deleted.` });
+        toast({ title: "Creature Deleted", description: `"${enemyToDelete.name}" has been removed from the bestiary.` });
         setEnemyToDelete(null);
     } catch (error) {
-        console.error("Failed to delete enemy:", error);
-        toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the enemy." });
+        console.error("Failed to delete creature:", error);
+        toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the creature." });
     }
   };
 
   return (
     <div className="space-y-8">
         <div className="flex items-center justify-between">
-            <h1 className="text-4xl font-bold text-primary font-headline">ENEMIES</h1>
+            <h1 className="text-4xl font-bold text-primary font-headline">BESTIARY</h1>
             <Button asChild>
                 <Link href="/enemies/new">
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Add Enemy
+                    Add Creature
                 </Link>
             </Button>
         </div>
@@ -156,7 +156,7 @@ export default function EnemiesPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the "{enemyToDelete?.name}" enemy.
+                        This action cannot be undone. This will permanently delete the "{enemyToDelete?.name}" from the bestiary.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

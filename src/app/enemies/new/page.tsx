@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from "react";
@@ -105,12 +106,12 @@ export default function NewEnemyPage() {
         const updatedEnemies = [...enemies, newEnemy];
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedEnemies));
 
-        toast({ title: "Enemy Created!", description: "The new enemy has been added to your bestiary." });
+        toast({ title: "Creature Created!", description: "The new creature has been added to your bestiary." });
         router.push(`/enemies`);
 
     } catch (error) {
-        console.error("Failed to create enemy:", error);
-        toast({ variant: "destructive", title: "Creation Failed", description: "Could not create the new enemy." });
+        console.error("Failed to create creature:", error);
+        toast({ variant: "destructive", title: "Creation Failed", description: "Could not create the new creature." });
     }
   }
 
@@ -119,12 +120,12 @@ export default function NewEnemyPage() {
         <Button asChild variant="ghost" className="mb-4">
              <Link href="/enemies">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Enemies
+                Back to Bestiary
              </Link>
         </Button>
         <Card className="max-w-4xl mx-auto">
             <CardHeader>
-                <CardTitle>Create New Enemy</CardTitle>
+                <CardTitle>Create New Creature</CardTitle>
                 <CardDescription>
                     Define a new creature for your bestiary. Use new lines for separate actions/traits.
                 </CardDescription>
@@ -134,8 +135,8 @@ export default function NewEnemyPage() {
                     {/* Basic Info */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                          <div className="space-y-2">
-                            <Label htmlFor="name">Enemy Name</Label>
-                            <Input id="name" placeholder="e.g., Goblin" value={enemy.name} onChange={handleInputChange} required />
+                            <Label htmlFor="name">Creature Name</Label>
+                            <Input id="name" placeholder="e.g., Owlbear" value={enemy.name} onChange={handleInputChange} required />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="type">Creature Type</Label>
@@ -208,7 +209,7 @@ export default function NewEnemyPage() {
                     </div>
 
                     <div className="flex justify-end pt-4">
-                        <Button type="submit">Create Enemy</Button>
+                        <Button type="submit">Create Creature</Button>
                     </div>
                 </form>
             </CardContent>

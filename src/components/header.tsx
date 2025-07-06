@@ -1,8 +1,32 @@
+
+'use client';
+
 import Link from 'next/link';
-import { Dices, UserPlus } from 'lucide-react';
+import { Dices, UserPlus, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
+import type { PlayerCharacter } from '@/lib/types';
+
+const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 
 export default function Header() {
+  const [hasCharacters, setHasCharacters] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    try {
+      const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
+      if (storedCharacters) {
+        const playerCharacters: PlayerCharacter[] = JSON.parse(storedCharacters);
+        setHasCharacters(playerCharacters.length > 0);
+      }
+    } catch (error) {
+      console.error("Failed to access localStorage:", error);
+      setHasCharacters(false);
+    }
+  }, []);
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 max-w-screen-2xl items-center">
@@ -14,12 +38,6 @@ export default function Header() {
         </Link>
         <nav className="flex items-center gap-4 text-sm flex-wrap">
           <Link
-            href="/character-sheet"
-            className="transition-colors hover:text-foreground/80 text-foreground/60"
-          >
-            My Characters
-          </Link>
-          <Link
             href="/play"
             className="transition-colors hover:text-foreground/80 text-foreground/60"
           >
@@ -30,6 +48,24 @@ export default function Header() {
             className="transition-colors hover:text-foreground/80 text-foreground/60"
           >
             Classes
+          </Link>
+          <Link
+            href="/backgrounds"
+            className="transition-colors hover:text-foreground/80 text-foreground/60"
+          >
+            Backgrounds
+          </Link>
+          <Link
+            href="/skills"
+            className="transition-colors hover:text-foreground/80 text-foreground/60"
+          >
+            Skills
+          </Link>
+          <Link
+            href="/features"
+            className="transition-colors hover:text-foreground/80 text-foreground/60"
+          >
+            Features
           </Link>
           <Link
             href="/items"
@@ -49,38 +85,42 @@ export default function Header() {
           >
             Actions
           </Link>
-           <Link
-            href="/backgrounds"
-            className="transition-colors hover:text-foreground/80 text-foreground/60"
-          >
-            Backgrounds
-          </Link>
-          <Link
-            href="/skills"
-            className="transition-colors hover:text-foreground/80 text-foreground/60"
-          >
-            Skills
-          </Link>
-          <Link
-            href="/features"
-            className="transition-colors hover:text-foreground/80 text-foreground/60"
-          >
-            Features
-          </Link>
           <Link
             href="/enemies"
             className="transition-colors hover:text-foreground/80 text-foreground/60"
           >
-            Enemies
+            Bestiary
+          </Link>
+           <Link
+            href="/narrations"
+            className="transition-colors hover:text-foreground/80 text-foreground/60"
+          >
+            Narrations
           </Link>
         </nav>
         <div className="flex flex-1 items-center justify-end space-x-2">
-           <Button asChild>
-              <Link href="/character/create">
-                <UserPlus className="mr-2 h-4 w-4" />
-                New Character
-              </Link>
+           {isClient ? (
+              hasCharacters ? (
+                <Button asChild>
+                  <Link href="/character-sheet">
+                    <Users className="mr-2 h-4 w-4" />
+                    My Characters
+                  </Link>
+                </Button>
+              ) : (
+                <Button asChild>
+                  <Link href="/character/create">
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    New Character
+                  </Link>
+                </Button>
+              )
+           ) : (
+            <Button disabled className="w-[150px]">
+              <Users className="mr-2 h-4 w-4" />
+              My Characters
             </Button>
+           )}
         </div>
       </div>
     </header>
