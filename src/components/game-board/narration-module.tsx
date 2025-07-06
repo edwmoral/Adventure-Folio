@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useRef } from 'react';
@@ -133,11 +132,11 @@ export function NarrationModule({ narrations, onNarrationCreate, onNarrationDele
                     {narrations && narrations.length > 0 ? (
                         [...narrations].reverse().map(narration => (
                             <div key={narration.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
-                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handlePlayPause(narration)}>
+                                <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0" onClick={() => handlePlayPause(narration)}>
                                     {activeAudio?.id === narration.id ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                                 </Button>
-                                <p className="text-sm flex-1 truncate" title={narration.plotSummary}>{narration.plotSummary}</p>
-                                <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => onNarrationDelete(narration.id)}>
+                                <p className="min-w-0 flex-1 truncate text-sm" title={narration.plotSummary}>{narration.plotSummary}</p>
+                                <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0 text-destructive" onClick={() => onNarrationDelete(narration.id)}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>
