@@ -4,10 +4,8 @@
 /**
  * @fileOverview An AI flow for generating epic narrations from plot summaries.
  *
- * - generateNarration - A function that takes a plot summary,
- *   rewrites it for dramatic effect, and generates a spoken version.
- * - GenerateNarrationInput - The input type for the generateNarration function.
- * - GenerateNarrationOutput - The return type for the generateNarration function.
+ * - generateNarrationText - A function that rewrites a plot summary for dramatic effect.
+ * - generateNarrationAudio - A function that converts text to speech.
  */
 
 import {ai} from '@/ai/genkit';
@@ -15,24 +13,85 @@ import {googleAI} from '@genkit-ai/googleai';
 import {z} from 'genkit';
 import wav from 'wav';
 
-const GenerateNarrationInputSchema = z.object({
-  plotSummary: z.string().describe('A summary of the plot to be narrated.'),
-});
-export type GenerateNarrationInput = z.infer<typeof GenerateNarrationInputSchema>;
+// --- TEXT GENERATION ---
 
-const GenerateNarrationOutputSchema = z.object({
-  plotSummary: z.string().describe('The original plot summary used for generation.'),
+export const GenerateNarrationTextInputSchema = z.object({
+  plotSummary: z.string().describe('A summary of the plot to be narrated.'),
+  characters: z.array(z.object({
+    name: z.string(),
+    race: z.string(),
+    className: z.string(),
+  })).describe('An array of player characters in the scene.'),
+});
+export type GenerateNarrationTextInput = z.infer<typeof GenerateNarrationTextInputSchema>;
+
+export const GenerateNarrationTextOutputSchema = z.object({
+  narrationText: z.string().describe('The rewritten, epic narration text.'),
+});
+export type GenerateNarrationTextOutput = z.infer<typeof GenerateNarrationTextOutputSchema>;
+
+
+export async function generateNarrationText(
+  input: GenerateNarrationTextInput
+): Promise<GenerateNarrationTextOutput> {
+  return generateNarrationTextFlow(input);
+}
+
+const generateNarrationTextFlow = ai.defineFlow(
+  {
+    name: 'generateNarrationTextFlow',
+    inputSchema: GenerateNarrationTextInputSchema,
+    outputSchema: GenerateNarrationTextOutputSchema,
+  },
+  async ({ plotSummary, characters }) => {
+    const characterDescriptions = characters.map(c => `- ${c.name} the ${c.race} ${c.className}`).join('\n');
+
+    const { output } = await ai.generate({
+        prompt: `You are a world-class dungeon master and storyteller. Your task is to transform a simple plot summary into a vivid, epic, and dramatic narration suitable for a Dungeons & Dragons session.
+        
+        Use evocative language, build suspense, and describe scenes with rich detail.
+        
+        The current party consists of:
+        ${characterDescriptions || 'No specific characters provided.'}
+
+        Weave these characters into the narration where appropriate. Keep the narration concise and impactful. **The final narration should not be more than 2.5 times the length of the original plot summary.**
+
+        Plot Summary: "${plotSummary}"
+        
+        Rewrite this summary into an epic narration.`,
+        output: {
+          schema: GenerateNarrationTextOutputSchema,
+        },
+    });
+
+    if (!output?.narrationText?.trim()) {
+      throw new Error('Failed to generate narration text from the summary.');
+    }
+
+    return output;
+  }
+);
+
+
+// --- AUDIO GENERATION ---
+
+export const GenerateNarrationAudioInputSchema = z.object({
+  narrationText: z.string().describe('The final text to be converted to speech.'),
+});
+export type GenerateNarrationAudioInput = z.infer<typeof GenerateNarrationAudioInputSchema>;
+
+export const GenerateNarrationAudioOutputSchema = z.object({
   audioUrl: z
     .string()
     .describe('The generated narration audio as a data URI.'),
 });
-export type GenerateNarrationOutput = z.infer<typeof GenerateNarrationOutputSchema>;
+export type GenerateNarrationAudioOutput = z.infer<typeof GenerateNarrationAudioOutputSchema>;
 
 
-export async function generateNarration(
-  input: GenerateNarrationInput
-): Promise<GenerateNarrationOutput> {
-  return generateNarrationFlow(input);
+export async function generateNarrationAudio(
+  input: GenerateNarrationAudioInput
+): Promise<GenerateNarrationAudioOutput> {
+  return generateNarrationAudioFlow(input);
 }
 
 
@@ -63,35 +122,13 @@ async function toWav(
   });
 }
 
-const generateNarrationFlow = ai.defineFlow(
+const generateNarrationAudioFlow = ai.defineFlow(
   {
-    name: 'generateNarrationFlow',
-    inputSchema: GenerateNarrationInputSchema,
-    outputSchema: GenerateNarrationOutputSchema,
+    name: 'generateNarrationAudioFlow',
+    inputSchema: GenerateNarrationAudioInputSchema,
+    outputSchema: GenerateNarrationAudioOutputSchema,
   },
-  async ({ plotSummary }) => {
-
-    const EpicNarrationSchema = z.object({
-      narration: z.string().describe('The rewritten, epic narration text, ready for text-to-speech.'),
-    });
-
-    const { output: epicNarrationOutput } = await ai.generate({
-        prompt: `You are a world-class dungeon master and storyteller. Your task is to transform a simple plot summary into a vivid, epic, and dramatic narration suitable for a Dungeons & Dragons session. Use evocative language, build suspense, and describe scenes with rich detail.
-
-        Plot Summary: "${plotSummary}"
-        
-        Rewrite this summary into an epic narration.`,
-        output: {
-          schema: EpicNarrationSchema,
-        },
-    });
-    
-    const epicNarration = epicNarrationOutput?.narration;
-
-    if (!epicNarration?.trim()) {
-      throw new Error('Failed to generate narration text from the summary.');
-    }
-
+  async ({ narrationText }) => {
     const { media } = await ai.generate({
       model: googleAI.model('gemini-2.5-flash-preview-tts'),
       config: {
@@ -102,7 +139,7 @@ const generateNarrationFlow = ai.defineFlow(
           },
         },
       },
-      prompt: epicNarration,
+      prompt: narrationText,
     });
     
     if (!media || !media.url) {
@@ -117,7 +154,6 @@ const generateNarrationFlow = ai.defineFlow(
     const wavBase64 = await toWav(audioBuffer);
 
     return { 
-        plotSummary: plotSummary,
         audioUrl: 'data:audio/wav;base64,' + wavBase64 
     };
   }

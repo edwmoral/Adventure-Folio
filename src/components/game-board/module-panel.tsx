@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -30,6 +31,7 @@ interface ModulePanelProps {
     narrations: Narration[];
     onNarrationCreate: (data: { plotSummary: string; audioUrl: string }) => void;
     onNarrationDelete: (narrationId: string) => void;
+    activeCampaignCharacters: PlayerCharacter[];
 }
 
 export function ModulePanel({ 
@@ -50,6 +52,7 @@ export function ModulePanel({
     narrations,
     onNarrationCreate,
     onNarrationDelete,
+    activeCampaignCharacters,
 }: ModulePanelProps) {
     const [activeTab, setActiveTab] = useState('chat');
 
@@ -130,6 +133,7 @@ export function ModulePanel({
                         narrations={narrations}
                         onNarrationCreate={onNarrationCreate}
                         onNarrationDelete={onNarrationDelete}
+                        characters={activeCampaignCharacters}
                     />
                 </TabsContent>
                 <TabsContent value="characters" className="flex-1 min-h-0 mt-0">

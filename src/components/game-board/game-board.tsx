@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Campaign, Scene, PlayerCharacter, Enemy, Class, Spell, Combatant, Action as ActionType, MonsterAction, Token, Item, Narration } from '@/lib/types';
 import { BattleMap } from './battle-map';
 import { ModulePanel } from './module-panel';
@@ -167,6 +167,12 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }
     }, [isInCombat, combatants, turnIndex, recentRolls, campaignId, loading, toast]);
     
+    const activeCampaignCharacters = useMemo(() => {
+        if (!campaign || !allPlayerCharacters) return [];
+        const campaignCharIds = new Set(campaign.characters.map(c => c.id));
+        return allPlayerCharacters.filter(pc => campaignCharIds.has(pc.id));
+    }, [campaign, allPlayerCharacters]);
+
     const handleTokenSelect = (id: string | null) => {
         setSelectedTokenId(id);
         if (id && isPanelCollapsed) {
@@ -577,6 +583,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                     narrations={activeScene.narrations || []}
                     onNarrationCreate={handleNarrationCreate}
                     onNarrationDelete={handleNarrationDelete}
+                    activeCampaignCharacters={activeCampaignCharacters}
                 />
             </aside>
             <InitiativeDialog 
