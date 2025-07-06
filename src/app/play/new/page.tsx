@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from "react";
@@ -10,24 +9,25 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { Campaign, Scene } from '@/lib/types';
-import { saveCampaignsAndCleanup } from "@/lib/storage-utils";
-
-const STORAGE_KEY = 'dnd_campaigns';
+import { useAuth } from "@/context/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import { saveDocForUser } from "@/lib/firestore";
 
 export default function NewCampaignPage() {
   const [campaignName, setCampaignName] = useState('');
   const router = useRouter();
+  const { user } = useAuth();
+  const { toast } = useToast();
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!campaignName.trim()) {
-      return;
+    if (!campaignName.trim()) return;
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to create a campaign.' });
+        return;
     }
 
     try {
-        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
-        const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
-        
         const newScene: Scene = {
             id: `scene-${Date.now()}`,
             name: 'My First Scene',
@@ -38,21 +38,21 @@ export default function NewCampaignPage() {
             height: 20,
         };
         
+        const newCampaignId = String(Date.now());
         const newCampaign: Campaign = {
-            id: String(Date.now()),
             name: campaignName,
             imageUrl: 'https://placehold.co/400x225.png',
             characters: [],
             scenes: [newScene],
         };
 
-        const updatedCampaigns = [...campaigns, newCampaign];
-        saveCampaignsAndCleanup(updatedCampaigns);
+        await saveDocForUser('campaigns', newCampaignId, newCampaign);
 
         router.push('/play');
 
     } catch (error) {
         console.error("Failed to create campaign:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not create campaign.' });
     }
   }
 

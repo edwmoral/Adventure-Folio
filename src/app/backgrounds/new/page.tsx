@@ -4,21 +4,22 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import type { Background, RaceTrait } from '@/lib/types';
+import type { Background } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
-
-const STORAGE_KEY = 'dnd_backgrounds';
+import { useAuth } from "@/context/auth-context";
+import { saveUserDoc } from "@/lib/firestore";
 
 const toArray = (str: string) => str.split(',').map(s => s.trim()).filter(Boolean);
 
 export default function NewBackgroundPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [background, setBackground] = useState({
     name: '',
@@ -32,26 +33,26 @@ export default function NewBackgroundPage() {
     setBackground(prev => ({ ...prev, [id]: value }));
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
+        return;
+    }
     if (!background.name || !background.text) {
         toast({ variant: 'destructive', title: 'Error', description: 'Name and Description are required.' });
         return;
     }
 
     try {
-        const storedData = localStorage.getItem(STORAGE_KEY);
-        const allBackgrounds: Background[] = storedData ? JSON.parse(storedData) : [];
-        
         const newBackground: Background = {
             name: background.name,
             text: background.text,
             proficiency: toArray(background.proficiency),
             trait: toArray(background.features).map(f => ({ name: f, text: 'Feature provided by background.' })),
         };
-
-        const updatedBackgrounds = [...allBackgrounds, newBackground];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedBackgrounds));
+        
+        await saveUserDoc('backgrounds', newBackground.name, newBackground);
 
         toast({ title: "Background Created!", description: "The new background has been added." });
         router.push(`/backgrounds`);

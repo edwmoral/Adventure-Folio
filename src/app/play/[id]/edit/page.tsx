@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,211 +13,133 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import { saveCampaignsAndCleanup } from '@/lib/storage-utils';
-
-const STORAGE_KEY = 'dnd_campaigns';
-const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
-const STORAGE_KEY_ENEMIES = 'dnd_enemies';
-
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useAuth } from '@/context/auth-context';
+import { getDocForUser, saveDocForUser, getCollectionForUser, getGlobalCollection } from '@/lib/firestore';
 
 export default function EditCampaignPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
   const { toast } = useToast();
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [allPlayerCharacters, setAllPlayerCharacters] = useState<Character[]>([]);
+  const { user } = useAuth();
+  
+  const [campaign, setCampaign] = useState<(Campaign & {id: string}) | null>(null);
+  const [allPlayerCharacters, setAllPlayerCharacters] = useState<PlayerCharacter[]>([]);
   const [allEnemies, setAllEnemies] = useState<Enemy[]>([]);
   const [characterToAdd, setCharacterToAdd] = useState<string>('');
   const [enemyToAdd, setEnemyToAdd] = useState<string>('');
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    try {
-        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
-        if (storedCampaigns) {
-            const campaigns: Campaign[] = JSON.parse(storedCampaigns);
-            const currentCampaign = campaigns.find(c => c.id === id);
-            
-            if (currentCampaign) {
-                if (!currentCampaign.scenes) {
-                    currentCampaign.scenes = [];
-                }
+    if (!user) return;
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const [campaignData, playerChars, enemies] = await Promise.all([
+                getDocForUser<Campaign>('campaigns', id),
+                getCollectionForUser<PlayerCharacter>('playerCharacters'),
+                getGlobalCollection<Enemy>('enemies'),
+            ]);
+
+            if (campaignData) {
+                if (!campaignData.scenes) campaignData.scenes = [];
+                setCampaign(campaignData);
             }
-            setCampaign(currentCampaign || null);
-        }
-
-        const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
-        if (storedCharacters) {
-            const playerCharacters: PlayerCharacter[] = JSON.parse(storedCharacters);
-            const charactersForCampaign: Character[] = playerCharacters.map(pc => ({
-                id: pc.id,
-                name: pc.name,
-                avatarUrl: pc.avatar,
-                class: pc.className,
-                level: pc.level,
-                tokenImageUrl: `https://placehold.co/48x48.png`
-            }));
-            setAllPlayerCharacters(charactersForCampaign.sort((a,b) => a.name.localeCompare(b.name)));
-        }
-
-        const storedEnemies = localStorage.getItem(STORAGE_KEY_ENEMIES);
-        if (storedEnemies) {
-            const enemies: Enemy[] = JSON.parse(storedEnemies);
+            setAllPlayerCharacters(playerChars.sort((a,b) => a.name.localeCompare(b.name)));
             setAllEnemies(enemies.sort((a,b) => a.name.localeCompare(b.name)));
+        } catch (error) {
+            console.error("Failed to load campaign data from Firestore", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load campaign data.' });
+        } finally {
+            setLoading(false);
         }
+    };
+    fetchData();
+  }, [id, user, toast]);
 
-    } catch (error) {
-        console.error("Failed to load campaign from localStorage", error);
-    }
-  }, [id]);
-
-  const availableCharacters = allPlayerCharacters.filter(
-    (char) => !campaign?.characters.some((c) => c.id === char.id)
-  );
-
-  const handleSaveChanges = () => {
-    if (!campaign) return;
+  const saveCampaign = async (updatedCampaign: Campaign & {id: string}) => {
+    setCampaign(updatedCampaign);
+    const { id: campaignId, ...campaignToSave } = updatedCampaign;
     try {
-        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
-        const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
-        const updatedCampaigns = campaigns.map(c => c.id === campaign.id ? campaign : c);
-        saveCampaignsAndCleanup(updatedCampaigns);
+        await saveDocForUser('campaigns', campaignId, campaignToSave);
+        return true;
+    } catch (error) {
+        console.error("Failed to save campaign:", error);
+        toast({ variant: "destructive", title: "Save Failed", description: "Could not save campaign changes." });
+        return false;
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    if (!campaign) return;
+    const success = await saveCampaign(campaign);
+    if (success) {
         toast({ title: "Campaign Saved!", description: "Your changes have been successfully saved." });
         router.push(`/play/${campaign.id}`);
-    } catch (error) {
-        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-            toast({
-                variant: 'destructive',
-                title: 'Storage Limit Reached',
-                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
-                duration: 10000,
-            });
-        } else {
-            console.error("Failed to save campaign:", error);
-            toast({ variant: "destructive", title: "Save Failed", description: "Could not save changes." });
-        }
     }
   };
 
   const handleRemoveCharacter = (characterId: string) => {
     if (!campaign) return;
 
-    const newCampaign = { ...campaign };
-    const removedCharacterName = newCampaign.characters.find(c => c.id === characterId)?.name;
-
-    newCampaign.characters = newCampaign.characters.filter(c => c.id !== characterId);
-    newCampaign.scenes = newCampaign.scenes.map(scene => ({
-        ...scene,
-        tokens: scene.tokens.filter(token => token.linked_character_id !== characterId)
-    }));
+    const removedCharacterName = campaign.characters.find(c => c.id === characterId)?.name;
+    const updatedCampaign = {
+        ...campaign,
+        characters: campaign.characters.filter(c => c.id !== characterId),
+        scenes: campaign.scenes.map(scene => ({
+            ...scene,
+            tokens: scene.tokens.filter(token => token.linked_character_id !== characterId)
+        })),
+    };
     
-    try {
-        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
-        const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
-        const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
-        saveCampaignsAndCleanup(updatedCampaigns);
-
-        setCampaign(newCampaign);
-        toast({ title: "Character Removed", description: `${removedCharacterName || 'The character'} has been removed from the campaign.` });
-    } catch (error) {
-         if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-            toast({
-                variant: 'destructive',
-                title: 'Storage Limit Reached',
-                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
-                duration: 10000,
-            });
-        } else {
-            console.error("Failed to remove character:", error);
-            toast({ variant: "destructive", title: "Save Failed", description: "Could not remove character." });
-        }
-    }
+    saveCampaign(updatedCampaign).then(success => {
+        if(success) toast({ title: "Character Removed", description: `${removedCharacterName || 'The character'} has been removed.` });
+    });
   };
 
   const handleAddCharacter = () => {
     if (!characterToAdd || !campaign) return;
     
-    const character = allPlayerCharacters.find(c => c.id === characterToAdd);
-    if (!character) return;
+    const characterData = allPlayerCharacters.find(c => c.id === characterToAdd);
+    if (!characterData) return;
+
+    const newCharacterForCampaign: Character = {
+        id: characterData.id,
+        name: characterData.name,
+        avatarUrl: characterData.avatar,
+        class: characterData.className,
+        level: characterData.level,
+        tokenImageUrl: 'https://placehold.co/48x48.png',
+    };
     
-    const newCampaign = { ...campaign };
-    newCampaign.characters.push(character);
-    
-    newCampaign.scenes.forEach(scene => {
-        const newToken: Token = {
+    const updatedCampaign = { ...campaign };
+    updatedCampaign.characters.push(newCharacterForCampaign);
+    updatedCampaign.scenes.forEach(scene => {
+        scene.tokens.push({
             id: `token-${Date.now()}-${Math.random()}`,
-            name: character.name,
-            imageUrl: character.tokenImageUrl || 'https://placehold.co/48x48.png',
+            name: characterData.name,
+            imageUrl: newCharacterForCampaign.tokenImageUrl,
             type: 'character',
-            linked_character_id: character.id,
+            linked_character_id: characterData.id,
             position: { x: 10 + Math.floor(Math.random() * 10), y: 10 + Math.floor(Math.random() * 10) }
-        };
-        scene.tokens.push(newToken);
+        });
     });
     
-    try {
-        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
-        const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
-        const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
-        saveCampaignsAndCleanup(updatedCampaigns);
-
-        setCampaign(newCampaign);
-        setCharacterToAdd('');
-        toast({ title: "Character Added", description: `${character.name} is ready for adventure!` });
-    } catch (error) {
-        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-            toast({
-                variant: 'destructive',
-                title: 'Storage Limit Reached',
-                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
-                duration: 10000,
-            });
-        } else {
-            console.error("Failed to add character:", error);
-            toast({ variant: "destructive", title: "Save Failed", description: "Could not add character." });
+    saveCampaign(updatedCampaign).then(success => {
+        if(success) {
+            setCharacterToAdd('');
+            toast({ title: "Character Added", description: `${characterData.name} is ready for adventure!` });
         }
-    }
+    });
   };
 
   const handleAddEnemyToScene = (sceneId: string) => {
     if (!enemyToAdd || !campaign) return;
-
     const enemy = allEnemies.find((e) => e.id === enemyToAdd);
     if (!enemy) return;
-
-    const targetScene = campaign.scenes.find((s) => s.id === sceneId);
-    if (!targetScene) {
-      toast({
-        variant: 'destructive',
-        title: 'Scene Not Found',
-        description: 'The scene to add the enemy to could not be found.',
-      });
-      return;
-    }
 
     const newEnemyToken: Token = {
       id: `token-enemy-${Date.now()}`,
@@ -228,194 +149,72 @@ export default function EditCampaignPage() {
       linked_enemy_id: enemy.id,
       hp: enemy.hp ? parseInt(enemy.hp.split(' ')[0]) : 10,
       maxHp: enemy.hp ? parseInt(enemy.hp.split(' ')[0]) : 10,
-      mp: 0,
-      maxMp: 0,
-      position: {
-        x: 75 + Math.floor(Math.random() * 20),
-        y: 75 + Math.floor(Math.random() * 20),
-      },
+      position: { x: 75 + Math.floor(Math.random() * 20), y: 75 + Math.floor(Math.random() * 20) },
     };
 
     const updatedCampaign = {
       ...campaign,
-      scenes: campaign.scenes.map((s) =>
-        s.id === sceneId
-          ? { ...s, tokens: [...s.tokens, newEnemyToken] }
-          : s
-      ),
+      scenes: campaign.scenes.map((s) => s.id === sceneId ? { ...s, tokens: [...s.tokens, newEnemyToken] } : s),
     };
 
-    try {
-      const storedCampaigns = localStorage.getItem(STORAGE_KEY);
-      const campaigns: Campaign[] = storedCampaigns
-        ? JSON.parse(storedCampaigns)
-        : [];
-      const updatedCampaignsList = campaigns.map((c) =>
-        c.id === updatedCampaign.id ? updatedCampaign : c
-      );
-      saveCampaignsAndCleanup(updatedCampaignsList);
-
-      setCampaign(updatedCampaign);
-      setEnemyToAdd('');
-      toast({
-        title: 'Enemy Added',
-        description: `A ${enemy.name} has been added to the scene.`,
-      });
-    } catch (error) {
-       if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-            toast({
-                variant: 'destructive',
-                title: 'Storage Limit Reached',
-                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
-                duration: 10000,
-            });
-        } else {
-            console.error('Failed to add enemy:', error);
-            toast({
-                variant: 'destructive',
-                title: 'Add Failed',
-                description: 'Could not add the enemy to the scene.',
-            });
+    saveCampaign(updatedCampaign).then(success => {
+        if (success) {
+            setEnemyToAdd('');
+            toast({ title: 'Enemy Added', description: `A ${enemy.name} has been added to the scene.` });
         }
-    }
-  };
-
-  const handleSetSceneActive = (sceneId: string) => {
-    if (!campaign) return;
-
-    const newCampaign = {
-        ...campaign,
-        scenes: campaign.scenes.map(s => ({
-            ...s,
-            is_active: s.id === sceneId,
-        }))
-    };
-    
-    try {
-        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
-        const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
-        const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
-        saveCampaignsAndCleanup(updatedCampaigns);
-        
-        setCampaign(newCampaign);
-        toast({ title: "Active Scene Changed", description: "The new scene is now active for your next session." });
-    } catch (error) {
-        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-            toast({
-                variant: 'destructive',
-                title: 'Storage Limit Reached',
-                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
-                duration: 10000,
-            });
-        } else {
-            console.error("Failed to set active scene:", error);
-            toast({ variant: "destructive", title: "Save Failed", description: "Could not set active scene." });
-        }
-    }
-  };
-
-  const handleDeleteScene = (sceneId: string) => {
-    if (!campaign) return;
-
-    let newCampaign = { ...campaign };
-    
-    if (newCampaign.scenes.length <= 1) {
-        toast({ variant: "destructive", title: "Cannot Delete", description: "A campaign must have at least one scene." });
-        return;
-    }
-
-    const deletedScene = newCampaign.scenes.find(s => s.id === sceneId);
-    newCampaign.scenes = newCampaign.scenes.filter(s => s.id !== sceneId);
-
-    if (deletedScene?.is_active && newCampaign.scenes.length > 0) {
-        newCampaign.scenes[0].is_active = true;
-    }
-    
-    try {
-        const storedCampaigns = localStorage.getItem(STORAGE_KEY);
-        const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
-        const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
-        saveCampaignsAndCleanup(updatedCampaigns);
-        
-        setCampaign(newCampaign);
-        toast({ title: "Scene Deleted", description: "The scene has been removed from the campaign." });
-    } catch (error) {
-        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-            toast({
-                variant: 'destructive',
-                title: 'Storage Limit Reached',
-                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
-                duration: 10000,
-            });
-        } else {
-            console.error("Failed to delete scene:", error);
-            toast({ variant: "destructive", title: "Save Failed", description: "Could not delete scene." });
-        }
-    }
+    });
   };
 
   const handleRemoveEnemyFromScene = (sceneId: string, tokenId: string) => {
     if (!campaign) return;
-
     const updatedCampaign = {
       ...campaign,
-      scenes: campaign.scenes.map((s) =>
-        s.id === sceneId
-          ? { ...s, tokens: s.tokens.filter((t) => t.id !== tokenId) }
-          : s
-      ),
+      scenes: campaign.scenes.map((s) => s.id === sceneId ? { ...s, tokens: s.tokens.filter((t) => t.id !== tokenId) } : s),
     };
-
-    try {
-      const storedCampaigns = localStorage.getItem(STORAGE_KEY);
-      const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
-      const updatedCampaignsList = campaigns.map((c) =>
-        c.id === updatedCampaign.id ? updatedCampaign : c
-      );
-      saveCampaignsAndCleanup(updatedCampaignsList);
-
-      setCampaign(updatedCampaign);
-      toast({
-        title: 'Enemy Removed',
-        description: 'The enemy has been removed from the scene.',
-      });
-    } catch (error) {
-        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-            toast({
-                variant: 'destructive',
-                title: 'Storage Limit Reached',
-                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
-                duration: 10000,
-            });
-        } else {
-            console.error('Failed to remove enemy:', error);
-            toast({
-                variant: 'destructive',
-                title: 'Remove Failed',
-                description: 'Could not remove the enemy from the scene.',
-            });
-        }
-    }
+    saveCampaign(updatedCampaign).then(success => {
+        if (success) toast({ title: 'Enemy Removed', description: 'The enemy has been removed from the scene.' });
+    });
   };
-  
+
+  const handleSetSceneActive = (sceneId: string) => {
+    if (!campaign) return;
+    const updatedCampaign = { ...campaign, scenes: campaign.scenes.map(s => ({ ...s, is_active: s.id === sceneId })) };
+    saveCampaign(updatedCampaign).then(success => {
+        if (success) toast({ title: "Active Scene Changed", description: "The new scene is now active." });
+    });
+  };
+
+  const handleDeleteScene = (sceneId: string) => {
+    if (!campaign) return;
+    if (campaign.scenes.length <= 1) {
+        toast({ variant: "destructive", title: "Cannot Delete", description: "A campaign must have at least one scene." });
+        return;
+    }
+
+    const deletedScene = campaign.scenes.find(s => s.id === sceneId);
+    let updatedScenes = campaign.scenes.filter(s => s.id !== sceneId);
+    if (deletedScene?.is_active && updatedScenes.length > 0) {
+        updatedScenes[0].is_active = true;
+    }
+    
+    saveCampaign({ ...campaign, scenes: updatedScenes }).then(success => {
+        if (success) toast({ title: "Scene Deleted", description: "The scene has been removed." });
+    });
+  };
+
   const handleSceneDimensionChange = (sceneId: string, dimension: 'width' | 'height', value: number) => {
     if (!campaign || isNaN(value)) return;
-
-    const newCampaign = {
-        ...campaign,
-        scenes: campaign.scenes.map(scene => {
-            if (scene.id === sceneId) {
-                return { ...scene, [dimension]: value };
-            }
-            return scene;
-        })
-    };
+    const newCampaign = { ...campaign, scenes: campaign.scenes.map(scene => scene.id === sceneId ? { ...scene, [dimension]: value } : scene) };
     setCampaign(newCampaign);
   };
+  
+  const availableCharacters = allPlayerCharacters.filter(char => !campaign?.characters.some((c) => c.id === char.id));
 
-
+  if (loading) {
+    return <div className="text-center p-8">Loading Campaign Editor...</div>;
+  }
   if (!campaign) {
-    return <div className="text-center p-8">Loading...</div>;
+    return <div className="text-center p-8">Campaign not found.</div>;
   }
 
   return (
@@ -434,69 +233,40 @@ export default function EditCampaignPage() {
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {/* Campaign & Character Column */}
         <div className="space-y-8 lg:col-span-1">
-            {/* Campaign Details */}
             <Card>
-                <CardHeader>
-                    <CardTitle>Campaign Details</CardTitle>
-                    <CardDescription>Update the basic information for your campaign.</CardDescription>
-                </CardHeader>
+                <CardHeader> <CardTitle>Campaign Details</CardTitle> <CardDescription>Update the basic information for your campaign.</CardDescription> </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="campaign-name">Campaign Name</Label>
-                        <Input
-                            id="campaign-name"
-                            value={campaign.name}
-                            onChange={(e) => setCampaign({ ...campaign, name: e.target.value })}
-                        />
+                        <Input id="campaign-name" value={campaign.name} onChange={(e) => setCampaign({ ...campaign, name: e.target.value })} />
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Character Management */}
             <Card>
-                <CardHeader>
-                    <CardTitle>Manage Characters</CardTitle>
-                    <CardDescription>Add or remove characters from this campaign.</CardDescription>
-                </CardHeader>
+                <CardHeader> <CardTitle>Manage Characters</CardTitle> <CardDescription>Add or remove characters from this campaign.</CardDescription> </CardHeader>
                 <CardContent className="space-y-4">
                     <Label>Characters in Campaign</Label>
                     <div className="space-y-2 rounded-md border p-2">
                         {campaign.characters.length > 0 ? campaign.characters.map(char => (
                             <div key={char.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
                                 <div className="flex items-center gap-3">
-                                    <Avatar className="h-9 w-9">
-                                        <AvatarImage src={char.avatarUrl} data-ai-hint="fantasy character" />
-                                        <AvatarFallback>{char.name.substring(0,1)}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-medium">{char.name}</p>
-                                        <p className="text-xs text-muted-foreground">{char.class} / Level {char.level}</p>
-                                    </div>
+                                    <Avatar className="h-9 w-9"> <AvatarImage src={char.avatarUrl} data-ai-hint="fantasy character" /> <AvatarFallback>{char.name.substring(0,1)}</AvatarFallback> </Avatar>
+                                    <div> <p className="font-medium">{char.name}</p> <p className="text-xs text-muted-foreground">{char.class} / Level {char.level}</p> </div>
                                 </div>
-                                <Button variant="ghost" size="icon" onClick={() => handleRemoveCharacter(char.id)}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleRemoveCharacter(char.id)}> <Trash2 className="h-4 w-4 text-destructive" /> </Button>
                             </div>
                         )) : <p className="text-sm text-muted-foreground p-2 text-center">No characters yet.</p>}
                     </div>
-
                     <Separator />
-
                     <div className="space-y-2">
                         <Label>Add a Character</Label>
                          <div className="flex gap-2">
                             <Select value={characterToAdd} onValueChange={setCharacterToAdd}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a character..." />
-                                </SelectTrigger>
+                                <SelectTrigger> <SelectValue placeholder="Select a character..." /> </SelectTrigger>
                                 <SelectContent>
-                                    {availableCharacters.map(char => (
-                                        <SelectItem key={char.id} value={char.id}>
-                                            {char.name} ({char.class} Lvl {char.level})
-                                        </SelectItem>
-                                    ))}
+                                    {availableCharacters.map(char => ( <SelectItem key={char.id} value={char.id}> {char.name} ({char.className} Lvl {char.level}) </SelectItem> ))}
                                 </SelectContent>
                             </Select>
                             <Button onClick={handleAddCharacter} disabled={!characterToAdd}>Add</Button>
@@ -506,13 +276,9 @@ export default function EditCampaignPage() {
             </Card>
         </div>
         
-        {/* Scenes & Enemies Column */}
         <div className="space-y-8 lg:col-span-2">
             <Card>
-                <CardHeader>
-                    <CardTitle>Manage Scenes</CardTitle>
-                    <CardDescription>Organize maps, encounters, and campaign flow.</CardDescription>
-                </CardHeader>
+                <CardHeader> <CardTitle>Manage Scenes</CardTitle> <CardDescription>Organize maps, encounters, and campaign flow.</CardDescription> </CardHeader>
                 <CardContent>
                      <Accordion type="multiple" className="w-full space-y-2">
                          {campaign.scenes.map(scene => {
@@ -529,67 +295,35 @@ export default function EditCampaignPage() {
                                     </AccordionTrigger>
                                     <AccordionContent className="px-4 pb-4">
                                         <div className="space-y-4">
-                                            {scene.description && (
-                                                <p className="text-sm text-muted-foreground italic">"{scene.description}"</p>
-                                            )}
-
-                                            {/* Scene Actions */}
+                                            {scene.description && <p className="text-sm text-muted-foreground italic">"{scene.description}"</p>}
                                             <div className="flex items-center gap-2">
-                                                {!scene.is_active && (
-                                                    <Button variant="outline" size="sm" onClick={() => handleSetSceneActive(scene.id)}>Set Active</Button>
-                                                )}
+                                                {!scene.is_active && ( <Button variant="outline" size="sm" onClick={() => handleSetSceneActive(scene.id)}>Set Active</Button> )}
                                                 <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive">
-                                                            <Trash2 className="mr-2 h-4 w-4" /> Delete Scene
-                                                        </Button>
-                                                    </AlertDialogTrigger>
+                                                    <AlertDialogTrigger asChild> <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive"> <Trash2 className="mr-2 h-4 w-4" /> Delete Scene </Button> </AlertDialogTrigger>
                                                     <AlertDialogContent>
                                                         <AlertDialogHeader>
                                                             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                            <AlertDialogDescription>
-                                                                This action cannot be undone. This will permanently delete the scene '{scene.name}' and all its tokens.
-                                                            </AlertDialogDescription>
+                                                            <AlertDialogDescription> This action cannot be undone. This will permanently delete the scene '{scene.name}' and all its tokens. </AlertDialogDescription>
                                                         </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteScene(scene.id)}>Delete</AlertDialogAction>
-                                                        </AlertDialogFooter>
+                                                        <AlertDialogFooter> <AlertDialogCancel>Cancel</AlertDialogCancel> <AlertDialogAction onClick={() => handleDeleteScene(scene.id)}>Delete</AlertDialogAction> </AlertDialogFooter>
                                                     </AlertDialogContent>
                                                 </AlertDialog>
                                             </div>
-
                                             <Separator/>
-
                                             <div>
                                                 <h4 className="mb-2 font-semibold text-sm">Scene Dimensions</h4>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div className="space-y-2">
                                                         <Label htmlFor={`scene-width-${scene.id}`}>Width (squares)</Label>
-                                                        <Input
-                                                            id={`scene-width-${scene.id}`}
-                                                            type="number"
-                                                            value={scene.width || ''}
-                                                            onChange={(e) => handleSceneDimensionChange(scene.id, 'width', parseInt(e.target.value))}
-                                                            placeholder="e.g., 30"
-                                                        />
+                                                        <Input id={`scene-width-${scene.id}`} type="number" value={scene.width || ''} onChange={(e) => handleSceneDimensionChange(scene.id, 'width', parseInt(e.target.value))} placeholder="e.g., 30" />
                                                     </div>
                                                     <div className="space-y-2">
                                                         <Label htmlFor={`scene-height-${scene.id}`}>Height (squares)</Label>
-                                                        <Input
-                                                            id={`scene-height-${scene.id}`}
-                                                            type="number"
-                                                            value={scene.height || ''}
-                                                            onChange={(e) => handleSceneDimensionChange(scene.id, 'height', parseInt(e.target.value))}
-                                                            placeholder="e.g., 20"
-                                                        />
+                                                        <Input id={`scene-height-${scene.id}`} type="number" value={scene.height || ''} onChange={(e) => handleSceneDimensionChange(scene.id, 'height', parseInt(e.target.value))} placeholder="e.g., 20" />
                                                     </div>
                                                 </div>
                                             </div>
-                                            
                                             <Separator/>
-
-                                            {/* Enemy List */}
                                             <div>
                                                 <h4 className="mb-2 font-semibold text-sm flex items-center gap-2"><Shield className="h-4 w-4"/>Enemies in Scene:</h4>
                                                 {enemyTokens.length > 0 ? (
@@ -597,31 +331,19 @@ export default function EditCampaignPage() {
                                                         {enemyTokens.map(token => (
                                                             <div key={token.id} className="flex items-center justify-between text-sm p-1 rounded-md hover:bg-muted/50">
                                                                 <span>{token.name}</span>
-                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveEnemyFromScene(scene.id, token.id)}>
-                                                                    <Trash2 className="h-3 w-3 text-destructive" />
-                                                                </Button>
+                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveEnemyFromScene(scene.id, token.id)}> <Trash2 className="h-3 w-3 text-destructive" /> </Button>
                                                             </div>
                                                         ))}
                                                     </div>
-                                                ) : (
-                                                    <p className="text-sm text-center text-muted-foreground py-2">No enemies in this scene.</p>
-                                                )}
+                                                ) : <p className="text-sm text-center text-muted-foreground py-2">No enemies in this scene.</p>}
                                             </div>
-
-                                            {/* Add Enemy */}
                                             <div>
                                                 <Label className="text-sm font-semibold">Add Enemy to this Scene</Label>
                                                 <div className="flex gap-2 mt-2">
                                                     <Select onValueChange={setEnemyToAdd}>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select an enemy..." />
-                                                        </SelectTrigger>
+                                                        <SelectTrigger> <SelectValue placeholder="Select an enemy..." /> </SelectTrigger>
                                                         <SelectContent>
-                                                            {allEnemies.map(enemy => (
-                                                                <SelectItem key={enemy.id} value={enemy.id}>
-                                                                    {enemy.name} (CR {enemy.cr})
-                                                                </SelectItem>
-                                                            ))}
+                                                            {allEnemies.map(enemy => ( <SelectItem key={enemy.id} value={enemy.id}> {enemy.name} (CR {enemy.cr}) </SelectItem> ))}
                                                         </SelectContent>
                                                     </Select>
                                                     <Button onClick={() => handleAddEnemyToScene(scene.id)} disabled={!enemyToAdd}>Add</Button>

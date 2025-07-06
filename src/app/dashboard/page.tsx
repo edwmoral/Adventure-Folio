@@ -19,7 +19,7 @@ export default function DashboardPage() {
           <Database className="h-4 w-4" />
           <AlertTitle>Now using Cloud Firestore!</AlertTitle>
           <AlertDescription>
-              Your data is now saved to a cloud database, accessible from any device. Firestore has a generous free tier, but you can monitor usage and set billing alerts in your Firebase project settings.
+              Your data is now saved to a cloud database, accessible from any device. Firestore has a generous free tier. You can monitor usage and set billing alerts in your Firebase project settings.
           </AlertDescription>
       </Alert>
 

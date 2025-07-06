@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -15,18 +13,14 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { parseRangeFromAction } from '@/lib/action-utils';
 import { saveCampaignsAndCleanup } from '@/lib/storage-utils';
+import { useAuth } from '@/context/auth-context';
+import { getDocForUser, saveDocForUser, getCollectionForUser, getGlobalCollection, getUserCollection } from '@/lib/firestore';
 
-const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
-const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
-const STORAGE_KEY_ENEMIES = 'dnd_enemies';
-const STORAGE_KEY_CLASSES = 'dnd_classes';
-const STORAGE_KEY_SPELLS = 'dnd_spells';
-const STORAGE_KEY_ITEMS = 'dnd_items';
 const STORAGE_KEY_COMBAT_STATE_PREFIX = 'dnd_combat_state_';
 
-
 export function GameBoard({ campaignId }: { campaignId: string }) {
-    const [campaign, setCampaign] = useState<Campaign | null>(null);
+    const { user } = useAuth();
+    const [campaign, setCampaign] = useState<(Campaign & { id: string }) | null>(null);
     const [activeScene, setActiveScene] = useState<Scene | null>(null);
     const [loading, setLoading] = useState(true);
     
@@ -43,7 +37,6 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
     const [tokenToCenter, setTokenToCenter] = useState<string | null>(null);
 
-    // Combat State
     const [isInCombat, setIsInCombat] = useState(false);
     const [isInitiativeDialogOpen, setIsInitiativeDialogOpen] = useState(false);
     const [isInitiatingCombat, setIsInitiatingCombat] = useState(false);
@@ -52,18 +45,13 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     const [recentRolls, setRecentRolls] = useState<string[]>([]);
     const [animationTarget, setAnimationTarget] = useState<string | null>(null);
 
-    // Targeting State
     const [targetingMode, setTargetingMode] = useState<{ action: ActionType | MonsterAction | Spell, casterId: string } | null>(null);
     const { toast } = useToast();
 
-    // Resizing Logic
     const minPanelWidth = 300;
     const maxPanelWidth = typeof window !== 'undefined' ? window.innerWidth / 2 : 600;
 
-    const startResizing = useCallback(() => {
-        isResizing.current = true;
-    }, []);
-
+    const startResizing = useCallback(() => { isResizing.current = true; }, []);
     const stopResizing = useCallback(() => {
         isResizing.current = false;
         document.body.style.cursor = 'default';
@@ -72,13 +60,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     const resizePanel = useCallback((mouseMoveEvent: MouseEvent) => {
         if (isResizing.current) {
             document.body.style.cursor = 'col-resize';
-            let newWidth;
-            if (panelPosition === 'right') {
-                newWidth = window.innerWidth - mouseMoveEvent.clientX;
-            } else {
-                newWidth = mouseMoveEvent.clientX;
-            }
-
+            let newWidth = panelPosition === 'right' ? window.innerWidth - mouseMoveEvent.clientX : mouseMoveEvent.clientX;
             if (newWidth > minPanelWidth && newWidth < maxPanelWidth) {
                 setPanelWidth(newWidth);
             }
@@ -95,78 +77,73 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     }, [resizePanel, stopResizing]);
 
     useEffect(() => {
-        try {
-            const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
-            if (storedCampaigns) {
-                const campaigns: Campaign[] = JSON.parse(storedCampaigns);
-                const currentCampaign = campaigns.find(c => c.id === campaignId);
-                setCampaign(currentCampaign || null);
-                if (currentCampaign) {
-                    const scene = currentCampaign.scenes.find(s => s.is_active);
-                    setActiveScene(scene || null);
+        if (!user) return;
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const [
+                    campaignData, 
+                    players, 
+                    enemies, 
+                    classes, 
+                    spells, 
+                    items
+                ] = await Promise.all([
+                    getDocForUser<Campaign>('campaigns', campaignId),
+                    getCollectionForUser<PlayerCharacter>('playerCharacters'),
+                    getGlobalCollection<Enemy>('enemies'),
+                    getGlobalCollection<Class>('classes'),
+                    getGlobalCollection<Spell>('spells'),
+                    getGlobalCollection<Item>('items'),
+                ]);
+                
+                if (campaignData) {
+                    setCampaign(campaignData);
+                    setActiveScene(campaignData.scenes.find(s => s.is_active) || null);
                 }
-            }
-            
-            const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
-            if (storedCharacters) setAllPlayerCharacters(JSON.parse(storedCharacters));
+                setAllPlayerCharacters(players);
+                setAllEnemies(enemies);
+                setAllClasses(classes);
+                setAllSpells(spells);
+                setAllItems(items);
 
-            const storedEnemies = localStorage.getItem(STORAGE_KEY_ENEMIES);
-            if (storedEnemies) setAllEnemies(JSON.parse(storedEnemies));
-            
-            const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
-            if (storedClasses) setAllClasses(JSON.parse(storedClasses));
-
-            const storedSpells = localStorage.getItem(STORAGE_KEY_SPELLS);
-            if (storedSpells) setAllSpells(JSON.parse(storedSpells));
-            
-            const storedItems = localStorage.getItem(STORAGE_KEY_ITEMS);
-            if (storedItems) setAllItems(JSON.parse(storedItems));
-
-            // Load combat state from localStorage
-            const combatStateKey = `${STORAGE_KEY_COMBAT_STATE_PREFIX}${campaignId}`;
-            const savedCombatStateJSON = localStorage.getItem(combatStateKey);
-            if (savedCombatStateJSON) {
-                const savedState = JSON.parse(savedCombatStateJSON);
-                if (savedState && savedState.isInCombat) {
-                    setCombatants(savedState.combatants || []);
-                    setTurnIndex(savedState.turnIndex || 0);
-                    setRecentRolls(savedState.recentRolls || []);
-                    setIsInCombat(true);
+                const combatStateKey = `${STORAGE_KEY_COMBAT_STATE_PREFIX}${campaignId}`;
+                const savedCombatStateJSON = localStorage.getItem(combatStateKey);
+                if (savedCombatStateJSON) {
+                    const savedState = JSON.parse(savedCombatStateJSON);
+                    if (savedState && savedState.isInCombat) {
+                        setCombatants(savedState.combatants || []);
+                        setTurnIndex(savedState.turnIndex || 0);
+                        setRecentRolls(savedState.recentRolls || []);
+                        setIsInCombat(true);
+                    }
                 }
+            } catch (error) {
+                console.error("Failed to load data from Firestore", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load session data.' });
+            } finally {
+                setLoading(false);
             }
+        };
+        fetchData();
+    }, [campaignId, user, toast]);
 
-        } catch (error) {
-            console.error("Failed to load data from localStorage", error);
-        }
-        setLoading(false);
-    }, [campaignId]);
-
-    // Persist combat state to localStorage
     useEffect(() => {
-        if (loading) return; // Don't save during initial load
+        if (loading || !campaign) return;
 
         try {
             const combatStateKey = `${STORAGE_KEY_COMBAT_STATE_PREFIX}${campaignId}`;
             if (isInCombat) {
-                const combatState = {
-                    isInCombat,
-                    combatants,
-                    turnIndex,
-                    recentRolls,
-                };
+                const combatState = { isInCombat, combatants, turnIndex, recentRolls };
                 localStorage.setItem(combatStateKey, JSON.stringify(combatState));
             } else {
                 localStorage.removeItem(combatStateKey);
             }
         } catch (error) {
             console.error("Failed to persist combat state:", error);
-            toast({
-                variant: "destructive",
-                title: "Save Error",
-                description: "Could not save the current combat state.",
-            });
+            toast({ variant: "destructive", title: "Save Error", description: "Could not save combat state." });
         }
-    }, [isInCombat, combatants, turnIndex, recentRolls, campaignId, loading, toast]);
+    }, [isInCombat, combatants, turnIndex, recentRolls, campaignId, campaign, loading, toast]);
     
     const activeCampaignCharacters = useMemo(() => {
         if (!campaign || !allPlayerCharacters) return [];
@@ -176,59 +153,41 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
 
     const handleTokenSelect = (id: string | null) => {
         setSelectedTokenId(id);
-        if (id && isPanelCollapsed) {
-            setIsPanelCollapsed(false);
-        }
-        if (!id) {
-            setTargetingMode(null);
-        }
+        if (id && isPanelCollapsed) setIsPanelCollapsed(false);
+        if (!id) setTargetingMode(null);
     };
 
-    const handleUpdateScene = useCallback((updatedScene: Scene) => {
+    const handleUpdateScene = useCallback(async (updatedScene: Scene) => {
         if(!campaign) return;
 
-        const updatedCampaign = {
+        const updatedCampaignData = {
             ...campaign,
             scenes: campaign.scenes.map(s => s.id === updatedScene.id ? updatedScene : s)
         };
         
         setActiveScene(updatedScene);
-        setCampaign(updatedCampaign);
+        setCampaign(updatedCampaignData);
         
+        const { id, ...campaignToSave } = updatedCampaignData;
+
         try {
-            const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
-            const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
-            const updatedCampaignsList = campaigns.map(c => c.id === updatedCampaign.id ? updatedCampaign : c);
-            saveCampaignsAndCleanup(updatedCampaignsList);
+            await saveDocForUser('campaigns', id, campaignToSave);
         } catch (error) {
-            if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Storage Limit Reached',
-                    description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
-                    duration: 10000,
-                });
-            } else {
-                console.error("Failed to save campaign:", error);
-                toast({ variant: "destructive", title: "Save Failed", description: "Could not save the campaign changes." });
-            }
+            console.error("Failed to save campaign:", error);
+            toast({ variant: "destructive", title: "Save Failed", description: "Could not save the campaign changes." });
         }
     }, [campaign, toast]);
 
     const handleFocusActiveCombatant = () => {
         if (isInCombat && combatants.length > 0) {
             const activeTokenId = combatants[turnIndex]?.tokenId;
-            if (activeTokenId) {
-                setTokenToCenter(activeTokenId);
-            }
+            if (activeTokenId) setTokenToCenter(activeTokenId);
         }
     };
 
     const handleCombatStart = (finalCombatants: Combatant[]) => {
         setCombatants(finalCombatants);
-        const rolls = finalCombatants.map(c => 
-            `${c.name}: ${c.initiative} (d20: ${c.initiativeRoll} + ${c.dexterityModifier})`
-        );
+        const rolls = finalCombatants.map(c => `${c.name}: ${c.initiative} (d20: ${c.initiativeRoll} + ${c.dexterityModifier})`);
         setRecentRolls(rolls);
         setTurnIndex(0);
         setIsInCombat(true);
@@ -243,39 +202,21 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         const newTurnIndex = (turnIndex + 1) % combatants.length;
         const startingTurnTokenId = combatants[newTurnIndex]?.tokenId;
 
-        // Remove temporary status effects based on turn timing
         const updatedTokens = activeScene.tokens.map(token => {
             let newStatusEffects = [...(token.statusEffects || [])];
-            
-            // Effects that end at the END of the current character's turn
-            if (token.id === endingTurnTokenId) {
-                newStatusEffects = newStatusEffects.filter(e => e !== 'disengaged');
-            }
-            
-            // Effects that end at the START of the current character's turn
-            if (token.id === startingTurnTokenId) {
-                newStatusEffects = newStatusEffects.filter(e => e !== 'dodging' && e !== 'helping');
-            }
-            
+            if (token.id === endingTurnTokenId) newStatusEffects = newStatusEffects.filter(e => e !== 'disengaged');
+            if (token.id === startingTurnTokenId) newStatusEffects = newStatusEffects.filter(e => e !== 'dodging' && e !== 'helping');
             return { ...token, statusEffects: newStatusEffects };
         });
 
-        // Update the scene with the new token states
-        const updatedScene = { ...activeScene, tokens: updatedTokens };
-        handleUpdateScene(updatedScene);
+        handleUpdateScene({ ...activeScene, tokens: updatedTokens });
 
-        // Reset actions for the combatant whose turn is now starting
-        const updatedCombatants = combatants.map((c, index) => {
-            if (index === newTurnIndex) {
-                return {
-                    ...c,
-                    hasAction: true,
-                    hasBonusAction: true,
-                    hasReaction: true, // Reaction resets at start of turn
-                };
-            }
-            return c;
-        });
+        const updatedCombatants = combatants.map((c, index) => ({
+            ...c,
+            hasAction: index === newTurnIndex,
+            hasBonusAction: index === newTurnIndex,
+            hasReaction: index === newTurnIndex,
+        }));
 
         setCombatants(updatedCombatants);
         setTurnIndex(newTurnIndex);
@@ -290,7 +231,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     };
     
     const handleUseAction = (actionType: string) => {
-        if (!isInCombat) return; // Don't track action economy outside of combat
+        if (!isInCombat) return;
         setCombatants(prev => prev.map((c, index) => {
             if (index === turnIndex) {
                 const updatedCombatant = { ...c };
@@ -310,71 +251,42 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         }
         
         const activeCombatant = combatants[turnIndex];
-        const isPlayerTurn = isInCombat && activeCombatant && activeCombatant.tokenId === selectedTokenId;
+        const isPlayerTurn = isInCombat && activeCombatant?.tokenId === selectedTokenId;
         
         if (isInCombat && !isPlayerTurn) {
              toast({ variant: 'destructive', title: 'Not Your Turn', description: 'This action can only be taken on your turn.' });
             return;
         }
 
-        let actionType: string;
-        if ('level' in action) { // It's a spell
-            actionType = action.time.toLowerCase().includes('bonus') ? 'Bonus Action' : 'Action';
-        } else {
-            actionType = 'type' in action ? action.type : 'Action';
-        }
+        let actionType = 'level' in action ? (action.time.toLowerCase().includes('bonus') ? 'Bonus Action' : 'Action') : ('type' in action ? action.type : 'Action');
 
         if (isPlayerTurn) {
-            if (actionType === 'Action' && !activeCombatant.hasAction) {
-                toast({ variant: 'destructive', title: 'No Action', description: 'You have already used your action this turn.' });
-                return;
-            }
-            if (actionType === 'Bonus Action' && !activeCombatant.hasBonusAction) {
-                toast({ variant: 'destructive', title: 'No Bonus Action', description: 'You have already used your bonus action this turn.' });
-                return;
-            }
-            if (actionType === 'Reaction' && !activeCombatant.hasReaction) {
-                toast({ variant: 'destructive', title: 'No Reaction', description: 'You have already used your reaction this turn.' });
-                return;
-            }
+            if (actionType === 'Action' && !activeCombatant.hasAction) { toast({ variant: 'destructive', title: 'No Action' }); return; }
+            if (actionType === 'Bonus Action' && !activeCombatant.hasBonusAction) { toast({ variant: 'destructive', title: 'No Bonus Action' }); return; }
+            if (actionType === 'Reaction' && !activeCombatant.hasReaction) { toast({ variant: 'destructive', title: 'No Reaction' }); return; }
         }
         
-        // If not in combat, this action will start it
-        if (!isInCombat) {
-            setIsInitiatingCombat(true);
-        }
+        if (!isInCombat) setIsInitiatingCombat(true);
 
-        const selfCastActions: Record<string, 'dodging' | 'disengaged' | 'hidden'> = {
-            'Dodge': 'dodging',
-            'Disengage': 'disengaged',
-            'Hide': 'hidden',
-        };
+        const selfCastActions: Record<string, 'dodging' | 'disengaged' | 'hidden'> = { 'Dodge': 'dodging', 'Disengage': 'disengaged', 'Hide': 'hidden' };
         const selfCastEffect = selfCastActions[action.name];
 
         if (selfCastEffect && activeScene) {
             handleUseAction('Action');
             const updatedTokens = activeScene.tokens.map(token => {
                 if (token.id === selectedTokenId) {
-                    const newStatusEffects = [...(token.statusEffects || [])];
-                    if (!newStatusEffects.includes(selfCastEffect)) {
-                        newStatusEffects.push(selfCastEffect);
-                    }
-                    return { ...token, statusEffects: newStatusEffects };
+                    const newStatusEffects = [...(token.statusEffects || []), selfCastEffect];
+                    return { ...token, statusEffects: Array.from(new Set(newStatusEffects)) };
                 }
                 return token;
             });
-
             handleUpdateScene({ ...activeScene, tokens: updatedTokens });
             toast({ title: 'Status Applied!', description: `${action.name} is now active.` });
-            
-            if (!isInCombat) {
-                setIsInitiativeDialogOpen(true);
-            }
+            if (!isInCombat) setIsInitiativeDialogOpen(true);
             return;
         }
 
         const rangeInfo = parseRangeFromAction(action);
-        
         if (!rangeInfo || (rangeInfo.type !== 'self' && rangeInfo.value === 0)) {
             handleUseAction(actionType);
             toast({ title: "Action Used", description: `You used ${action.name}.` });
@@ -399,46 +311,26 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
         setAnimationTarget(targetId);
         setTimeout(() => setAnimationTarget(null), 800);
 
-        let actionType: string;
-        if ('level' in targetingMode.action) { // It's a spell
-            actionType = targetingMode.action.time.toLowerCase().includes('bonus') ? 'Bonus Action' : 'Action';
-        } else {
-            actionType = 'type' in targetingMode.action ? targetingMode.action.type : 'Action';
-        }
+        let actionType = 'level' in targetingMode.action ? (targetingMode.action.time.toLowerCase().includes('bonus') ? 'Bonus Action' : 'Action') : ('type' in targetingMode.action ? targetingMode.action.type : 'Action');
         handleUseAction(actionType);
         
         const casterToken = activeScene.tokens.find(t => t.id === targetingMode.casterId);
+        const targetToken = activeScene.tokens.find(t => t.id === targetId);
         
         if (targetingMode.action.name === 'Help') {
-            const targetToken = activeScene.tokens.find(t => t.id === targetId);
-            
-            if (targetId === targetingMode.casterId) {
-                 toast({ variant: 'destructive', title: 'Invalid Target', description: 'You cannot help yourself.' });
-                 setTargetingMode(null);
-                 return;
-            }
-            if (targetToken?.type !== 'character') {
-                 toast({ variant: 'destructive', title: 'Invalid Target', description: 'You can only help allied characters.' });
-                 setTargetingMode(null);
-                 return;
-            }
+            if (targetId === targetingMode.casterId) { toast({ variant: 'destructive', title: 'Invalid Target', description: 'You cannot help yourself.' }); setTargetingMode(null); return; }
+            if (targetToken?.type !== 'character') { toast({ variant: 'destructive', title: 'Invalid Target', description: 'You can only help allied characters.' }); setTargetingMode(null); return; }
             
             const updatedTokens = activeScene.tokens.map(token => {
                 if (token.id === targetId) {
-                    const newStatusEffects: Token['statusEffects'] = [...(token.statusEffects || [])];
-                    if (!newStatusEffects.includes('helping')) {
-                        newStatusEffects.push('helping');
-                    }
-                    return { ...token, statusEffects: newStatusEffects };
+                    const newStatusEffects = [...(token.statusEffects || []), 'helping'];
+                    return { ...token, statusEffects: Array.from(new Set(newStatusEffects)) };
                 }
                 return token;
             });
-            
             handleUpdateScene({ ...activeScene, tokens: updatedTokens });
             toast({ title: 'Action Used!', description: `${casterToken?.name} is helping ${targetToken?.name}.` });
-            
         } else {
-            const targetToken = activeScene.tokens.find(t => t.id === targetId);
             if (casterToken && targetToken) {
                 toast({ title: 'Action Targeted!', description: `${casterToken.name} used ${targetingMode.action.name} on ${targetToken.name}. ${'effects' in targetingMode.action ? targetingMode.action.effects : ''}` });
             }
@@ -448,42 +340,23 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
             setIsInitiatingCombat(false);
             setIsInitiativeDialogOpen(true);
         }
-
         setTargetingMode(null);
     }, [targetingMode, activeScene, toast, handleUpdateScene, isInitiatingCombat, handleUseAction]);
 
     const handleCancelTargeting = useCallback(() => {
         setTargetingMode(null);
-        if (isInitiatingCombat) {
-             setIsInitiatingCombat(false);
-        }
+        if (isInitiatingCombat) setIsInitiatingCombat(false);
     }, [isInitiatingCombat]);
 
     const handleNarrationCreate = (data: { plotSummary: string; audioId: string; voice: string; }) => {
         if (!activeScene) return;
-
-        const newNarration: Narration = {
-            id: `narration-${Date.now()}`,
-            plotSummary: data.plotSummary,
-            audioId: data.audioId,
-            voice: data.voice,
-        };
-        
-        const updatedScene: Scene = {
-            ...activeScene,
-            narrations: [...(activeScene.narrations || []), newNarration],
-        };
-        handleUpdateScene(updatedScene);
+        const newNarration: Narration = { id: `narration-${Date.now()}`, ...data };
+        handleUpdateScene({ ...activeScene, narrations: [...(activeScene.narrations || []), newNarration] });
     };
 
     const handleNarrationDelete = (narrationId: string) => {
         if (!activeScene) return;
-        
-        const updatedScene: Scene = {
-            ...activeScene,
-            narrations: (activeScene.narrations || []).filter(n => n.id !== narrationId),
-        };
-        handleUpdateScene(updatedScene);
+        handleUpdateScene({ ...activeScene, narrations: (activeScene.narrations || []).filter(n => n.id !== narrationId) });
     };
 
     if (loading) {
@@ -515,9 +388,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
     return (
         <div className={cn("fixed inset-0 bg-muted flex", panelPosition === 'right' ? 'flex-row' : 'flex-row-reverse')}>
             <main className="flex-1 h-full bg-black relative">
-                {isInCombat && (
-                    <InitiativeTracker combatants={combatants} activeTurnIndex={turnIndex} />
-                )}
+                {isInCombat && <InitiativeTracker combatants={combatants} activeTurnIndex={turnIndex} />}
                  <div className="absolute bottom-4 right-4 z-10 flex flex-col items-end gap-2">
                     {isInCombat && recentRolls.length > 0 && (
                         <div className="text-xs text-white bg-black/50 p-2 rounded-md max-w-xs text-right shadow-lg">
@@ -526,9 +397,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
                         </div>
                     )}
                     {!isInCombat ? (
-                        <Button onClick={() => setIsInitiativeDialogOpen(true)}>
-                            <Swords className="mr-2 h-4 w-4" /> Start Combat
-                        </Button>
+                        <Button onClick={() => setIsInitiativeDialogOpen(true)}> <Swords className="mr-2 h-4 w-4" /> Start Combat </Button>
                     ) : (
                         <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm p-2 rounded-md shadow-lg">
                              <Button variant="outline" size="icon" onClick={handleFocusActiveCombatant}>
@@ -560,10 +429,7 @@ export function GameBoard({ campaignId }: { campaignId: string }) {
             
             {!isPanelCollapsed && (
                 <div 
-                    className={cn(
-                        "w-1.5 h-full cursor-col-resize bg-border hover:bg-primary transition-colors",
-                         panelPosition === 'left' && 'order-first'
-                    )}
+                    className={cn( "w-1.5 h-full cursor-col-resize bg-border hover:bg-primary transition-colors", panelPosition === 'left' && 'order-first' )}
                     onMouseDown={startResizing}
                 />
             )}

@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Play, Users, UserPlus, Pencil, X } from "lucide-react";
@@ -14,157 +13,124 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-
-const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
-const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
-
+import { useAuth } from '@/context/auth-context';
+import { getDocForUser, getCollectionForUser, saveDocForUser } from '@/lib/firestore';
 
 export default function CampaignDetailPage() {
     const params = useParams();
+    const router = useRouter();
     const id = params.id as string;
-    const [campaign, setCampaign] = useState<Campaign | null>(null);
+    const { user } = useAuth();
+    const [campaign, setCampaign] = useState<(Campaign & {id: string}) | null>(null);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
 
-    const [allPlayerCharacters, setAllPlayerCharacters] = useState<Character[]>([]);
+    const [allPlayerCharacters, setAllPlayerCharacters] = useState<PlayerCharacter[]>([]);
     const [characterToAdd, setCharacterToAdd] = useState('');
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
     useEffect(() => {
-        try {
-            const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
-            if (storedCampaigns) {
-                const campaigns: Campaign[] = JSON.parse(storedCampaigns);
-                const currentCampaign = campaigns.find(c => c.id === id);
-                setCampaign(currentCampaign || null);
-            }
-            
-            const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
-            if (storedCharacters) {
-                const playerCharacters: PlayerCharacter[] = JSON.parse(storedCharacters);
-                const charactersForCampaign: Character[] = playerCharacters.map(pc => ({
-                    id: pc.id,
-                    name: pc.name,
-                    avatarUrl: pc.avatar,
-                    class: pc.className,
-                    level: pc.level,
-                    tokenImageUrl: `https://placehold.co/48x48.png`
-                }));
-                setAllPlayerCharacters(charactersForCampaign.sort((a,b) => a.name.localeCompare(b.name)));
-            }
-        } catch (error) {
-            console.error("Failed to load data from localStorage", error);
-        }
-        setLoading(false);
-    }, [id]);
+        if (!user) return;
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const [campaignData, playerCharacters] = await Promise.all([
+                    getDocForUser<Campaign>('campaigns', id),
+                    getCollectionForUser<PlayerCharacter>('playerCharacters')
+                ]);
 
+                if (!campaignData) {
+                    toast({ variant: 'destructive', title: 'Error', description: 'Campaign not found or you do not have permission to view it.' });
+                    router.push('/play');
+                    return;
+                }
+                
+                setCampaign(campaignData);
+                setAllPlayerCharacters(playerCharacters.sort((a,b) => a.name.localeCompare(b.name)));
+            } catch (error) {
+                console.error("Failed to load data from Firestore", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load campaign data.' });
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [id, user, toast, router]);
+
+    const saveUpdatedCampaign = async (updatedCampaign: Campaign & {id: string}) => {
+        try {
+            const { id: campaignId, ...campaignToSave } = updatedCampaign;
+            await saveDocForUser('campaigns', campaignId, campaignToSave);
+            setCampaign(updatedCampaign);
+        } catch (error) {
+            console.error("Failed to save campaign:", error);
+            toast({ variant: "destructive", title: "Save Failed", description: "Could not save campaign changes." });
+        }
+    };
+    
     const handleRemoveCharacter = (characterId: string) => {
         if (!campaign) return;
 
-        try {
-            const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
-            if (!storedCampaigns) return;
-
-            let campaigns: Campaign[] = JSON.parse(storedCampaigns);
-            const campaignIndex = campaigns.findIndex(c => c.id === campaign.id);
-            if (campaignIndex === -1) return;
-
-            const updatedCampaign = { ...campaigns[campaignIndex] };
-            
-            const removedChar = updatedCampaign.characters.find(c => c.id === characterId);
-
-            updatedCampaign.characters = updatedCampaign.characters.filter(c => c.id !== characterId);
-            
-            updatedCampaign.scenes = updatedCampaign.scenes.map(scene => ({
+        const removedChar = campaign.characters.find(c => c.id === characterId);
+        const updatedCampaign = {
+            ...campaign,
+            characters: campaign.characters.filter(c => c.id !== characterId),
+            scenes: campaign.scenes.map(scene => ({
                 ...scene,
                 tokens: scene.tokens.filter(token => token.linked_character_id !== characterId)
-            }));
-
-            campaigns[campaignIndex] = updatedCampaign;
-
-            localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(campaigns));
-
-            setCampaign(updatedCampaign);
-
-            toast({ title: "Character Removed", description: `${removedChar?.name || 'The character'} has been removed from the campaign.` });
-        } catch (error) {
-            console.error("Failed to remove character:", error);
-            toast({ variant: "destructive", title: "Error", description: "Could not remove character." });
-        }
+            }))
+        };
+        saveUpdatedCampaign(updatedCampaign);
+        toast({ title: "Character Removed", description: `${removedChar?.name || 'The character'} has been removed.` });
     };
     
     const handleAddCharacter = () => {
         if (!characterToAdd || !campaign) return;
 
-        const character = allPlayerCharacters.find(c => c.id === characterToAdd);
-        if (!character) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Selected character not found.' });
-            return;
-        }
+        const characterData = allPlayerCharacters.find(c => c.id === characterToAdd);
+        if (!characterData) return;
 
-        const newCampaign: Campaign = { 
+        const newCharacterForCampaign: Character = {
+            id: characterData.id,
+            name: characterData.name,
+            avatarUrl: characterData.avatar,
+            class: characterData.className,
+            level: characterData.level,
+            tokenImageUrl: `https://placehold.co/48x48.png`
+        };
+
+        const updatedCampaign: Campaign & {id: string} = { 
             ...campaign,
-            characters: [...campaign.characters, character],
+            characters: [...campaign.characters, newCharacterForCampaign],
             scenes: campaign.scenes.map(scene => ({
                 ...scene,
                 tokens: [
                     ...scene.tokens,
                     {
                         id: `token-${Date.now()}-${Math.random()}`,
-                        name: character.name,
-                        imageUrl: character.tokenImageUrl || 'https://placehold.co/48x48.png',
+                        name: characterData.name,
+                        imageUrl: newCharacterForCampaign.tokenImageUrl || 'https://placehold.co/48x48.png',
                         type: 'character',
-                        linked_character_id: character.id,
+                        linked_character_id: characterData.id,
                         position: { x: 10 + Math.floor(Math.random() * 10), y: 10 + Math.floor(Math.random() * 10) }
                     } as Token
                 ]
             }))
         };
         
-        try {
-            const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
-            const campaigns: Campaign[] = storedCampaigns ? JSON.parse(storedCampaigns) : [];
-            const updatedCampaigns = campaigns.map(c => c.id === newCampaign.id ? newCampaign : c);
-            localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(updatedCampaigns));
-            
-            setCampaign(newCampaign);
-            setCharacterToAdd('');
-            setIsAddDialogOpen(false);
-            toast({ title: 'Character Added', description: `${character.name} has joined the campaign!` });
-        } catch (error) {
-            if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Storage Limit Reached',
-                    description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
-                    duration: 10000,
-                });
-            } else {
-                console.error("Failed to save character to campaign:", error);
-                toast({ variant: "destructive", title: "Save Failed", description: "Could not add character to the campaign." });
-            }
-        }
+        saveUpdatedCampaign(updatedCampaign);
+        setCharacterToAdd('');
+        setIsAddDialogOpen(false);
+        toast({ title: 'Character Added', description: `${characterData.name} has joined the campaign!` });
     };
 
     const availableCharacters = campaign ? allPlayerCharacters.filter(
       (char) => !campaign.characters.some((c) => c.id === char.id)
     ) : [];
 
-    if (loading) {
-        return <div className="text-center p-8">Loading campaign...</div>;
-    }
+    if (loading) return <div className="text-center p-8">Loading campaign...</div>;
     
-    if (!campaign) {
-        return (
-            <div className="text-center">
-                <h1 className="text-2xl font-bold">Campaign not found</h1>
-                <p className="text-muted-foreground">The campaign you are looking for does not exist.</p>
-                <Button asChild variant="link" className="mt-4">
-                    <Link href="/play">Back to Campaigns</Link>
-                </Button>
-            </div>
-        )
-    }
+    if (!campaign) return null; // Already handled by redirect in useEffect
 
     return (
         <div className="space-y-6">
@@ -250,7 +216,7 @@ export default function CampaignDetailPage() {
                                                 {availableCharacters.length > 0 ? (
                                                     availableCharacters.map(char => (
                                                         <SelectItem key={char.id} value={char.id}>
-                                                            {char.name} ({char.class} Lvl {char.level})
+                                                            {char.name} ({char.className} Lvl {char.level})
                                                         </SelectItem>
                                                     ))
                                                 ) : (

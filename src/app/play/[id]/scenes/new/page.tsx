@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect } from "react";
@@ -15,20 +14,20 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { generateMapAction } from "./actions";
-import { saveCampaignsAndCleanup } from "@/lib/storage-utils";
+import { useAuth } from "@/context/auth-context";
+import { getDocForUser, saveDocForUser } from "@/lib/firestore";
 
-
-const STORAGE_KEY_CAMPAIGNS = 'dnd_campaigns';
 const STORAGE_KEY_MAPS = 'dnd_scene_maps';
-
 
 export default function NewScenePage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  const [campaign, setCampaign] = useState<(Campaign & {id: string}) | null>(null);
   const [sceneName, setSceneName] = useState('');
-  const [campaignName, setCampaignName] = useState('');
   const [backgroundUrl, setBackgroundUrl] = useState('');
   const [mapDescription, setMapDescription] = useState('');
   const [width, setWidth] = useState(30);
@@ -36,19 +35,18 @@ export default function NewScenePage() {
   const [isGenerating, startTransition] = useTransition();
 
   useEffect(() => {
-    try {
-        const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
-        if (storedCampaigns) {
-            const campaigns: Campaign[] = JSON.parse(storedCampaigns);
-            const currentCampaign = campaigns.find(c => c.id === id);
-            if (currentCampaign) {
-                setCampaignName(currentCampaign.name);
-            }
+    if (!user) return;
+    const fetchCampaign = async () => {
+        try {
+            const campaignData = await getDocForUser<Campaign>('campaigns', id);
+            setCampaign(campaignData);
+        } catch (error) {
+            console.error("Failed to load campaign data:", error);
+            toast({ variant: "destructive", title: "Load Failed", description: "Could not load campaign data." });
         }
-    } catch (error) {
-        console.error("Failed to load campaign name from localStorage", error);
-    }
-  }, [id]);
+    };
+    fetchCampaign();
+  }, [id, user, toast]);
   
   const handleGenerateMap = () => {
     startTransition(async () => {
@@ -57,7 +55,7 @@ export default function NewScenePage() {
             return;
         }
         const result = await generateMapAction({
-            campaignName: campaignName || 'Unnamed Campaign',
+            campaignName: campaign?.name || 'Unnamed Campaign',
             sceneName: sceneName || 'Unnamed Scene',
             description: mapDescription,
         });
@@ -70,35 +68,19 @@ export default function NewScenePage() {
     });
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!sceneName.trim()) {
       toast({ variant: 'destructive', title: 'Error', description: 'Scene name is required.' });
       return;
     }
+    if (!campaign) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Campaign data not found.' });
+        return;
+    }
 
     try {
-        const storedCampaigns = localStorage.getItem(STORAGE_KEY_CAMPAIGNS);
-        if (!storedCampaigns) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Campaign data not found.' });
-            return;
-        }
-        
-        const campaigns: Campaign[] = JSON.parse(storedCampaigns);
-        const campaignIndex = campaigns.findIndex(c => c.id === id);
-
-        if (campaignIndex === -1) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Campaign not found.' });
-            return;
-        }
-
-        const currentCampaign = campaigns[campaignIndex];
-        
-        if (!currentCampaign.scenes) {
-            currentCampaign.scenes = [];
-        }
-
-        const initialTokens: Token[] = currentCampaign.characters.map(character => ({
+        const initialTokens: Token[] = campaign.characters.map(character => ({
             id: `token-${Date.now()}-${character.id}`,
             name: character.name,
             imageUrl: character.tokenImageUrl || 'https://placehold.co/48x48.png',
@@ -135,30 +117,24 @@ export default function NewScenePage() {
             height: height || 20,
             background_map_url: finalBackgroundUrl,
             tokens: initialTokens,
-            is_active: currentCampaign.scenes.length === 0,
+            is_active: campaign.scenes.length === 0,
             description: mapDescription,
         };
 
-        currentCampaign.scenes.push(newScene);
-        campaigns[campaignIndex] = currentCampaign;
-        
-        saveCampaignsAndCleanup(campaigns);
+        const updatedCampaign = {
+            ...campaign,
+            scenes: [...campaign.scenes, newScene],
+        };
+
+        const { id: campaignId, ...campaignToSave } = updatedCampaign;
+        await saveDocForUser('campaigns', campaignId, campaignToSave);
 
         toast({ title: "Scene Created!", description: "Your new scene has been added to the campaign." });
         router.push(`/play/${id}/edit`);
 
     } catch (error) {
-        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-             toast({
-                variant: 'destructive',
-                title: 'Storage Limit Reached',
-                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
-                duration: 10000,
-            });
-        } else {
-            console.error("Failed to create scene:", error);
-            toast({ variant: "destructive", title: "Creation Failed", description: "Could not create the new scene." });
-        }
+        console.error("Failed to create scene:", error);
+        toast({ variant: "destructive", title: "Creation Failed", description: "Could not create the new scene." });
     }
   }
 

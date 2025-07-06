@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -32,11 +31,10 @@ import type { Class, PlayerCharacter } from '@/lib/types';
 import { fullCasterSpellSlots } from '@/lib/dnd-data';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { MultiSelectCombobox } from './multi-select-combobox';
+import { useAuth } from '@/context/auth-context';
+import { getGlobalCollection, saveDocForUser, getGlobalDoc, saveGlobalDoc } from '@/lib/firestore';
 
-const STORAGE_KEY_CLASSES = 'dnd_classes';
-const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 const STORAGE_KEY_LAST_ACTIVE_CHARACTER = 'dnd_last_active_character_id';
-const STORAGE_KEY_GENDERS = 'dnd_genders';
 const ARMOR_PREFERENCES = ['Light Armor', 'Medium Armor', 'Heavy Armor', 'Robes', 'Leather', 'Unarmored'].sort();
 
 const characterFormSchema = z.object({
@@ -72,35 +70,42 @@ const RACES = ['Dragonborn', 'Dwarf', 'Elf', 'Gnome', 'Halfling', 'Human'].sort(
 export function CharacterCreationForm() {
   const { toast } = useToast();
   const router = useRouter();
+  const { user } = useAuth();
   const [isGeneratingBackground, startBackgroundTransition] = useTransition();
   const [isGeneratingPortrait, startPortraitTransition] = useTransition();
   const [classes, setClasses] = useState<Class[]>([]);
   const [genderOptions, setGenderOptions] = useState<string[]>([]);
 
   useEffect(() => {
-    try {
-      const storedClasses = localStorage.getItem(STORAGE_KEY_CLASSES);
-      if (storedClasses) {
-        const parsedClasses: Class[] = JSON.parse(storedClasses);
-        parsedClasses.sort((a, b) => {
+    async function fetchData() {
+      try {
+        const [fetchedClasses, genderDoc] = await Promise.all([
+            getGlobalCollection<Class>('classes'),
+            getGlobalDoc<{ options: string[] }>('metadata', 'genders'),
+        ]);
+
+        const sortedClasses = fetchedClasses.sort((a, b) => {
           if (a.name < b.name) return -1;
           if (a.name > b.name) return 1;
           if (a.subclass < b.subclass) return -1;
           if (a.subclass > b.subclass) return 1;
           return 0;
         });
-        setClasses(parsedClasses);
-      }
-      const storedGenders = localStorage.getItem(STORAGE_KEY_GENDERS);
-        if (storedGenders) {
-            setGenderOptions(JSON.parse(storedGenders));
+        setClasses(sortedClasses);
+        
+        if (genderDoc) {
+            setGenderOptions(genderDoc.options);
         } else {
-            setGenderOptions(['Male', 'Female', 'Non-binary']);
+            const defaultGenders = ['Male', 'Female', 'Non-binary'];
+            await saveGlobalDoc('metadata', 'genders', { options: defaultGenders });
+            setGenderOptions(defaultGenders);
         }
-    } catch (error) {
-      console.error("Failed to load data from localStorage", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not load class or gender data.' });
+      } catch (error) {
+        console.error("Failed to load data from Firestore", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load class or gender data.' });
+      }
     }
+    fetchData();
   }, [toast]);
 
   const form = useForm<z.infer<typeof characterFormSchema>>({
@@ -115,21 +120,13 @@ export function CharacterCreationForm() {
       armorPreference: [],
       colorPreference: '#4A6572',
       tokenBorderColor: '#698F9C',
-      stats: {
-        str: 10,
-        dex: 10,
-        con: 10,
-        int: 10,
-        wis: 10,
-        cha: 10,
-      },
+      stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     },
   });
 
   const avatarUrl = form.watch('avatar');
   const watchedAiFields = form.watch(['characterName', 'characterRace', 'characterClass', 'gender', 'armorPreference', 'colorPreference']);
   const isAiGenDisabled = isGeneratingBackground || isGeneratingPortrait || !watchedAiFields[0] || !watchedAiFields[1] || !watchedAiFields[2] || !watchedAiFields[3] || !watchedAiFields[4] || watchedAiFields[4].length === 0 || !watchedAiFields[5];
-
 
   const handleGenerateBackground = () => {
     startBackgroundTransition(async () => {
@@ -149,16 +146,9 @@ export function CharacterCreationForm() {
 
       if (result.success) {
         form.setValue('backgroundStory', result.background || '');
-        toast({
-          title: 'Background Generated!',
-          description: "Your character's story has been written.",
-        });
+        toast({ title: 'Background Generated!', description: "Your character's story has been written." });
       } else {
-        toast({
-          variant: 'destructive',
-          title: 'Generation Failed',
-          description: result.error,
-        });
+        toast({ variant: 'destructive', title: 'Generation Failed', description: result.error });
       }
     });
   };
@@ -166,11 +156,7 @@ export function CharacterCreationForm() {
   const handleGeneratePortrait = () => {
     const backstory = form.getValues('backgroundStory');
     if (!backstory) {
-        toast({
-          variant: 'destructive',
-          title: 'Generation Failed',
-          description: 'Please generate or write a background story first to provide context for the portrait.',
-        });
+        toast({ variant: 'destructive', title: 'Generation Failed', description: 'Please generate or write a background story first to provide context for the portrait.' });
         return;
     }
 
@@ -189,16 +175,9 @@ export function CharacterCreationForm() {
 
       if (result.success && result.imageUrl) {
         form.setValue('avatar', result.imageUrl);
-        toast({
-          title: 'Portrait Generated!',
-          description: "Your character's portrait is ready.",
-        });
+        toast({ title: 'Portrait Generated!', description: "Your character's portrait is ready." });
       } else {
-        toast({
-          variant: 'destructive',
-          title: 'Generation Failed',
-          description: result.error,
-        });
+        toast({ variant: 'destructive', title: 'Generation Failed', description: result.error });
       }
     });
   };
@@ -206,7 +185,7 @@ export function CharacterCreationForm() {
   const rollStat = () => {
     const rolls = Array.from({ length: 4 }, () => Math.floor(Math.random() * 6) + 1);
     rolls.sort((a, b) => a - b);
-    rolls.shift(); // drop the lowest
+    rolls.shift();
     return rolls.reduce((sum, roll) => sum + roll, 0);
   };
 
@@ -220,16 +199,16 @@ export function CharacterCreationForm() {
     toast({ title: "Stats Rolled!", description: "Your ability scores have been generated." });
   };
 
-
-  function onSubmit(values: z.infer<typeof characterFormSchema>) {
+  async function onSubmit(values: z.infer<typeof characterFormSchema>) {
+    if (!user) {
+        toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to create a character." });
+        return;
+    }
     try {
-        const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
-        const playerCharacters: PlayerCharacter[] = storedCharacters ? JSON.parse(storedCharacters) : [];
-        
         if (!genderOptions.includes(values.gender)) {
             const newGenders = [...genderOptions, values.gender].sort();
             setGenderOptions(newGenders);
-            localStorage.setItem(STORAGE_KEY_GENDERS, JSON.stringify(newGenders));
+            await saveGlobalDoc('metadata', 'genders', { options: newGenders });
         }
 
         const [className, subclass] = values.characterClass.split(':');
@@ -272,7 +251,7 @@ export function CharacterCreationForm() {
             inventory: ['item-1'],
         };
         
-        const isCaster = selectedClass && selectedClass.spellcasting_type && selectedClass.spellcasting_type !== 'none';
+        const isCaster = selectedClass?.spellcasting_type && selectedClass.spellcasting_type !== 'none';
         if (isCaster) {
             const level1SlotsData = fullCasterSpellSlots.find(l => l.level === 1)?.slots;
             if (level1SlotsData) {
@@ -287,16 +266,11 @@ export function CharacterCreationForm() {
             newCharacter.mp = 10;
             newCharacter.maxMp = 10;
         }
-
-        const updatedCharacters = [...playerCharacters, newCharacter];
-        localStorage.setItem(STORAGE_KEY_PLAYER_CHARACTERS, JSON.stringify(updatedCharacters));
+        
+        await saveDocForUser('playerCharacters', newCharacterId, newCharacter);
         localStorage.setItem(STORAGE_KEY_LAST_ACTIVE_CHARACTER, newCharacterId);
 
-        toast({
-          title: 'Character Created!',
-          description: 'Your new hero is ready for adventure.',
-        });
-
+        toast({ title: 'Character Created!', description: 'Your new hero is ready for adventure.' });
         router.push('/character-sheet');
 
     } catch (error) {
@@ -532,7 +506,6 @@ export function CharacterCreationForm() {
               {isGeneratingBackground ? 'Generating Background...' : <><Sparkles className="mr-2 h-4 w-4" /> Generate Background</>}
             </Button>
         </div>
-
 
         <FormField
           control={form.control}

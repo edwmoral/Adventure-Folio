@@ -1,19 +1,18 @@
-
 'use client';
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import type { Background, RaceTrait } from '@/lib/types';
+import type { Background } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
-
-const STORAGE_KEY = 'dnd_backgrounds';
+import { useAuth } from "@/context/auth-context";
+import { getUserDoc, saveUserDoc } from "@/lib/firestore";
 
 const toArray = (str: string) => str.split(',').map(s => s.trim()).filter(Boolean);
 const fromArray = (arr: string[] | undefined) => (arr || []).join(', ');
@@ -22,6 +21,7 @@ export default function EditBackgroundPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const backgroundNameParam = searchParams.get('name');
   const [isLoading, setIsLoading] = useState(true);
@@ -34,58 +34,61 @@ export default function EditBackgroundPage() {
   });
 
   useEffect(() => {
-    if (backgroundNameParam) {
-      try {
-        const storedData = localStorage.getItem(STORAGE_KEY);
-        const allBackgrounds: Background[] = storedData ? JSON.parse(storedData) : [];
-        const foundBackground = allBackgrounds.find(b => b.name === backgroundNameParam);
-        if (foundBackground) {
-          setBackground({
-            name: foundBackground.name,
-            text: foundBackground.text,
-            proficiency: fromArray(foundBackground.proficiency),
-            features: fromArray(foundBackground.trait?.map(t => t.name)),
-          });
-        } else {
-          toast({ variant: 'destructive', title: 'Error', description: 'Background not found.' });
-          router.push('/backgrounds');
+    if (user && backgroundNameParam) {
+      setIsLoading(true);
+      const fetchBackground = async () => {
+        try {
+          const foundBackground = await getUserDoc<Background>('backgrounds', backgroundNameParam);
+          if (foundBackground) {
+            setBackground({
+              name: foundBackground.name,
+              text: foundBackground.text,
+              proficiency: fromArray(foundBackground.proficiency),
+              features: fromArray(foundBackground.trait?.map(t => t.name)),
+            });
+          } else {
+            toast({ variant: 'destructive', title: 'Error', description: 'Background not found.' });
+            router.push('/backgrounds');
+          }
+        } catch (error) {
+          console.error("Failed to load background:", error);
+          toast({ variant: "destructive", title: "Load Failed", description: "Could not load background data." });
+        } finally {
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error("Failed to load background from localStorage", error);
-        toast({ variant: "destructive", title: "Load Failed", description: "Could not load background data." });
-      }
+      };
+      fetchBackground();
     }
-    setIsLoading(false);
-  }, [backgroundNameParam, router, toast]);
+  }, [backgroundNameParam, router, toast, user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
     setBackground(prev => ({ ...prev, [id]: value }));
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
+        return;
+    }
     if (!background.name || !background.text) {
         toast({ variant: 'destructive', title: 'Error', description: 'Name and Description are required.' });
         return;
     }
 
     try {
-        const storedData = localStorage.getItem(STORAGE_KEY);
-        const allBackgrounds: Background[] = storedData ? JSON.parse(storedData) : [];
-        
-        const updatedBackground: Background = {
-            name: background.name,
-            text: background.text,
-            proficiency: toArray(background.proficiency),
-            trait: toArray(background.features).map(f => ({ name: f, text: 'Feature provided by background.' })),
-        };
+      const updatedBackground: Background = {
+          name: background.name,
+          text: background.text,
+          proficiency: toArray(background.proficiency),
+          trait: toArray(background.features).map(f => ({ name: f, text: 'Feature provided by background.' })),
+      };
 
-        const updatedBackgrounds = allBackgrounds.map(b => b.name === backgroundNameParam ? updatedBackground : b);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedBackgrounds));
-
-        toast({ title: "Background Updated!", description: "The background has been successfully updated." });
-        router.push(`/backgrounds`);
+      await saveUserDoc('backgrounds', backgroundNameParam!, updatedBackground);
+      
+      toast({ title: "Background Updated!", description: "The background has been successfully updated." });
+      router.push(`/backgrounds`);
 
     } catch (error) {
         console.error("Failed to update background:", error);

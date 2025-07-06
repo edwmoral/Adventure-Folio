@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,6 +9,8 @@ import type { Background } from '@/lib/types';
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from '@/context/auth-context';
+import { getUserCollection, deleteUserDoc, seedInitialUserData } from '@/lib/firestore';
 
 const initialBackgrounds: Background[] = [
   {
@@ -20,41 +21,51 @@ const initialBackgrounds: Background[] = [
   }
 ];
 
-const STORAGE_KEY = 'dnd_backgrounds';
-
 export default function BackgroundsPage() {
   const [backgrounds, setBackgrounds] = useState<Background[]>([]);
   const [backgroundToDelete, setBackgroundToDelete] = useState<Background | null>(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
-    try {
-      const storedBackgrounds = localStorage.getItem(STORAGE_KEY);
-      if (storedBackgrounds) {
-        setBackgrounds(JSON.parse(storedBackgrounds));
-      } else {
-        setBackgrounds(initialBackgrounds);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialBackgrounds));
+    if (!user) return;
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        let data = await getUserCollection<Background>('backgrounds');
+        if (data.length === 0) {
+          await seedInitialUserData('backgrounds', initialBackgrounds, 'name');
+          data = await getUserCollection<Background>('backgrounds');
+        }
+        setbackgrounds(data);
+      } catch (error) {
+        console.error("Failed to fetch backgrounds:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch backgrounds.' });
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to access localStorage:", error);
-      setBackgrounds(initialBackgrounds);
-    }
-  }, []);
+    };
+    fetchData();
+  }, [user, toast]);
 
-  const handleDeleteBackground = () => {
-    if (!backgroundToDelete) return;
+  const handleDeleteBackground = async () => {
+    if (!user || !backgroundToDelete) return;
     try {
-        const updatedBackgrounds = backgrounds.filter(b => b.name !== backgroundToDelete.name);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedBackgrounds));
-        setBackgrounds(updatedBackgrounds);
+        await deleteUserDoc('backgrounds', backgroundToDelete.name);
+        setBackgrounds(backgrounds.filter(b => b.name !== backgroundToDelete.name));
         toast({ title: "Background Deleted", description: `"${backgroundToDelete.name}" has been deleted.` });
-        setBackgroundToDelete(null);
     } catch (error) {
         console.error("Failed to delete background:", error);
         toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the background." });
+    } finally {
+        setBackgroundToDelete(null);
     }
   };
+
+  if (loading) {
+    return <div>Loading backgrounds...</div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -117,7 +128,7 @@ export default function BackgroundsPage() {
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setBackgroundToDelete(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleDeleteBackground} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                         Delete
                     </AlertDialogAction>

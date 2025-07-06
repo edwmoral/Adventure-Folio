@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -20,51 +19,75 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialogTrigger } from '@radix-ui/react-alert-dialog';
-import { cleanupUnusedMaps, cleanupUnusedNarrations, saveCampaignsAndCleanup } from '@/lib/storage-utils';
-
-const STORAGE_KEY = 'dnd_campaigns';
-const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
-const STORAGE_KEY_MAPS = 'dnd_scene_maps';
+import { cleanupUnusedMaps, cleanupUnusedNarrations } from '@/lib/storage-utils';
+import { useAuth } from '@/context/auth-context';
+import { getCollectionForUser, deleteGlobalDoc, saveDocForUser, seedGlobalData, getGlobalCollection } from '@/lib/firestore';
 
 export default function PlayDashboardPage() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [campaignToDelete, setCampaignToDelete] = useState<Campaign | null>(null);
+  const { user } = useAuth();
+  const [campaigns, setCampaigns] = useState<(Campaign & { id: string })[]>([]);
+  const [campaignToDelete, setCampaignToDelete] = useState<(Campaign & { id: string }) | null>(null);
   const [clearCacheDialogOpen, setClearCacheDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      const storedCampaigns = localStorage.getItem(STORAGE_KEY);
-      if (storedCampaigns) {
-        setCampaigns(JSON.parse(storedCampaigns));
-      } else {
-        setCampaigns(initialMockCampaigns);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialMockCampaigns));
-      }
-      
-      const storedCharacters = localStorage.getItem(STORAGE_KEY_PLAYER_CHARACTERS);
-      if (!storedCharacters) {
-        localStorage.setItem(STORAGE_KEY_PLAYER_CHARACTERS, JSON.stringify(initialPlayerCharacters));
-      }
-    } catch (error) {
-      console.error("Failed to access localStorage:", error);
-      setCampaigns(initialMockCampaigns);
-    }
-  }, []);
+    if (!user) return;
 
-  const handleDeleteCampaign = () => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const userCampaigns = await getCollectionForUser<Campaign>('campaigns');
+        if (userCampaigns.length === 0) {
+          // Seed initial campaigns for the new user
+          const seedPromises = initialMockCampaigns.map(campaign => 
+            saveDocForUser('campaigns', campaign.id, campaign)
+          );
+          await Promise.all(seedPromises);
+          
+          // Seed initial player characters
+          const existingChars = await getCollectionForUser<Campaign>('playerCharacters');
+          if (existingChars.length === 0) {
+              const charSeedPromises = initialPlayerCharacters.map(char => 
+                  saveDocForUser('playerCharacters', char.id, char)
+              );
+              await Promise.all(charSeedPromises);
+          }
+          
+          const seededCampaigns = await getCollectionForUser<Campaign>('campaigns');
+          setCampaigns(seededCampaigns);
+        } else {
+          setCampaigns(userCampaigns);
+        }
+      } catch (error) {
+        console.error("Failed to fetch campaigns:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch campaigns.' });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user, toast]);
+
+  const handleDeleteCampaign = async () => {
     if (!campaignToDelete) return;
 
-    const updatedCampaigns = campaigns.filter(c => c.id !== campaignToDelete.id);
-    saveCampaignsAndCleanup(updatedCampaigns);
-    setCampaigns(updatedCampaigns);
-    
-    toast({
-      title: "Campaign Deleted",
-      description: `"${campaignToDelete.name}" has been permanently deleted.`
-    });
-    
-    setCampaignToDelete(null);
+    try {
+      await deleteGlobalDoc('campaigns', campaignToDelete.id);
+      const updatedCampaigns = campaigns.filter(c => c.id !== campaignToDelete.id);
+      setCampaigns(updatedCampaigns);
+      
+      toast({
+        title: "Campaign Deleted",
+        description: `"${campaignToDelete.name}" has been permanently deleted.`
+      });
+    } catch (error) {
+      console.error("Failed to delete campaign:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not delete campaign.' });
+    } finally {
+      setCampaignToDelete(null);
+    }
   };
 
   const handleStorageCleanup = () => {
@@ -132,7 +155,9 @@ export default function PlayDashboardPage() {
         </div>
       </div>
       
-      {campaigns.length > 0 ? (
+      {loading ? (
+        <p>Loading campaigns...</p>
+      ) : campaigns.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {campaigns.map((campaign) => (
             <CampaignCard 

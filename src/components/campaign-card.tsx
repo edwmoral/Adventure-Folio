@@ -9,7 +9,7 @@ import { Trash2 } from 'lucide-react';
 
 
 type CampaignCardProps = {
-  campaign: Campaign;
+  campaign: Campaign & { id: string };
   onDelete: () => void;
 };
 
