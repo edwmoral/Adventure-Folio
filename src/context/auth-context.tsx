@@ -18,6 +18,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (isFirebaseConfigured && auth) {
+      // Dynamically set the auth domain for this session to the current hostname.
+      // This is a robust way to solve auth/unauthorized-domain errors in proxied
+      // development environments (like cloud IDEs) where the domain isn't 'localhost'.
+      auth.authDomain = window.location.hostname;
+      
       const unsubscribe = onAuthStateChanged(auth, (user) => {
         setUser(user);
         setLoading(false);
