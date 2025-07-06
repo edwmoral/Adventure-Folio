@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from "react";
@@ -56,8 +57,9 @@ export default function EditActionPage() {
         }
       };
       fetchAction();
-    } else {
-      setIsLoading(false);
+    } else if (!actionNameParam) {
+        // If there's no param, it's an invalid state, so stop loading and let user go back
+        setIsLoading(false);
     }
   }, [actionNameParam, router, toast, user]);
 
@@ -88,6 +90,11 @@ export default function EditActionPage() {
         return;
     }
 
+    if (!actionNameParam) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Cannot update action without its original identifier.' });
+        return;
+    }
+    
     try {
         const updatedAction: Action = {
             name: action.name!,
@@ -99,7 +106,7 @@ export default function EditActionPage() {
         };
         
         // We use actionNameParam as the ID to update the correct doc, even if the name changed.
-        await saveUserDoc('actions', actionNameParam!, updatedAction);
+        await saveUserDoc('actions', actionNameParam, updatedAction);
 
         toast({ title: "Action Updated!", description: "The action has been successfully updated." });
         router.push(`/actions`);
@@ -126,7 +133,7 @@ export default function EditActionPage() {
             <CardHeader>
                 <CardTitle>Edit Action</CardTitle>
                 <CardDescription>
-                    Update the details for the action "{action.name}".
+                    Update the details for the action "{actionNameParam}".
                 </CardDescription>
             </CardHeader>
             <CardContent>

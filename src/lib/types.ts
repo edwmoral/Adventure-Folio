@@ -1,6 +1,7 @@
 
 
 
+
 // --- Base & Container Types ---
 
 export type CircleShape = {
@@ -136,7 +137,7 @@ export type Action = {
   description: string;
   usage: {
     type: string;
-    limit?: number;
+    limit?: number | string;
   };
   effects?: string;
 };

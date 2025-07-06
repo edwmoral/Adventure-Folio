@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from "react";
@@ -69,6 +70,7 @@ export default function NewActionPage() {
             effects: action.effects
         };
 
+        // Use the action name as the document ID for simplicity
         await saveUserDoc('actions', newAction.name, newAction);
 
         toast({ title: "Action Created!", description: "The new action has been added." });
