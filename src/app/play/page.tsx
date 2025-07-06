@@ -19,13 +19,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialogTrigger } from '@radix-ui/react-alert-dialog';
-import { cleanupUnusedMaps, cleanupUnusedNarrations } from '@/lib/storage-utils';
+import { cleanupUnusedNarrations } from '@/lib/storage-utils';
 import { useAuth } from '@/context/auth-context';
-import { getCollectionForUser, deleteGlobalDoc, saveDocForUser, seedGlobalData, getGlobalCollection } from '@/lib/firestore';
+import { getCollectionForUser, deleteGlobalDoc, saveDocForUser, getSharedCampaignsForUser, seedGlobalData, getGlobalCollection } from '@/lib/firestore';
 
 export default function PlayDashboardPage() {
   const { user } = useAuth();
-  const [campaigns, setCampaigns] = useState<(Campaign & { id: string })[]>([]);
+  const [ownedCampaigns, setOwnedCampaigns] = useState<(Campaign & { id: string })[]>([]);
+  const [sharedCampaigns, setSharedCampaigns] = useState<(Campaign & { id: string })[]>([]);
   const [campaignToDelete, setCampaignToDelete] = useState<(Campaign & { id: string }) | null>(null);
   const [clearCacheDialogOpen, setClearCacheDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -37,16 +38,20 @@ export default function PlayDashboardPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const userCampaigns = await getCollectionForUser<Campaign>('campaigns');
-        if (userCampaigns.length === 0) {
+        const [userCampaigns, sharedCampaignsData] = await Promise.all([
+            getCollectionForUser<Campaign>('campaigns'),
+            getSharedCampaignsForUser<Campaign>('campaigns')
+        ]);
+        
+        if (userCampaigns.length === 0 && sharedCampaignsData.length === 0) {
           // Seed initial campaigns for the new user
           const seedPromises = initialMockCampaigns.map(campaign => 
-            saveDocForUser('campaigns', campaign.id, campaign)
+            saveDocForUser('campaigns', campaign.id, { ...campaign, userId: user.uid, collaboratorIds: [] })
           );
           await Promise.all(seedPromises);
           
-          // Seed initial player characters
-          const existingChars = await getCollectionForUser<Campaign>('playerCharacters');
+          // Seed initial player characters if they don't exist
+          const existingChars = await getCollectionForUser<PlayerCharacter>('playerCharacters');
           if (existingChars.length === 0) {
               const charSeedPromises = initialPlayerCharacters.map(char => 
                   saveDocForUser('playerCharacters', char.id, char)
@@ -55,9 +60,10 @@ export default function PlayDashboardPage() {
           }
           
           const seededCampaigns = await getCollectionForUser<Campaign>('campaigns');
-          setCampaigns(seededCampaigns);
+          setOwnedCampaigns(seededCampaigns);
         } else {
-          setCampaigns(userCampaigns);
+          setOwnedCampaigns(userCampaigns);
+          setSharedCampaigns(sharedCampaignsData);
         }
       } catch (error) {
         console.error("Failed to fetch campaigns:", error);
@@ -75,8 +81,8 @@ export default function PlayDashboardPage() {
 
     try {
       await deleteGlobalDoc('campaigns', campaignToDelete.id);
-      const updatedCampaigns = campaigns.filter(c => c.id !== campaignToDelete.id);
-      setCampaigns(updatedCampaigns);
+      const updatedCampaigns = ownedCampaigns.filter(c => c.id !== campaignToDelete.id);
+      setOwnedCampaigns(updatedCampaigns);
       
       toast({
         title: "Campaign Deleted",
@@ -92,14 +98,12 @@ export default function PlayDashboardPage() {
 
   const handleStorageCleanup = () => {
     try {
-      const mapsDeleted = cleanupUnusedMaps();
       const narrationsDeleted = cleanupUnusedNarrations();
-      const totalDeleted = mapsDeleted + narrationsDeleted;
 
-      if (totalDeleted > 0) {
+      if (narrationsDeleted > 0) {
         toast({
             title: "Cleanup Complete",
-            description: `${totalDeleted} unused asset(s) have been deleted (${mapsDeleted} maps, ${narrationsDeleted} narrations).`,
+            description: `${narrationsDeleted} unused asset(s) have been deleted.`,
         });
       } else {
           toast({
@@ -119,6 +123,8 @@ export default function PlayDashboardPage() {
     setClearCacheDialogOpen(false);
   };
 
+  const allCampaigns = [...ownedCampaigns, ...sharedCampaigns];
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -135,7 +141,7 @@ export default function PlayDashboardPage() {
                 <AlertDialogHeader>
                 <AlertDialogTitle>Clean up unused assets?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This will scan for any AI-generated map images and narration audio that are no longer linked to a scene and delete them to free up space. This action cannot be undone.
+                    This will scan for any AI-generated narration audio that is no longer linked to a scene and delete it to free up space. This action cannot be undone.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -157,15 +163,40 @@ export default function PlayDashboardPage() {
       
       {loading ? (
         <p>Loading campaigns...</p>
-      ) : campaigns.length > 0 ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {campaigns.map((campaign) => (
-            <CampaignCard 
-              key={campaign.id} 
-              campaign={campaign} 
-              onDelete={() => setCampaignToDelete(campaign)}
-            />
-          ))}
+      ) : allCampaigns.length > 0 ? (
+        <div className="space-y-8">
+            <div>
+                <h2 className="text-2xl font-semibold mb-4">My Campaigns</h2>
+                {ownedCampaigns.length > 0 ? (
+                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        {ownedCampaigns.map((campaign) => (
+                            <CampaignCard 
+                            key={campaign.id} 
+                            campaign={campaign} 
+                            isOwner={true}
+                            onDelete={() => setCampaignToDelete(campaign)}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-muted-foreground">You haven't created any campaigns yet.</p>
+                )}
+            </div>
+            {sharedCampaigns.length > 0 && (
+                 <div>
+                    <h2 className="text-2xl font-semibold mb-4">Shared With Me</h2>
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {sharedCampaigns.map((campaign) => (
+                        <CampaignCard 
+                            key={campaign.id} 
+                            campaign={campaign}
+                            isOwner={false}
+                            onDelete={() => {}}
+                        />
+                    ))}
+                    </div>
+                </div>
+            )}
         </div>
       ) : (
         <div className="text-center py-16 border-2 border-dashed rounded-lg">

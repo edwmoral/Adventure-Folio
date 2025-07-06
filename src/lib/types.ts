@@ -1,5 +1,6 @@
 
 
+
 // --- Base & Container Types ---
 
 export type CircleShape = {
@@ -83,11 +84,12 @@ export type Character = {
 
 export type Campaign = {
   id:string;
+  userId: string; // Owner of the campaign
   name: string;
-  owner_user_id?: string;
   imageUrl: string;
   characters: Character[];
   scenes: Scene[];
+  collaboratorIds: string[];
 };
 
 export type PlayerCharacter = {

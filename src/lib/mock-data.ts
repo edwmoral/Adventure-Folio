@@ -107,7 +107,7 @@ export const initialPlayerCharacters: PlayerCharacter[] = [
 ];
 
 
-export const initialMockCampaigns: Campaign[] = [
+export const initialMockCampaigns: Omit<Campaign, 'userId'>[] = [
   {
     id: '1',
     name: 'The Sunless Citadel',
@@ -134,7 +134,8 @@ export const initialMockCampaigns: Campaign[] = [
             is_active: true,
             description: 'A damp, narrow cave littered with crude goblin drawings and the bones of small animals. A rickety rope bridge spans a dark chasm.',
         }
-    ]
+    ],
+    collaboratorIds: [],
   },
   {
     id: '2',
@@ -156,7 +157,8 @@ export const initialMockCampaigns: Campaign[] = [
             is_active: true,
             description: 'The towering spires of a gothic castle, shrouded in mist under a perpetual twilight sky. The air is cold and carries the scent of ancient dust and sorrow.',
         }
-    ]
+    ],
+    collaboratorIds: [],
   },
   {
     id: '3',
@@ -182,7 +184,8 @@ export const initialMockCampaigns: Campaign[] = [
             is_active: true,
             description: 'A well-worn trail winding through a dense forest. The path is flanked by thick bushes and large trees, perfect for an ambush. Two dead horses lie in the middle of the road.',
         }
-    ]
+    ],
+    collaboratorIds: [],
   },
   {
     id: 'campaign-test-1',
@@ -205,6 +208,7 @@ export const initialMockCampaigns: Campaign[] = [
             ],
             is_active: true,
         }
-    ]
+    ],
+    collaboratorIds: [],
   },
 ];

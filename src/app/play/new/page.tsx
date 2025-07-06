@@ -40,10 +40,12 @@ export default function NewCampaignPage() {
         
         const newCampaignId = String(Date.now());
         const newCampaign: Campaign = {
+            userId: user.uid,
             name: campaignName,
             imageUrl: 'https://placehold.co/400x225.png',
             characters: [],
             scenes: [newScene],
+            collaboratorIds: [],
         };
 
         await saveDocForUser('campaigns', newCampaignId, newCampaign);

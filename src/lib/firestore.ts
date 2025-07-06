@@ -13,6 +13,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import type { Campaign } from './types';
 
 // --- GENERIC FIRESTORE HELPERS ---
 
@@ -50,7 +51,18 @@ async function getDocument<T>(collectionPath: string[], docId: string): Promise<
   const docRef = doc(db, ...collectionPath, docId);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as T & { id: string };
+    const data = { id: docSnap.id, ...docSnap.data() } as T & { id: string };
+
+    // Special access check for campaigns
+    if (collectionPath[0] === 'campaigns') {
+        const campaignData = data as Campaign;
+        const userId = auth?.currentUser?.uid;
+        if (userId && (campaignData.userId === userId || campaignData.collaboratorIds?.includes(userId))) {
+            return data;
+        }
+        return null; // No access
+    }
+    return data;
   }
   return null;
 }
@@ -162,6 +174,21 @@ export async function getCollectionForUser<T>(collectionName: string): Promise<(
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T & { id: string }));
 }
+
+/**
+ * Fetches documents from a top-level collection where the current user is a collaborator.
+ * @param collectionName The name of the top-level collection to query.
+ * @returns An array of documents shared with the current user.
+ */
+export async function getSharedCampaignsForUser<T>(collectionName: string): Promise<(T & { id: string })[]> {
+  if (!db) throw new Error('Firestore not initialized.');
+  const userId = getCurrentUserId();
+  const collectionRef = collection(db, collectionName);
+  const q = query(collectionRef, where('collaboratorIds', 'array-contains', userId));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T & { id: string }));
+}
+
 
 /**
  * Saves a document to a top-level collection, adding the current user's ID.

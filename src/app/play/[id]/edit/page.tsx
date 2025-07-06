@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Trash2, Star, Users, Shield } from 'lucide-react';
+import { ArrowLeft, Trash2, Star, Users, Shield, Copy } from 'lucide-react';
 
-import type { Campaign, Character, Scene, Token, PlayerCharacter, Enemy } from '@/lib/types';
+import type { Campaign, PlayerCharacter, Enemy } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useAuth } from '@/context/auth-context';
 import { getDocForUser, saveDocForUser, getCollectionForUser, getGlobalCollection } from '@/lib/firestore';
+import { addCollaborator, removeCharacter, addCharacterToCampaign, removeCollaborator } from './actions';
 
 export default function EditCampaignPage() {
   const params = useParams();
@@ -30,39 +31,46 @@ export default function EditCampaignPage() {
   const [allPlayerCharacters, setAllPlayerCharacters] = useState<PlayerCharacter[]>([]);
   const [allEnemies, setAllEnemies] = useState<Enemy[]>([]);
   const [characterToAdd, setCharacterToAdd] = useState<string>('');
-  const [enemyToAdd, setEnemyToAdd] = useState<string>('');
+  const [collaboratorIdToAdd, setCollaboratorIdToAdd] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isSaving, startSavingTransition] = useTransition();
+
+  const isOwner = campaign?.userId === user?.uid;
   
-  useEffect(() => {
+  const fetchCampaignData = async () => {
     if (!user) return;
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const [campaignData, playerChars, enemies] = await Promise.all([
-                getDocForUser<Campaign>('campaigns', id),
-                getCollectionForUser<PlayerCharacter>('playerCharacters'),
-                getGlobalCollection<Enemy>('enemies'),
-            ]);
+    try {
+        const [campaignData, playerChars, enemies] = await Promise.all([
+            getDocForUser<Campaign>('campaigns', id),
+            getCollectionForUser<PlayerCharacter>('playerCharacters'),
+            getGlobalCollection<Enemy>('enemies'),
+        ]);
 
-            if (campaignData) {
-                if (!campaignData.scenes) campaignData.scenes = [];
-                setCampaign(campaignData);
-            }
-            setAllPlayerCharacters(playerChars.sort((a,b) => a.name.localeCompare(b.name)));
-            setAllEnemies(enemies.sort((a,b) => a.name.localeCompare(b.name)));
-        } catch (error) {
-            console.error("Failed to load campaign data from Firestore", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not load campaign data.' });
-        } finally {
-            setLoading(false);
+        if (campaignData) {
+            if (!campaignData.scenes) campaignData.scenes = [];
+            if (!campaignData.collaboratorIds) campaignData.collaboratorIds = [];
+            setCampaign(campaignData);
+        } else {
+             toast({ variant: 'destructive', title: 'Error', description: 'Campaign not found or you lack permission to edit it.' });
+             router.push('/play');
         }
-    };
-    fetchData();
-  }, [id, user, toast]);
+        setAllPlayerCharacters(playerChars.sort((a,b) => a.name.localeCompare(b.name)));
+        setAllEnemies(enemies.sort((a,b) => a.name.localeCompare(b.name)));
+    } catch (error) {
+        console.error("Failed to load campaign data from Firestore", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load campaign data.' });
+    } finally {
+        setLoading(false);
+    }
+  };
 
-  const saveCampaign = async (updatedCampaign: Campaign & {id: string}) => {
-    setCampaign(updatedCampaign);
-    const { id: campaignId, ...campaignToSave } = updatedCampaign;
+  useEffect(() => {
+    fetchCampaignData();
+  }, [id, user, toast, router]);
+
+  const saveCampaign = async (updatedCampaign: Campaign) => {
+    if (!campaign) return false;
+    const { id: campaignId, ...campaignToSave } = { ...campaign, ...updatedCampaign };
     try {
         await saveDocForUser('campaigns', campaignId, campaignToSave);
         return true;
@@ -72,115 +80,78 @@ export default function EditCampaignPage() {
         return false;
     }
   };
-
+  
   const handleSaveChanges = async () => {
     if (!campaign) return;
-    const success = await saveCampaign(campaign);
-    if (success) {
-        toast({ title: "Campaign Saved!", description: "Your changes have been successfully saved." });
-        router.push(`/play/${campaign.id}`);
-    }
-  };
-
-  const handleRemoveCharacter = (characterId: string) => {
-    if (!campaign) return;
-
-    const removedCharacterName = campaign.characters.find(c => c.id === characterId)?.name;
-    const updatedCampaign = {
-        ...campaign,
-        characters: campaign.characters.filter(c => c.id !== characterId),
-        scenes: campaign.scenes.map(scene => ({
-            ...scene,
-            tokens: scene.tokens.filter(token => token.linked_character_id !== characterId)
-        })),
-    };
-    
-    saveCampaign(updatedCampaign).then(success => {
-        if(success) toast({ title: "Character Removed", description: `${removedCharacterName || 'The character'} has been removed.` });
-    });
-  };
-
-  const handleAddCharacter = () => {
-    if (!characterToAdd || !campaign) return;
-    
-    const characterData = allPlayerCharacters.find(c => c.id === characterToAdd);
-    if (!characterData) return;
-
-    const newCharacterForCampaign: Character = {
-        id: characterData.id,
-        name: characterData.name,
-        avatarUrl: characterData.avatar,
-        class: characterData.className,
-        level: characterData.level,
-        tokenImageUrl: 'https://placehold.co/48x48.png',
-    };
-    
-    const updatedCampaign = { ...campaign };
-    updatedCampaign.characters.push(newCharacterForCampaign);
-    updatedCampaign.scenes.forEach(scene => {
-        scene.tokens.push({
-            id: `token-${Date.now()}-${Math.random()}`,
-            name: characterData.name,
-            imageUrl: newCharacterForCampaign.tokenImageUrl,
-            type: 'character',
-            linked_character_id: characterData.id,
-            position: { x: 10 + Math.floor(Math.random() * 10), y: 10 + Math.floor(Math.random() * 10) }
-        });
-    });
-    
-    saveCampaign(updatedCampaign).then(success => {
-        if(success) {
-            setCharacterToAdd('');
-            toast({ title: "Character Added", description: `${characterData.name} is ready for adventure!` });
-        }
-    });
-  };
-
-  const handleAddEnemyToScene = (sceneId: string) => {
-    if (!enemyToAdd || !campaign) return;
-    const enemy = allEnemies.find((e) => e.id === enemyToAdd);
-    if (!enemy) return;
-
-    const newEnemyToken: Token = {
-      id: `token-enemy-${Date.now()}`,
-      name: enemy.name,
-      imageUrl: enemy.tokenImageUrl || 'https://placehold.co/48x48.png',
-      type: 'monster',
-      linked_enemy_id: enemy.id,
-      hp: enemy.hp ? parseInt(enemy.hp.split(' ')[0]) : 10,
-      maxHp: enemy.hp ? parseInt(enemy.hp.split(' ')[0]) : 10,
-      position: { x: 75 + Math.floor(Math.random() * 20), y: 75 + Math.floor(Math.random() * 20) },
-    };
-
-    const updatedCampaign = {
-      ...campaign,
-      scenes: campaign.scenes.map((s) => s.id === sceneId ? { ...s, tokens: [...s.tokens, newEnemyToken] } : s),
-    };
-
-    saveCampaign(updatedCampaign).then(success => {
+    startSavingTransition(async () => {
+        const success = await saveCampaign(campaign);
         if (success) {
-            setEnemyToAdd('');
-            toast({ title: 'Enemy Added', description: `A ${enemy.name} has been added to the scene.` });
+            toast({ title: "Campaign Saved!", description: "Your changes have been successfully saved." });
+            router.push(`/play/${campaign.id}`);
         }
     });
   };
 
-  const handleRemoveEnemyFromScene = (sceneId: string, tokenId: string) => {
-    if (!campaign) return;
-    const updatedCampaign = {
-      ...campaign,
-      scenes: campaign.scenes.map((s) => s.id === sceneId ? { ...s, tokens: s.tokens.filter((t) => t.id !== tokenId) } : s),
-    };
-    saveCampaign(updatedCampaign).then(success => {
-        if (success) toast({ title: 'Enemy Removed', description: 'The enemy has been removed from the scene.' });
+  const handleRemoveCharacterClick = (characterId: string) => {
+    startSavingTransition(async () => {
+        const result = await removeCharacter(id, characterId);
+        if (result.success) {
+            toast({ title: "Character Removed", description: result.message });
+            await fetchCampaignData();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.error });
+        }
+    });
+  };
+
+  const handleAddCharacterClick = () => {
+    if (!characterToAdd || !campaign) return;
+    startSavingTransition(async () => {
+        const result = await addCharacterToCampaign(id, characterToAdd);
+        if (result.success) {
+            toast({ title: "Character Added", description: result.message });
+            setCharacterToAdd('');
+            await fetchCampaignData();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.error });
+        }
+    });
+  };
+  
+  const handleAddCollaborator = () => {
+    if (!collaboratorIdToAdd.trim() || !campaign) return;
+    startSavingTransition(async () => {
+        const result = await addCollaborator(id, collaboratorIdToAdd);
+        if (result.success) {
+            toast({ title: "Collaborator Added", description: "The user can now access this campaign." });
+            setCollaboratorIdToAdd('');
+            await fetchCampaignData();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.error });
+        }
+    });
+  };
+  
+  const handleRemoveCollaborator = (collaboratorId: string) => {
+    startSavingTransition(async () => {
+        const result = await removeCollaborator(id, collaboratorId);
+        if (result.success) {
+            toast({ title: "Collaborator Removed", description: "The user's access has been revoked." });
+            await fetchCampaignData();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.error });
+        }
     });
   };
 
   const handleSetSceneActive = (sceneId: string) => {
     if (!campaign) return;
-    const updatedCampaign = { ...campaign, scenes: campaign.scenes.map(s => ({ ...s, is_active: s.id === sceneId })) };
-    saveCampaign(updatedCampaign).then(success => {
-        if (success) toast({ title: "Active Scene Changed", description: "The new scene is now active." });
+    const updatedScenes = campaign.scenes.map(s => ({ ...s, is_active: s.id === sceneId }));
+    saveCampaign({ ...campaign, scenes: updatedScenes }).then(success => {
+        if (success) {
+            toast({ title: "Active Scene Changed", description: "The new scene is now active." });
+            fetchCampaignData();
+        }
     });
   };
 
@@ -198,7 +169,10 @@ export default function EditCampaignPage() {
     }
     
     saveCampaign({ ...campaign, scenes: updatedScenes }).then(success => {
-        if (success) toast({ title: "Scene Deleted", description: "The scene has been removed." });
+        if (success) {
+            toast({ title: "Scene Deleted", description: "The scene has been removed." });
+            fetchCampaignData();
+        }
     });
   };
 
@@ -229,7 +203,7 @@ export default function EditCampaignPage() {
             </Button>
             <h1 className="text-3xl font-bold font-headline mt-2">Edit Campaign: {campaign.name}</h1>
         </div>
-        <Button onClick={handleSaveChanges}>Save Changes</Button>
+        <Button onClick={handleSaveChanges} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Changes'}</Button>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -255,7 +229,7 @@ export default function EditCampaignPage() {
                                     <Avatar className="h-9 w-9"> <AvatarImage src={char.avatarUrl} data-ai-hint="fantasy character" /> <AvatarFallback>{char.name.substring(0,1)}</AvatarFallback> </Avatar>
                                     <div> <p className="font-medium">{char.name}</p> <p className="text-xs text-muted-foreground">{char.class} / Level {char.level}</p> </div>
                                 </div>
-                                <Button variant="ghost" size="icon" onClick={() => handleRemoveCharacter(char.id)}> <Trash2 className="h-4 w-4 text-destructive" /> </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleRemoveCharacterClick(char.id)} disabled={isSaving}> <Trash2 className="h-4 w-4 text-destructive" /> </Button>
                             </div>
                         )) : <p className="text-sm text-muted-foreground p-2 text-center">No characters yet.</p>}
                     </div>
@@ -269,11 +243,48 @@ export default function EditCampaignPage() {
                                     {availableCharacters.map(char => ( <SelectItem key={char.id} value={char.id}> {char.name} ({char.className} Lvl {char.level}) </SelectItem> ))}
                                 </SelectContent>
                             </Select>
-                            <Button onClick={handleAddCharacter} disabled={!characterToAdd}>Add</Button>
+                            <Button onClick={handleAddCharacterClick} disabled={!characterToAdd || isSaving}>Add</Button>
                         </div>
                     </div>
                 </CardContent>
             </Card>
+
+             {isOwner && (
+                <Card>
+                    <CardHeader> <CardTitle>Manage Collaborators</CardTitle> <CardDescription>Invite other users to view and edit this campaign.</CardDescription> </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>Your User ID</Label>
+                            <div className="flex items-center gap-2">
+                                <Input value={user?.uid} readOnly className="font-mono text-xs"/>
+                                <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(user?.uid || ''); toast({title: "Copied!", description: "Your User ID has been copied."})}}>
+                                    <Copy className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                        <Label>Collaborators</Label>
+                        <div className="space-y-2 rounded-md border p-2">
+                           {(campaign.collaboratorIds || []).map(cid => (
+                                <div key={cid} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
+                                    <p className="font-mono text-xs truncate">{cid}</p>
+                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveCollaborator(cid)} disabled={isSaving}> <Trash2 className="h-4 w-4 text-destructive" /> </Button>
+                                </div>
+                            ))}
+                            {(!campaign.collaboratorIds || campaign.collaboratorIds.length === 0) && (
+                                <p className="text-sm text-muted-foreground p-2 text-center">No collaborators yet.</p>
+                            )}
+                        </div>
+                        <Separator />
+                        <div className="space-y-2">
+                            <Label>Add by User ID</Label>
+                            <div className="flex gap-2">
+                                <Input placeholder="Paste user ID..." value={collaboratorIdToAdd} onChange={(e) => setCollaboratorIdToAdd(e.target.value)} />
+                                <Button onClick={handleAddCollaborator} disabled={!collaboratorIdToAdd || isSaving}>Add</Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
         </div>
         
         <div className="space-y-8 lg:col-span-2">
@@ -282,7 +293,6 @@ export default function EditCampaignPage() {
                 <CardContent>
                      <Accordion type="multiple" className="w-full space-y-2">
                          {campaign.scenes.map(scene => {
-                             const enemyTokens = scene.tokens.filter(t => t.type === 'monster');
                              return (
                                 <AccordionItem value={scene.id} key={scene.id} className="border rounded-md data-[state=closed]:border-border data-[state=open]:border-primary/50">
                                     <AccordionTrigger className="p-3 hover:no-underline text-left">
@@ -321,32 +331,6 @@ export default function EditCampaignPage() {
                                                         <Label htmlFor={`scene-height-${scene.id}`}>Height (squares)</Label>
                                                         <Input id={`scene-height-${scene.id}`} type="number" value={scene.height || ''} onChange={(e) => handleSceneDimensionChange(scene.id, 'height', parseInt(e.target.value))} placeholder="e.g., 20" />
                                                     </div>
-                                                </div>
-                                            </div>
-                                            <Separator/>
-                                            <div>
-                                                <h4 className="mb-2 font-semibold text-sm flex items-center gap-2"><Shield className="h-4 w-4"/>Enemies in Scene:</h4>
-                                                {enemyTokens.length > 0 ? (
-                                                    <div className="space-y-1 rounded-md border p-2">
-                                                        {enemyTokens.map(token => (
-                                                            <div key={token.id} className="flex items-center justify-between text-sm p-1 rounded-md hover:bg-muted/50">
-                                                                <span>{token.name}</span>
-                                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveEnemyFromScene(scene.id, token.id)}> <Trash2 className="h-3 w-3 text-destructive" /> </Button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : <p className="text-sm text-center text-muted-foreground py-2">No enemies in this scene.</p>}
-                                            </div>
-                                            <div>
-                                                <Label className="text-sm font-semibold">Add Enemy to this Scene</Label>
-                                                <div className="flex gap-2 mt-2">
-                                                    <Select onValueChange={setEnemyToAdd}>
-                                                        <SelectTrigger> <SelectValue placeholder="Select an enemy..." /> </SelectTrigger>
-                                                        <SelectContent>
-                                                            {allEnemies.map(enemy => ( <SelectItem key={enemy.id} value={enemy.id}> {enemy.name} (CR {enemy.cr}) </SelectItem> ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <Button onClick={() => handleAddEnemyToScene(scene.id)} disabled={!enemyToAdd}>Add</Button>
                                                 </div>
                                             </div>
                                         </div>
