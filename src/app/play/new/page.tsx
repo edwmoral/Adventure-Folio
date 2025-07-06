@@ -17,19 +17,31 @@ import { saveDocForUser } from "@/lib/firestore";
 export default function NewCampaignPage() {
   const [campaignName, setCampaignName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [statusMessages, setStatusMessages] = useState<string[]>([]);
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
 
+  const addStatus = (message: string) => {
+    setStatusMessages(prev => [...prev, message]);
+  }
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+    setStatusMessages([]); // Reset messages on new submission
+
+    addStatus("1. Submit button clicked. Validating inputs...");
     if (!campaignName.trim() || !user) {
-        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in and provide a campaign name.' });
+        const errorMsg = "Validation failed: Campaign name is required and you must be logged in.";
+        addStatus(`   - ERROR: ${errorMsg}`);
+        toast({ variant: 'destructive', title: 'Error', description: errorMsg });
         return;
     }
+    addStatus("   - Validation successful.");
 
     setIsCreating(true);
 
+    addStatus("2. Preparing new campaign data...");
     const newScene: Scene = {
         id: `scene-${Date.now()}`,
         name: 'My First Scene',
@@ -49,22 +61,26 @@ export default function NewCampaignPage() {
         scenes: [newScene],
         collaboratorIds: [],
     };
+    addStatus("   - Data prepared successfully.");
 
+    addStatus("3. Attempting to save to Firestore...");
     saveDocForUser('campaigns', newCampaignId, newCampaign)
         .then(() => {
+            addStatus("4. Save successful! Redirecting...");
             toast({ title: "Campaign Created!", description: "Your new adventure awaits." });
             router.push('/play');
-            // No need to setIsCreating(false) on success, because we navigate away
         })
         .catch((error: any) => {
+            const errorMsg = `Save to Firestore failed. This is likely a security rules issue. Please check your Firebase project settings to ensure you can write to the 'campaigns' collection. Error: ${error.message}`;
+            addStatus(`4. ERROR: ${errorMsg}`);
             console.error("Failed to create campaign:", error);
             toast({
                 variant: 'destructive',
                 title: 'Creation Failed',
-                description: `Could not create campaign. This may be due to database security rules. Please check your Firebase console.`,
+                description: `Could not create campaign. Check the status messages for details.`,
                 duration: 9000,
             });
-            setIsCreating(false); // Re-enable button on failure
+            setIsCreating(false);
         });
   }
 
@@ -102,6 +118,14 @@ export default function NewCampaignPage() {
                     </Button>
                 </div>
             </form>
+            {statusMessages.length > 0 && (
+                <div className="mt-6 p-4 border rounded-md bg-muted/50">
+                    <h4 className="font-semibold mb-2">Creation Status:</h4>
+                    <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">
+                        {statusMessages.join('\n')}
+                    </pre>
+                </div>
+            )}
         </CardContent>
         </Card>
     </div>
