@@ -81,7 +81,8 @@ export default function PlayDashboardPage() {
       } else {
           toast({
               title: "Nothing to Clean",
-              description: "No unused map images or narrations were found.",
+              description: "No unlinked assets were found. To free up more space, please delete old campaigns or scenes manually.",
+              duration: 8000,
           });
       }
     } catch (error) {

@@ -114,7 +114,7 @@ export default function EditCampaignPage() {
             toast({
                 variant: 'destructive',
                 title: 'Storage Limit Reached',
-                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
                 duration: 10000,
             });
         } else {
@@ -149,7 +149,7 @@ export default function EditCampaignPage() {
             toast({
                 variant: 'destructive',
                 title: 'Storage Limit Reached',
-                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
                 duration: 10000,
             });
         } else {
@@ -194,7 +194,7 @@ export default function EditCampaignPage() {
             toast({
                 variant: 'destructive',
                 title: 'Storage Limit Reached',
-                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
                 duration: 10000,
             });
         } else {
@@ -266,7 +266,7 @@ export default function EditCampaignPage() {
             toast({
                 variant: 'destructive',
                 title: 'Storage Limit Reached',
-                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
                 duration: 10000,
             });
         } else {
@@ -304,7 +304,7 @@ export default function EditCampaignPage() {
             toast({
                 variant: 'destructive',
                 title: 'Storage Limit Reached',
-                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
                 duration: 10000,
             });
         } else {
@@ -344,7 +344,7 @@ export default function EditCampaignPage() {
             toast({
                 variant: 'destructive',
                 title: 'Storage Limit Reached',
-                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
                 duration: 10000,
             });
         } else {
@@ -384,7 +384,7 @@ export default function EditCampaignPage() {
             toast({
                 variant: 'destructive',
                 title: 'Storage Limit Reached',
-                description: 'Cannot save changes. Your browser storage is full. Please remove old campaigns to free up space.',
+                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
                 duration: 10000,
             });
         } else {

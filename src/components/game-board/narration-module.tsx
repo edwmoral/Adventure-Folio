@@ -82,7 +82,7 @@ export function NarrationModule({ narrations, onNarrationCreate, onNarrationDele
                      toast({
                         variant: 'destructive',
                         title: 'Storage Limit Reached',
-                        description: 'Could not save new audio. Try deleting old narrations or campaigns.',
+                        description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
                         duration: 10000,
                     });
                 }

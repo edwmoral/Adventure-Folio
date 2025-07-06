@@ -121,7 +121,7 @@ export default function NewScenePage() {
                  toast({
                     variant: 'destructive',
                     title: 'Storage Limit Reached',
-                    description: 'Could not save map image. Try deleting old campaigns or scenes.',
+                    description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
                     duration: 10000,
                 });
                 return;
@@ -152,7 +152,7 @@ export default function NewScenePage() {
              toast({
                 variant: 'destructive',
                 title: 'Storage Limit Reached',
-                description: 'Your browser storage is full. Please remove old campaigns or scenes to free up space.',
+                description: 'Your browser storage is full. Use the "Clean Up Storage" button on the Campaigns page, or manually delete old campaigns/scenes to make space.',
                 duration: 10000,
             });
         } else {
