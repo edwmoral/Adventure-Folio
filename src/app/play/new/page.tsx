@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import { saveDocForUser } from "@/lib/firestore";
 
 export default function NewCampaignPage() {
   const [campaignName, setCampaignName] = useState('');
-  const [isCreating, startCreationTransition] = useTransition();
+  const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -28,43 +28,44 @@ export default function NewCampaignPage() {
         return;
     }
 
-    startCreationTransition(async () => {
-        try {
-            const newScene: Scene = {
-                id: `scene-${Date.now()}`,
-                name: 'My First Scene',
-                background_map_url: 'https://placehold.co/1200x800.png',
-                tokens: [],
-                is_active: true,
-                width: 30,
-                height: 20,
-            };
-            
-            const newCampaignId = String(Date.now());
-            const newCampaign = {
-                userId: user.uid,
-                name: campaignName,
-                imageUrl: 'https://placehold.co/400x225.png',
-                characters: [],
-                scenes: [newScene],
-                collaboratorIds: [],
-            };
+    setIsCreating(true);
+    try {
+        const newScene: Scene = {
+            id: `scene-${Date.now()}`,
+            name: 'My First Scene',
+            background_map_url: 'https://placehold.co/1200x800.png',
+            tokens: [],
+            is_active: true,
+            width: 30,
+            height: 20,
+        };
+        
+        const newCampaignId = String(Date.now());
+        const newCampaign = {
+            userId: user.uid,
+            name: campaignName,
+            imageUrl: 'https://placehold.co/400x225.png',
+            characters: [],
+            scenes: [newScene],
+            collaboratorIds: [],
+        };
 
-            await saveDocForUser('campaigns', newCampaignId, newCampaign);
+        await saveDocForUser('campaigns', newCampaignId, newCampaign);
 
-            toast({ title: "Campaign Created!", description: "Your new adventure awaits." });
-            router.push('/play');
+        toast({ title: "Campaign Created!", description: "Your new adventure awaits." });
+        router.push('/play');
 
-        } catch (error: any) {
-            console.error("Failed to create campaign:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Creation Failed',
-                description: `Could not create campaign. This is often due to database security rules. Full error: ${error.message}`,
-                duration: 9000,
-            });
-        }
-    });
+    } catch (error: any) {
+        console.error("Failed to create campaign:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Creation Failed',
+            description: `Could not create campaign. This is often due to database security rules. Full error: ${error.message}`,
+            duration: 9000,
+        });
+    } finally {
+        setIsCreating(false);
+    }
   }
 
   return (
