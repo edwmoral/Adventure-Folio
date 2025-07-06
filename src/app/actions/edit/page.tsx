@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from "react";
@@ -13,8 +12,9 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/context/auth-context";
+import { getUserDoc, saveUserDoc } from "@/lib/firestore";
 
-const STORAGE_KEY = 'dnd_actions';
 const ACTION_TYPES = ['Action', 'Bonus Action', 'Reaction', 'Legendary', 'Lair'].sort();
 const USAGE_TYPES = ['At Will', 'Per Turn', 'Per Round', 'Recharge', 'Per Day'].sort();
 
@@ -22,6 +22,7 @@ export default function EditActionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const actionNameParam = searchParams.get('name');
   const [isLoading, setIsLoading] = useState(true);
@@ -36,26 +37,29 @@ export default function EditActionPage() {
   });
 
   useEffect(() => {
-    if (actionNameParam) {
-      try {
-        const storedActions = localStorage.getItem(STORAGE_KEY);
-        if (storedActions) {
-          const actions: Action[] = JSON.parse(storedActions);
-          const foundAction = actions.find(a => a.name === actionNameParam);
+    if (user && actionNameParam) {
+      setIsLoading(true);
+      const fetchAction = async () => {
+        try {
+          const foundAction = await getUserDoc<Action>('actions', actionNameParam);
           if (foundAction) {
             setAction(foundAction);
           } else {
             toast({ variant: 'destructive', title: 'Error', description: 'Action not found.' });
             router.push('/actions');
           }
+        } catch (error) {
+          console.error("Failed to load action:", error);
+          toast({ variant: "destructive", title: "Load Failed", description: "Could not load action data." });
+        } finally {
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error("Failed to load action from localStorage", error);
-        toast({ variant: "destructive", title: "Load Failed", description: "Could not load action data." });
-      }
+      };
+      fetchAction();
+    } else {
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  }, [actionNameParam, router, toast]);
+  }, [actionNameParam, router, toast, user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
@@ -73,17 +77,18 @@ export default function EditActionPage() {
       }));
   }
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
+        return;
+    }
     if (!action.name || !action.description) {
         toast({ variant: 'destructive', title: 'Error', description: 'Name and Description are required.' });
         return;
     }
 
     try {
-        const storedActions = localStorage.getItem(STORAGE_KEY);
-        const actions: Action[] = storedActions ? JSON.parse(storedActions) : [];
-        
         const updatedAction: Action = {
             name: action.name!,
             type: action.type || 'Action',
@@ -92,9 +97,9 @@ export default function EditActionPage() {
             usage: action.usage || { type: 'At Will' },
             effects: action.effects
         };
-
-        const updatedActions = actions.map(a => a.name === actionNameParam ? updatedAction : a);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedActions));
+        
+        // We use actionNameParam as the ID to update the correct doc, even if the name changed.
+        await saveUserDoc('actions', actionNameParam!, updatedAction);
 
         toast({ title: "Action Updated!", description: "The action has been successfully updated." });
         router.push(`/actions`);

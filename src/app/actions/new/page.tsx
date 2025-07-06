@@ -12,14 +12,16 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/context/auth-context";
+import { saveUserDoc } from "@/lib/firestore";
 
-const STORAGE_KEY = 'dnd_actions';
 const ACTION_TYPES = ['Action', 'Bonus Action', 'Reaction', 'Legendary', 'Lair'].sort();
 const USAGE_TYPES = ['At Will', 'Per Turn', 'Per Round', 'Recharge', 'Per Day'].sort();
 
 export default function NewActionPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [action, setAction] = useState<Partial<Action>>({
       name: '',
@@ -46,17 +48,18 @@ export default function NewActionPage() {
       }));
   }
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
+        return;
+    }
     if (!action.name || !action.description) {
         toast({ variant: 'destructive', title: 'Error', description: 'Name and Description are required.' });
         return;
     }
 
     try {
-        const storedActions = localStorage.getItem(STORAGE_KEY);
-        const actions: Action[] = storedActions ? JSON.parse(storedActions) : [];
-        
         const newAction: Action = {
             name: action.name!,
             type: action.type || 'Action',
@@ -66,8 +69,7 @@ export default function NewActionPage() {
             effects: action.effects
         };
 
-        const updatedActions = [...actions, newAction];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedActions));
+        await saveUserDoc('actions', newAction.name, newAction);
 
         toast({ title: "Action Created!", description: "The new action has been added." });
         router.push(`/actions`);

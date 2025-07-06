@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, Shield, Sparkles } from 'lucide-react';
+import { FileText, Shield, Sparkles, Database } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function DashboardPage() {
   return (
@@ -13,6 +14,15 @@ export default function DashboardPage() {
         Your all-in-one companion for creating, managing, and bringing your D&D characters to life.
         Forge your legend today.
       </p>
+      
+      <Alert className="max-w-2xl mt-8 text-left">
+          <Database className="h-4 w-4" />
+          <AlertTitle>Now using Cloud Firestore!</AlertTitle>
+          <AlertDescription>
+              Your data is now saved to a cloud database, accessible from any device. Firestore has a generous free tier, but you can monitor usage and set billing alerts in your Firebase project settings.
+          </AlertDescription>
+      </Alert>
+
       <div className="mt-8">
         <Button asChild size="lg">
           <Link href="/character/create">Create Your First Character</Link>

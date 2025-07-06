@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,53 +9,42 @@ import type { Action } from '@/lib/types';
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-
-const initialActions: Action[] = [
-  {
-    name: "Multiattack",
-    type: "Action",
-    action_type: "Standard",
-    description: "The creature makes two attacks: one with its bite and one with its claws.",
-    usage: { type: "per_turn", limit: 1 },
-    effects: "Bite: +5 to hit, 1d8+3 piercing. Claws: +5 to hit, 2d6+3 slashing."
-  },
-  {
-    name: "Grapple",
-    type: "Action",
-    action_type: "Standard",
-    description: "You attempt to grapple a creature using a contested Strength (Athletics) check.",
-    usage: { type: "at_will" }
-  },
-];
-
-const STORAGE_KEY = 'dnd_actions';
+import { useAuth } from '@/context/auth-context';
+import { getUserCollection, deleteUserDoc, seedInitialUserData } from '@/lib/firestore';
 
 export default function ActionsPage() {
   const [actions, setActions] = useState<Action[]>([]);
   const [actionToDelete, setActionToDelete] = useState<Action | null>(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
-    try {
-      const storedActions = localStorage.getItem(STORAGE_KEY);
-      if (storedActions) {
-        setActions(JSON.parse(storedActions));
-      } else {
-        setActions(initialActions);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialActions));
+    if (!user) return;
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        let data = await getUserCollection<Action>('actions');
+        if (data.length === 0) {
+          await seedInitialUserData(user.uid, 'actions');
+          data = await getUserCollection<Action>('actions');
+        }
+        setActions(data);
+      } catch (error) {
+        console.error("Failed to fetch actions:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch actions.' });
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to access localStorage:", error);
-      setActions(initialActions);
-    }
-  }, []);
+    };
+    fetchData();
+  }, [user, toast]);
 
-  const handleDeleteAction = () => {
-    if (!actionToDelete) return;
+  const handleDeleteAction = async () => {
+    if (!user || !actionToDelete) return;
     try {
-        const updatedActions = actions.filter(a => a.name !== actionToDelete.name);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedActions));
-        setActions(updatedActions);
+        await deleteUserDoc('actions', actionToDelete.name);
+        setActions(actions.filter(a => a.name !== actionToDelete.name));
         toast({ title: "Action Deleted", description: `"${actionToDelete.name}" has been deleted.` });
         setActionToDelete(null);
     } catch (error) {
@@ -64,6 +52,10 @@ export default function ActionsPage() {
         toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the action." });
     }
   };
+
+  if (loading) {
+    return <div>Loading actions...</div>;
+  }
 
   return (
     <div className="space-y-8">
