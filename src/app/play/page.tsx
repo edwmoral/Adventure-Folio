@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialogTrigger } from '@radix-ui/react-alert-dialog';
-import { cleanupUnusedMaps, saveCampaignsAndCleanup } from '@/lib/storage-utils';
+import { cleanupUnusedMaps, cleanupUnusedNarrations, saveCampaignsAndCleanup } from '@/lib/storage-utils';
 
 const STORAGE_KEY = 'dnd_campaigns';
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
@@ -67,26 +67,29 @@ export default function PlayDashboardPage() {
     setCampaignToDelete(null);
   };
 
-  const handleCleanupUnusedImages = () => {
+  const handleStorageCleanup = () => {
     try {
-      const deletedCount = cleanupUnusedMaps();
-      if (deletedCount > 0) {
+      const mapsDeleted = cleanupUnusedMaps();
+      const narrationsDeleted = cleanupUnusedNarrations();
+      const totalDeleted = mapsDeleted + narrationsDeleted;
+
+      if (totalDeleted > 0) {
         toast({
             title: "Cleanup Complete",
-            description: `${deletedCount} unused map image(s) have been deleted.`,
+            description: `${totalDeleted} unused asset(s) have been deleted (${mapsDeleted} maps, ${narrationsDeleted} narrations).`,
         });
       } else {
           toast({
               title: "Nothing to Clean",
-              description: "No unused map images were found.",
+              description: "No unused map images or narrations were found.",
           });
       }
     } catch (error) {
-      console.error("Failed to clean up images:", error);
+      console.error("Failed to clean up assets:", error);
       toast({
         variant: "destructive",
         title: "Cleanup Failed",
-        description: "Could not clean up unused images.",
+        description: "Could not clean up unused assets.",
       });
     }
     setClearCacheDialogOpen(false);
@@ -101,19 +104,19 @@ export default function PlayDashboardPage() {
             <AlertDialogTrigger asChild>
                 <Button variant="outline">
                 <Trash2 className="mr-2 h-4 w-4" />
-                Clean Up Images
+                Clean Up Storage
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                <AlertDialogTitle>Clean up unused images?</AlertDialogTitle>
+                <AlertDialogTitle>Clean up unused assets?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This will scan for any AI-generated map images that are no longer linked to a scene and delete them to free up space. This action cannot be undone.
+                    This will scan for any AI-generated map images and narration audio that are no longer linked to a scene and delete them to free up space. This action cannot be undone.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleCleanupUnusedImages}>
+                <AlertDialogAction onClick={handleStorageCleanup}>
                     Clean Up
                 </AlertDialogAction>
                 </AlertDialogFooter>
