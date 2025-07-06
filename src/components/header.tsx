@@ -82,7 +82,7 @@ export default function Header() {
       <div className="container flex h-14 max-w-screen-2xl items-center">
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
           <Dices className="h-6 w-6 text-primary" />
-          <span className="hidden font-bold sm:inline-block">
+          <span className="font-bold">
             Adventure Folio
           </span>
         </Link>
