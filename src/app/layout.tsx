@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { LayoutWrapper } from '@/components/layout-wrapper';
+import { AuthProvider } from '@/context/auth-context';
 
 export const metadata: Metadata = {
   title: 'Adventure Folio',
@@ -21,8 +22,10 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet"></link>
       </head>
       <body className="font-body antialiased min-h-screen flex flex-col">
-        <LayoutWrapper>{children}</LayoutWrapper>
-        <Toaster />
+        <AuthProvider>
+          <LayoutWrapper>{children}</LayoutWrapper>
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

@@ -1,17 +1,22 @@
-
 'use client';
 
 import Link from 'next/link';
-import { Dices, UserPlus, Users } from 'lucide-react';
+import { Dices, UserPlus, Users, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import type { PlayerCharacter } from '@/lib/types';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/auth-context';
 
 const STORAGE_KEY_PLAYER_CHARACTERS = 'dnd_player_characters';
 
 export default function Header() {
   const [hasCharacters, setHasCharacters] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const { toast } = useToast();
+  const { isFirebaseConfigured } = useAuth();
 
   useEffect(() => {
     setIsClient(true);
@@ -27,10 +32,25 @@ export default function Header() {
     }
   }, []);
 
+  const handleSignOut = async () => {
+    if (!isFirebaseConfigured || !auth) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Firebase is not configured correctly.' });
+      return;
+    }
+    try {
+      await signOut(auth);
+      toast({ title: 'Signed Out', description: 'You have been successfully signed out.' });
+      // Redirect is handled by the LayoutWrapper
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to sign out.' });
+      console.error('Sign out error:', error);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 max-w-screen-2xl items-center">
-        <Link href="/" className="mr-6 flex items-center space-x-2">
+        <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
           <Dices className="h-6 w-6 text-primary" />
           <span className="font-bold sm:inline-block">
             Adventure Folio
@@ -121,6 +141,10 @@ export default function Header() {
               My Characters
             </Button>
            )}
+           <Button variant="outline" onClick={handleSignOut} disabled={!isFirebaseConfigured}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign Out
+           </Button>
         </div>
       </div>
     </header>
